@@ -57,6 +57,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -76,6 +77,8 @@ interface Product {
 function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onSave: () => void, onOpenChange: (open: boolean) => void }) {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(product?.image || null);
     
     const [formData, setFormData] = useState({
         name: product?.name || "",
@@ -94,6 +97,15 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
         setFormData(prev => ({ ...prev, [id]: numericFields.includes(id) ? Number(value) : value }));
     };
 
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
+
     const handleSaveProduct = async () => {
         if (!formData.name || !formData.sku || formData.price <= 0) {
             toast({
@@ -105,6 +117,15 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
         }
         setLoading(true);
         try {
+            let imageUrl = formData.image;
+
+            if (imageFile) {
+                const storage = getStorage();
+                const storageRef = ref(storage, `product_images/${Date.now()}_${imageFile.name}`);
+                await uploadBytes(storageRef, imageFile);
+                imageUrl = await getDownloadURL(storageRef);
+            }
+            
             const dataToSave: any = {
                 ...formData,
                 price: new Intl.NumberFormat("id-ID", {
@@ -112,6 +133,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                     currency: "IDR",
                     minimumFractionDigits: 0,
                 }).format(formData.price),
+                image: imageUrl,
             };
 
             if (!dataToSave.image) {
@@ -168,9 +190,12 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                     <Label htmlFor="sku" className="text-right">SKU</Label>
                     <Input id="sku" value={formData.sku} onChange={handleInputChange} className="col-span-3" />
                 </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="image" className="text-right">URL Gambar</Label>
-                    <Input id="image" value={formData.image} onChange={handleInputChange} className="col-span-3" placeholder="https://..." />
+                 <div className="grid grid-cols-4 items-start gap-4">
+                    <Label htmlFor="image" className="text-right pt-2">Gambar</Label>
+                    <div className="col-span-3 space-y-2">
+                        {imagePreview && <Image src={imagePreview} alt="Preview" width={100} height={100} className="rounded-md object-cover" />}
+                        <Input id="image" type="file" accept="image/*" onChange={handleImageChange} className="col-span-3" />
+                    </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="purchasePrice" className="text-right">Harga Beli</Label>
@@ -482,5 +507,7 @@ export default function ProductsPage() {
     </>
   )
 }
+
+    
 
     
