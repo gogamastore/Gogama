@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { useEffect, useState, useMemo } from "react";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -20,6 +20,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   BarChart,
   Bar,
@@ -29,14 +44,24 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { DollarSign, Package } from "lucide-react";
+import { DollarSign, Package, Calendar as CalendarIcon, FileText } from "lucide-react";
+import { format, isValid } from "date-fns";
+import { id as dateFnsLocaleId } from "date-fns/locale";
 
+interface OrderProduct {
+  productId: string;
+  name: string;
+  quantity: number;
+  price: number;
+}
 interface Order {
   id: string;
   customer: string;
+  customerDetails?: { name: string; address: string; whatsapp: string };
   status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
   total: number;
-  date: string;
+  date: string; // Should be ISO 8601 string
+  products: OrderProduct[];
 }
 
 // Helper function to format currency
@@ -53,11 +78,14 @@ const processSalesDataForChart = (orders: Order[]) => {
     const salesByDate: { [key: string]: number } = {};
     orders.forEach(order => {
         if (order.status === 'Delivered' || order.status === 'Shipped') {
-             const date = new Date(order.date).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' });
-             if (salesByDate[date]) {
-                 salesByDate[date] += order.total;
-             } else {
-                 salesByDate[date] = order.total;
+             const date = new Date(order.date);
+             if (isValid(date)) {
+                const formattedDate = format(date, 'd MMM', { locale: dateFnsLocaleId });
+                if (salesByDate[formattedDate]) {
+                    salesByDate[formattedDate] += order.total;
+                } else {
+                    salesByDate[formattedDate] = order.total;
+                }
              }
         }
     });
@@ -70,22 +98,43 @@ const processSalesDataForChart = (orders: Order[]) => {
 
 
 export default function SalesReportPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
 
   useEffect(() => {
     const fetchOrders = async () => {
+      setLoading(true);
       try {
         const querySnapshot = await getDocs(collection(db, "orders"));
-        const ordersData = querySnapshot.docs.map((doc) => {
-            const data = doc.data();
-            // Assuming total is stored as a string like "Rp 1.250.000"
+        const ordersDataPromises = querySnapshot.docs.map(async (orderDoc) => {
+            const data = orderDoc.data();
             const total = typeof data.total === 'string' 
                 ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
                 : typeof data.total === 'number' ? data.total : 0;
-            return { id: doc.id, ...data, total } as Order
+            
+            // Fetch customer details if not embedded
+            let customerDetails = data.customerDetails;
+            if (data.customerId && !customerDetails) {
+                const userDocRef = doc(db, "user", data.customerId);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    customerDetails = userDoc.data();
+                }
+            }
+
+            return { 
+                id: orderDoc.id, 
+                ...data, 
+                total,
+                date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(), // Handle Firestore Timestamp
+                customerDetails 
+            } as Order;
         });
-        setOrders(ordersData);
+        const ordersData = await Promise.all(ordersDataPromises);
+        setAllOrders(ordersData);
+        setFilteredOrders(ordersData);
       } catch (error) {
         console.error("Error fetching orders: ", error);
       } finally {
@@ -96,10 +145,38 @@ export default function SalesReportPage() {
     fetchOrders();
   }, []);
 
-  const totalRevenue = orders.reduce((acc, order) => acc + order.total, 0);
-  const totalOrders = orders.length;
-  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-  const chartData = processSalesDataForChart(orders);
+  const handleFilter = () => {
+    const { from, to } = dateRange;
+    if (!from && !to) {
+        setFilteredOrders(allOrders);
+        return;
+    }
+    const filtered = allOrders.filter(order => {
+        const orderDate = new Date(order.date);
+        if (from && orderDate < from) return false;
+        if (to && orderDate > new Date(to.getTime() + 86400000 - 1)) return false; // include the whole 'to' day
+        return true;
+    });
+    setFilteredOrders(filtered);
+  };
+
+  const handleReset = () => {
+    setDateRange({});
+    setFilteredOrders(allOrders);
+  };
+
+  const { totalRevenue, totalOrders, averageOrderValue, chartData } = useMemo(() => {
+    const revenue = filteredOrders.reduce((acc, order) => acc + order.total, 0);
+    const ordersCount = filteredOrders.length;
+    const avgValue = ordersCount > 0 ? revenue / ordersCount : 0;
+    const chartDataProcessed = processSalesDataForChart(filteredOrders);
+    return {
+        totalRevenue: revenue,
+        totalOrders: ordersCount,
+        averageOrderValue: avgValue,
+        chartData: chartDataProcessed
+    };
+  }, [filteredOrders]);
 
 
   if (loading) {
@@ -117,9 +194,46 @@ export default function SalesReportPage() {
         <CardHeader>
           <CardTitle>Laporan Penjualan</CardTitle>
           <CardDescription>
-            Analisis detail penjualan produk Anda.
+            Analisis detail penjualan produk Anda. Filter berdasarkan rentang tanggal untuk wawasan yang lebih spesifik.
           </CardDescription>
         </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-4">
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                        id="date"
+                        variant={"outline"}
+                        className="w-[280px] justify-start text-left font-normal"
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                        dateRange.to ? (
+                            <>
+                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                            {format(dateRange.to, "LLL dd, y")}
+                            </>
+                        ) : (
+                            format(dateRange.from, "LLL dd, y")
+                        )
+                        ) : (
+                        <span>Pilih rentang tanggal</span>
+                        )}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={2}
+                    />
+                </PopoverContent>
+            </Popover>
+            <Button onClick={handleFilter}>Filter</Button>
+            <Button variant="outline" onClick={handleReset}>Reset</Button>
+        </CardContent>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -130,7 +244,7 @@ export default function SalesReportPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">Dari semua pesanan yang masuk</p>
+            <p className="text-xs text-muted-foreground">Dari pesanan yang difilter</p>
           </CardContent>
         </Card>
         <Card>
@@ -140,7 +254,7 @@ export default function SalesReportPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalOrders}</div>
-             <p className="text-xs text-muted-foreground">Total pesanan di platform</p>
+             <p className="text-xs text-muted-foreground">Dalam rentang tanggal terpilih</p>
           </CardContent>
         </Card>
          <Card>
@@ -158,7 +272,7 @@ export default function SalesReportPage() {
        <Card>
         <CardHeader>
           <CardTitle>Tren Penjualan</CardTitle>
-           <CardDescription>Visualisasi pendapatan harian.</CardDescription>
+           <CardDescription>Visualisasi pendapatan harian dalam rentang tanggal terpilih.</CardDescription>
         </CardHeader>
         <CardContent className="pl-2">
             <ResponsiveContainer width="100%" height={300}>
@@ -184,7 +298,7 @@ export default function SalesReportPage() {
         <CardHeader>
           <CardTitle>Rincian Penjualan</CardTitle>
           <CardDescription>
-            Daftar lengkap semua transaksi penjualan.
+            Daftar lengkap transaksi penjualan dalam rentang tanggal terpilih.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -196,15 +310,16 @@ export default function SalesReportPage() {
                 <TableHead>Tanggal</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-center">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.length > 0 ? (
-                orders.map((order) => (
+              {filteredOrders.length > 0 ? (
+                filteredOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.id}</TableCell>
-                    <TableCell>{order.customer}</TableCell>
-                    <TableCell>{new Date(order.date).toLocaleDateString('id-ID')}</TableCell>
+                    <TableCell>{order.customerDetails?.name || order.customer}</TableCell>
+                    <TableCell>{format(new Date(order.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"
@@ -220,12 +335,72 @@ export default function SalesReportPage() {
                     <TableCell className="text-right">
                       {formatCurrency(order.total)}
                     </TableCell>
+                    <TableCell className="text-center">
+                       <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <FileText className="h-4 w-4" />
+                                    <span className="sr-only">Lihat Faktur</span>
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-2xl">
+                                <DialogHeader>
+                                    <DialogTitle>Faktur #{order.id}</DialogTitle>
+                                    <DialogDescription>
+                                        Tanggal: {format(new Date(order.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Informasi Pelanggan</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="text-sm space-y-1">
+                                            <p><strong>Nama:</strong> {order.customerDetails?.name || order.customer}</p>
+                                            <p><strong>Alamat:</strong> {order.customerDetails?.address || 'N/A'}</p>
+                                            <p><strong>WhatsApp:</strong> {order.customerDetails?.whatsapp || 'N/A'}</p>
+                                        </CardContent>
+                                    </Card>
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Rincian Produk</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                             <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Produk</TableHead>
+                                                        <TableHead>Jumlah</TableHead>
+                                                        <TableHead className="text-right">Harga Satuan</TableHead>
+                                                        <TableHead className="text-right">Subtotal</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {order.products?.map(p => (
+                                                        <TableRow key={p.productId}>
+                                                            <TableCell>{p.name}</TableCell>
+                                                            <TableCell>{p.quantity}</TableCell>
+                                                            <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
+                                                            <TableCell className="text-right">{formatCurrency(p.quantity * p.price)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </CardContent>
+                                    </Card>
+                                    <div className="text-right font-bold text-lg">
+                                        Total: {formatCurrency(order.total)}
+                                    </div>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
-                    Tidak ada data penjualan.
+                  <TableCell colSpan={6} className="text-center h-24">
+                    Tidak ada data penjualan untuk rentang tanggal ini.
                   </TableCell>
                 </TableRow>
               )}
