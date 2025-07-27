@@ -20,16 +20,20 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
-import { Download, MoreHorizontal, CreditCard, CheckCircle } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText } from "lucide-react"
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
+import Link from "next/link";
 
 interface Order {
   id: string;
   customer: string;
   status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
   paymentStatus: 'Paid' | 'Unpaid';
+  paymentProofUrl?: string;
   total: string;
   date: string;
 }
@@ -155,7 +159,31 @@ export default function OrdersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                        <DropdownMenuItem>Lihat Detail</DropdownMenuItem>
+                        
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Lihat Bukti Bayar
+                                </button>
+                            </DialogTrigger>
+                             <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Bukti Pembayaran #{order.id}</DialogTitle>
+                                    <DialogDescription>
+                                        Pelanggan: {order.customer}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                {order.paymentProofUrl ? (
+                                    <Link href={order.paymentProofUrl} target="_blank" rel="noopener noreferrer">
+                                        <Image src={order.paymentProofUrl} alt={`Payment proof for ${order.id}`} width={500} height={500} className="rounded-md object-contain border" />
+                                    </Link>
+                                ) : (
+                                    <p className="text-center text-muted-foreground py-8">Belum ada bukti pembayaran yang diunggah.</p>
+                                )}
+                            </DialogContent>
+                        </Dialog>
+
                         <DropdownMenuItem>Cetak Label</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel>Ubah Status Pembayaran</DropdownMenuLabel>

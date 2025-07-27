@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   Card,
   CardContent,
@@ -21,6 +22,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -29,11 +32,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { FileText, Loader2, Package, ArrowLeft } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { FileText, Loader2, Package, ArrowLeft, Banknote, UploadCloud } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as dateFnsLocaleId } from 'date-fns/locale';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+
 
 interface OrderProduct {
   productId: string;
@@ -43,11 +49,20 @@ interface OrderProduct {
   image: string;
 }
 
+interface BankAccount {
+    id: string;
+    bankName: string;
+    accountHolder: string;
+    accountNumber: string;
+}
+
 interface Order {
   id: string;
   customer: string;
   status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
+  paymentMethod: 'bank_transfer' | 'cod';
   paymentStatus: 'Paid' | 'Unpaid';
+  paymentProofUrl?: string;
   total: number;
   date: any;
   products: OrderProduct[];
@@ -61,44 +76,142 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
+
+function PaymentUploader({ order, onUploadSuccess }: { order: Order, onUploadSuccess: (orderId: string, url: string) => void }) {
+    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+    const [paymentProof, setPaymentProof] = useState<File | null>(null);
+    const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(order.paymentProofUrl || null);
+    const [isUploading, setIsUploading] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        async function fetchBankAccounts() {
+            const querySnapshot = await getDocs(collection(db, "bank_accounts"));
+            const accounts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BankAccount));
+            setBankAccounts(accounts);
+        }
+        fetchBankAccounts();
+    }, []);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setPaymentProof(file);
+            setPaymentProofPreview(URL.createObjectURL(file));
+        }
+    };
+
+    const handleUpload = async () => {
+        if (!paymentProof) {
+            toast({ title: "Pilih file terlebih dahulu", variant: "destructive" });
+            return;
+        }
+        setIsUploading(true);
+        try {
+            const storage = getStorage();
+            const storageRef = ref(storage, `payment_proofs/${order.id}_${paymentProof.name}`);
+            await uploadBytes(storageRef, paymentProof);
+            const downloadUrl = await getDownloadURL(storageRef);
+
+            const orderRef = doc(db, "orders", order.id);
+            await updateDoc(orderRef, { paymentProofUrl: downloadUrl });
+
+            toast({ title: "Bukti pembayaran berhasil diunggah!" });
+            onUploadSuccess(order.id, downloadUrl);
+
+        } catch (error) {
+            console.error("Upload error:", error);
+            toast({ title: "Gagal mengunggah", variant: "destructive" });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    return (
+        <Card className="mt-4 bg-muted/50">
+            <CardHeader>
+                <CardTitle>Instruksi Pembayaran</CardTitle>
+                <CardDescription>Silakan lakukan pembayaran ke salah satu rekening berikut dan unggah bukti transfer.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    {bankAccounts.map(acc => (
+                        <Alert key={acc.id}>
+                            <Banknote className="h-4 w-4"/>
+                            <AlertTitle>{acc.bankName.toUpperCase()}</AlertTitle>
+                            <AlertDescription>
+                                {acc.accountNumber} a/n {acc.accountHolder}
+                            </AlertDescription>
+                        </Alert>
+                    ))}
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="payment-proof">Unggah Bukti Pembayaran</Label>
+                    <div className="flex items-center gap-4">
+                        <Input id="payment-proof" type="file" accept="image/*" onChange={handleFileChange} disabled={!!order.paymentProofUrl} />
+                        <Button onClick={handleUpload} disabled={isUploading || !paymentProof || !!order.paymentProofUrl}>
+                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <UploadCloud className="mr-2 h-4 w-4"/>}
+                            Unggah
+                        </Button>
+                    </div>
+                </div>
+
+                {paymentProofPreview && (
+                    <div>
+                        <p className="text-sm font-medium mb-2">Pratinjau / Bukti Terunggah:</p>
+                        <Image src={paymentProofPreview} alt="Bukti Pembayaran" width={200} height={200} className="rounded-md border object-contain" />
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+
 export default function OrderHistoryPage() {
   const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    async function fetchOrders() {
-      if (authLoading) return;
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const q = query(
-          collection(db, 'orders'),
-          where('customerId', '==', user.uid),
-          orderBy('date', 'desc')
-        );
-        const querySnapshot = await getDocs(q);
-        const ordersData = querySnapshot.docs.map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            } as Order)
-        );
-        setOrders(ordersData);
-      } catch (error) {
-        console.error('Error fetching orders: ', error);
-      } finally {
-        setLoading(false);
-      }
+  const fetchOrders = async () => {
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
     }
+
+    setLoading(true);
+    try {
+      const q = query(
+        collection(db, 'orders'),
+        where('customerId', '==', user.uid),
+        orderBy('date', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      const ordersData = querySnapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          } as Order)
+      );
+      setOrders(ordersData);
+    } catch (error) {
+      console.error('Error fetching orders: ', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchOrders();
   }, [user, authLoading]);
+
+  const handleUploadSuccess = (orderId: string, url: string) => {
+      setOrders(prevOrders => prevOrders.map(o => o.id === orderId ? { ...o, paymentProofUrl: url } : o));
+  };
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -182,14 +295,14 @@ export default function OrderHistoryPage() {
                                     <span className="sr-only">Lihat Detail</span>
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-2xl">
+                            <DialogContent className="sm:max-w-3xl">
                                 <DialogHeader>
                                     <DialogTitle>Detail Pesanan #{order.id}</DialogTitle>
                                     <DialogDescription>
                                         Tanggal: {format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
                                     </DialogDescription>
                                 </DialogHeader>
-                                <div className="max-h-[60vh] overflow-y-auto p-1 space-y-4">
+                                <div className="max-h-[70vh] overflow-y-auto p-1 space-y-4">
                                      <Card>
                                         <CardHeader><CardTitle>Produk yang Dipesan</CardTitle></CardHeader>
                                         <CardContent>
@@ -218,6 +331,21 @@ export default function OrderHistoryPage() {
                                             </Table>
                                         </CardContent>
                                     </Card>
+
+                                    {order.paymentMethod === 'bank_transfer' && order.paymentStatus === 'Unpaid' && (
+                                       <PaymentUploader order={order} onUploadSuccess={handleUploadSuccess} />
+                                    )}
+
+                                    {order.paymentProofUrl && order.paymentMethod === 'bank_transfer' && (
+                                        <Card>
+                                            <CardHeader><CardTitle>Bukti Pembayaran</CardTitle></CardHeader>
+                                            <CardContent>
+                                                 <Image src={order.paymentProofUrl} alt="Bukti Pembayaran" width={250} height={250} className="rounded-md border object-contain" />
+                                            </CardContent>
+                                        </Card>
+                                    )}
+
+
                                      <div className="text-right font-bold text-lg border-t pt-4">
                                         Total Pesanan: {formatCurrency(order.total)}
                                     </div>
