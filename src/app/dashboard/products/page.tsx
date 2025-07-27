@@ -46,6 +46,7 @@ interface Product {
   sku: string;
   category: string;
   price: string;
+  purchasePrice?: number;
   stock: number;
   image: string;
   'data-ai-hint': string;
@@ -83,10 +84,16 @@ function AddProductSheet() {
             <Input id="sku" className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="price" className="text-right">
-              Harga
+            <Label htmlFor="purchase-price" className="text-right">
+              Harga Beli
             </Label>
-            <Input id="price" type="number" className="col-span-3" />
+            <Input id="purchase-price" type="number" className="col-span-3" placeholder="Harga modal produk" />
+          </div>
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="price" className="text-right">
+              Harga Jual
+            </Label>
+            <Input id="price" type="number" className="col-span-3" placeholder="Harga yang akan tampil di toko" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="stock" className="text-right">
@@ -153,7 +160,7 @@ export default function ProductsPage() {
                             <TableHead>SKU</TableHead>
                             <TableHead className="hidden md:table-cell">Kategori</TableHead>
                             <TableHead>Stok</TableHead>
-                            <TableHead className="text-right">Harga</TableHead>
+                            <TableHead className="text-right">Harga Jual</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
