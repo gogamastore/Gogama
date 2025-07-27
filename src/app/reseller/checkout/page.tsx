@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -27,6 +28,7 @@ import {
   doc,
   getDoc,
   query,
+  writeBatch,
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db } from "@/lib/firebase";
@@ -176,6 +178,8 @@ export default function CheckoutPage() {
     
     setIsProcessing(true);
     
+    const batch = writeBatch(db);
+
     try {
         let paymentProofUrl = "";
         if (paymentProof) {
@@ -185,6 +189,8 @@ export default function CheckoutPage() {
             paymentProofUrl = await getDownloadURL(storageRef);
         }
 
+        // 1. Create a new order document reference in the batch
+        const orderRef = doc(collection(db, "orders"));
         const orderData = {
             customer: customerDetails.name,
             customerDetails: customerDetails,
@@ -199,17 +205,30 @@ export default function CheckoutPage() {
             total: totalAmount,
             date: serverTimestamp(),
             status: "Processing", // Initial status
-            paymentStatus: paymentMethod === 'bank_transfer' && paymentProof ? 'Paid' : 'Unpaid',
+            paymentStatus: paymentMethod === 'cod' ? 'Unpaid' : (paymentProof ? 'Paid' : 'Unpaid'),
             paymentMethod: paymentMethod,
             paymentProofUrl: paymentProofUrl,
             shippingMethod: shippingMethod,
         };
+        batch.set(orderRef, orderData);
 
-        await addDoc(collection(db, "orders"), orderData);
+        // 2. Update stock for each product in the batch
+        for (const item of cart) {
+            const productRef = doc(db, "products", item.id);
+            const productDoc = await getDoc(productRef);
+            if (productDoc.exists()) {
+                const currentStock = productDoc.data().stock || 0;
+                const newStock = currentStock - item.quantity;
+                batch.update(productRef, { stock: newStock });
+            }
+        }
+        
+        // 3. Commit the batch
+        await batch.commit();
 
         toast({
             title: "Pesanan Berhasil Dibuat!",
-            description: "Terima kasih telah berbelanja. Pesanan Anda sedang diproses.",
+            description: "Terima kasih telah berbelanja. Stok produk telah diperbarui.",
         });
 
         clearCart();
@@ -222,6 +241,7 @@ export default function CheckoutPage() {
         setIsProcessing(false);
     }
   };
+
 
   if (cart.length === 0) {
       return (
@@ -432,3 +452,4 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
