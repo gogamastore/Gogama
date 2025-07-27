@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image"
@@ -84,6 +85,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
         stock: product?.stock || 0,
         category: product?.category || "Umum",
         description: product?.description || "",
+        image: product?.image || "",
     });
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -103,7 +105,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
         }
         setLoading(true);
         try {
-            const dataToSave = {
+            const dataToSave: any = {
                 ...formData,
                 price: new Intl.NumberFormat("id-ID", {
                     style: "currency",
@@ -111,6 +113,12 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                     minimumFractionDigits: 0,
                 }).format(formData.price),
             };
+
+            if (!dataToSave.image) {
+                dataToSave.image = `https://placehold.co/400x400.png`;
+                dataToSave['data-ai-hint'] = 'product item';
+            }
+
 
             if (product) { // Editing existing product
                 const productRef = doc(db, "products", product.id);
@@ -122,8 +130,6 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
             } else { // Adding new product
                 await addDoc(collection(db, "products"), {
                     ...dataToSave,
-                    image: `https://placehold.co/400x400.png`,
-                    'data-ai-hint': 'product item',
                     createdAt: serverTimestamp(),
                 });
                 toast({
@@ -161,6 +167,10 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="sku" className="text-right">SKU</Label>
                     <Input id="sku" value={formData.sku} onChange={handleInputChange} className="col-span-3" />
+                </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="image" className="text-right">URL Gambar</Label>
+                    <Input id="image" value={formData.image} onChange={handleInputChange} className="col-span-3" placeholder="https://..." />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="purchasePrice" className="text-right">Harga Beli</Label>
@@ -472,3 +482,5 @@ export default function ProductsPage() {
     </>
   )
 }
+
+    
