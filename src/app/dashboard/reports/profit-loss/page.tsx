@@ -37,6 +37,7 @@ interface Order {
   total: number;
   date: Date;
   products: { productId: string; quantity: number; price: number }[];
+  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
 }
 
 interface PurchaseTransaction {
@@ -79,14 +80,18 @@ export default function ProfitLossReportPage() {
         const ordersQuery = query(
             collection(db, "orders"),
             where("date", ">=", from),
-            where("date", "<=", to),
-            where("status", "in", ["Delivered", "Shipped"])
+            where("date", "<=", to)
         );
         const ordersSnapshot = await getDocs(ordersQuery);
         let totalRevenue = 0;
         const soldProductsMap = new Map<string, number>();
 
-        ordersSnapshot.docs.forEach(doc => {
+        const validOrders = ordersSnapshot.docs.filter(doc => {
+            const status = doc.data().status;
+            return status === 'Delivered' || status === 'Shipped';
+        });
+
+        validOrders.forEach(doc => {
             const data = doc.data();
             const total = typeof data.total === 'string' ? parseFloat(data.total.replace(/[^0-9]/g, '')) : data.total || 0;
             totalRevenue += total;
