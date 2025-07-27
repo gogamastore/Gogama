@@ -11,11 +11,11 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel"
 import { MessageSquare, ShoppingCart } from "lucide-react"
-import Link from "next/link"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useEffect, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
+import { useCart } from "@/hooks/use-cart"
 
 interface Product {
   id: string;
@@ -25,15 +25,11 @@ interface Product {
   'data-ai-hint': string;
 }
 
-interface CartItem extends Product {
-    quantity: number;
-}
-
 export default function ResellerDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const { toast } = useToast();
+  const { addToCart } = useCart();
 
   useEffect(() => {
     async function getProducts() {
@@ -60,16 +56,7 @@ export default function ResellerDashboard() {
   }, [toast]);
 
   const handleAddToCart = (product: Product) => {
-    setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.id === product.id);
-      if (existingItem) {
-        return prevCart.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...prevCart, { ...product, quantity: 1 }];
-    });
-
+    addToCart(product);
     toast({
         title: "Produk Ditambahkan",
         description: `${product.name} telah ditambahkan ke keranjang.`,

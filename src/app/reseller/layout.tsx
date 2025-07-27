@@ -1,12 +1,9 @@
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Search, ShoppingCart, User } from "lucide-react"
-import Link from "next/link"
+import { CartProvider } from "@/hooks/use-cart"
+import ResellerHeader from "./components/reseller-header"
 
 function Logo() {
   return (
-    <Link href="/reseller" className="flex items-center gap-2 font-semibold font-headline text-lg">
-      <svg
+    <svg
         xmlns="http://www.w3.org/2000/svg"
         width="24"
         height="24"
@@ -23,8 +20,6 @@ function Logo() {
         <path d="m21 15-4-4" />
         <path d="m17 15 4-4" />
       </svg>
-      OrderFlow
-    </Link>
   );
 }
 
@@ -34,32 +29,16 @@ export default function ResellerLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="bg-card sticky top-0 z-10 border-b">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <Logo />
-            <div className="hidden md:flex flex-1 max-w-lg items-center relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Cari produk..." className="pl-9" />
-            </div>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon">
-                <ShoppingCart className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <User className="h-5 w-5" />
-              </Button>
-            </div>
+    <CartProvider>
+      <div className="flex flex-col min-h-screen">
+        <ResellerHeader />
+        <main className="flex-1 bg-background">{children}</main>
+        <footer className="bg-card border-t">
+          <div className="container mx-auto p-4 text-center text-sm text-muted-foreground">
+              © {new Date().getFullYear()} OrderFlow. All rights reserved.
           </div>
-        </div>
-      </header>
-      <main className="flex-1 bg-background">{children}</main>
-      <footer className="bg-card border-t">
-        <div className="container mx-auto p-4 text-center text-sm text-muted-foreground">
-            © {new Date().getFullYear()} OrderFlow. All rights reserved.
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </CartProvider>
   );
 }
