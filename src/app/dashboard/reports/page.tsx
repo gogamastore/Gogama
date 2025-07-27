@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Landmark,
+  FileWarning,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -35,6 +36,12 @@ const reportCards = [
     description: "Lacak semua pengeluaran operasional.",
     icon: Landmark,
     href: "/dashboard/reports/operational-expenses",
+  },
+  {
+    title: "Laporan Piutang",
+    description: "Lacak pesanan yang belum dibayar.",
+    icon: FileWarning,
+    href: "/dashboard/reports/receivables",
   },
   {
     title: "Laporan Laba-Rugi",

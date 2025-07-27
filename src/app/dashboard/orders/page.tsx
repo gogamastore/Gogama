@@ -19,31 +19,75 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Download, MoreHorizontal } from "lucide-react"
-import { collection, getDocs } from "firebase/firestore";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { Download, MoreHorizontal, CreditCard, CheckCircle } from "lucide-react"
+import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 
 interface Order {
   id: string;
   customer: string;
   status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
+  paymentStatus: 'Paid' | 'Unpaid';
   total: string;
   date: string;
 }
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+        const querySnapshot = await getDocs(collection(db, "orders"));
+        const ordersData = querySnapshot.docs.map(doc => ({ 
+            id: doc.id, 
+            paymentStatus: 'Unpaid', // Default to unpaid if not present
+            ...doc.data() 
+        } as Order));
+        setOrders(ordersData);
+    } catch (error) {
+        console.error("Error fetching orders: ", error);
+        toast({
+            variant: "destructive",
+            title: "Gagal memuat pesanan",
+            description: "Terjadi kesalahan saat mengambil data dari server."
+        });
+    } finally {
+        setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      const querySnapshot = await getDocs(collection(db, "orders"));
-      const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-      setOrders(ordersData);
-    };
-
     fetchOrders();
   }, []);
+
+  const handleUpdatePaymentStatus = async (orderId: string, newStatus: 'Paid' | 'Unpaid') => {
+    const orderRef = doc(db, "orders", orderId);
+    try {
+        await updateDoc(orderRef, { paymentStatus: newStatus });
+        setOrders(prevOrders => 
+            prevOrders.map(order => 
+                order.id === orderId ? { ...order, paymentStatus: newStatus } : order
+            )
+        );
+        toast({
+            title: "Status Pembayaran Diperbarui",
+            description: `Pesanan ${orderId} telah ditandai sebagai ${newStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}.`,
+        });
+    } catch (error) {
+         console.error("Error updating payment status: ", error);
+         toast({
+            variant: "destructive",
+            title: "Gagal Memperbarui Status",
+            description: "Terjadi kesalahan saat memperbarui status pembayaran."
+        });
+    }
+  };
+
 
   return (
     <Card>
@@ -68,14 +112,19 @@ export default function OrdersPage() {
               </TableHead>
               <TableHead>Order ID</TableHead>
               <TableHead>Pelanggan</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Status Pesanan</TableHead>
+              <TableHead>Status Pembayaran</TableHead>
               <TableHead>Tanggal</TableHead>
               <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right w-[50px]">Actions</TableHead>
+              <TableHead className="text-right w-[50px]">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orders.map((order) => (
+            {loading ? (
+                <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">Memuat pesanan...</TableCell>
+                </TableRow>
+            ) : orders.map((order) => (
               <TableRow key={order.id}>
                 <TableCell>
                   <Checkbox />
@@ -89,6 +138,11 @@ export default function OrdersPage() {
                     order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 'text-gray-600 border-gray-600'
                   }>{order.status}</Badge>
                 </TableCell>
+                <TableCell>
+                   <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>
+                        {order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}
+                    </Badge>
+                </TableCell>
                 <TableCell>{order.date}</TableCell>
                 <TableCell className="text-right">{order.total}</TableCell>
                  <TableCell className="text-right">
@@ -100,9 +154,23 @@ export default function OrdersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Print Label</DropdownMenuItem>
+                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                        <DropdownMenuItem>Lihat Detail</DropdownMenuItem>
+                        <DropdownMenuItem>Cetak Label</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Ubah Status Pembayaran</DropdownMenuLabel>
+                        <DropdownMenuItem 
+                            disabled={order.paymentStatus === 'Paid'}
+                            onClick={() => handleUpdatePaymentStatus(order.id, 'Paid')}>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Tandai Sudah Lunas
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                            disabled={order.paymentStatus === 'Unpaid'}
+                            onClick={() => handleUpdatePaymentStatus(order.id, 'Unpaid')}>
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            Tandai Belum Lunas
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                 </TableCell>
