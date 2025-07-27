@@ -173,10 +173,7 @@ export default function CheckoutPage() {
         toast({ title: "Data tidak lengkap", description: "Harap isi semua detail pelanggan.", variant: "destructive" });
         return;
     }
-    if (paymentMethod === 'bank_transfer' && !paymentProof) {
-        toast({ title: "Bukti pembayaran diperlukan", description: "Harap unggah bukti transfer Anda.", variant: "destructive" });
-        return;
-    }
+    
     setIsProcessing(true);
     
     try {
@@ -202,7 +199,7 @@ export default function CheckoutPage() {
             total: totalAmount,
             date: serverTimestamp(),
             status: "Processing", // Initial status
-            paymentStatus: paymentMethod === 'cod' ? "Unpaid" : "Paid", // Assume paid if transfer
+            paymentStatus: paymentMethod === 'bank_transfer' && paymentProof ? 'Paid' : 'Unpaid',
             paymentMethod: paymentMethod,
             paymentProofUrl: paymentProofUrl,
             shippingMethod: shippingMethod,
@@ -358,7 +355,7 @@ export default function CheckoutPage() {
                                             <p className="text-sm text-muted-foreground">Tidak ada rekening bank yang tersedia saat ini.</p>
                                         )}
                                         <div className="mt-4 space-y-2">
-                                            <Label htmlFor="payment-proof">Unggah Bukti Pembayaran</Label>
+                                            <Label htmlFor="payment-proof">Unggah Bukti Pembayaran (Opsional)</Label>
                                             <Input id="payment-proof" type="file" accept="image/*" onChange={handleFileChange} />
                                              {paymentProofPreview && (
                                                 <div className="mt-2">
