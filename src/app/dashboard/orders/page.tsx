@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -90,7 +91,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [toast]);
   
   const generatePdf = async (order: Order) => {
     const doc = new jsPDF();
@@ -148,7 +149,7 @@ export default function OrdersPage() {
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text("Total:", 150, finalY + 10, { align: 'right' });
-    doc.text(detailedOrder.total, 200, finalY + 10, { align: 'right' });
+    doc.text(String(detailedOrder.total), 200, finalY + 10, { align: 'right' });
 
     doc.output("dataurlnewwindow");
   };
