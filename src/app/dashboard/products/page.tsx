@@ -36,9 +36,10 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useEffect, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface Product {
   id: string;
@@ -52,9 +53,80 @@ interface Product {
   'data-ai-hint': string;
 }
 
-function AddProductSheet() {
+function AddProductSheet({ onProductAdded }: { onProductAdded: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    sku: "",
+    purchasePrice: 0,
+    price: 0,
+    stock: 0,
+    category: "Umum",
+    description: "",
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setNewProduct(prev => ({ ...prev, [id]: id === 'name' || id === 'sku' || id === 'category' || id === 'description' ? value : Number(value) }));
+  };
+  
+  const handleSaveProduct = async () => {
+    if (!newProduct.name || !newProduct.sku || newProduct.price <= 0) {
+        toast({
+            variant: "destructive",
+            title: "Data Tidak Lengkap",
+            description: "Nama produk, SKU, dan harga jual harus diisi.",
+        });
+        return;
+    }
+    setLoading(true);
+    try {
+        await addDoc(collection(db, "products"), {
+            ...newProduct,
+            price: new Intl.NumberFormat("id-ID", {
+                style: "currency",
+                currency: "IDR",
+                minimumFractionDigits: 0,
+            }).format(newProduct.price),
+            image: `https://placehold.co/400x400.png`, // Placeholder image
+            'data-ai-hint': 'product item',
+            createdAt: serverTimestamp(),
+        });
+
+        toast({
+            title: "Produk Berhasil Ditambahkan",
+            description: `${newProduct.name} telah ditambahkan ke daftar produk.`,
+        });
+
+        onProductAdded(); // Callback to refresh product list
+        setIsOpen(false); // Close the sheet
+        // Reset form
+        setNewProduct({
+            name: "",
+            sku: "",
+            purchasePrice: 0,
+            price: 0,
+            stock: 0,
+            category: "Umum",
+            description: "",
+        });
+
+    } catch (error) {
+        console.error("Error adding product:", error);
+        toast({
+            variant: "destructive",
+            title: "Gagal Menambahkan Produk",
+            description: "Terjadi kesalahan saat menyimpan data ke server.",
+        });
+    } finally {
+        setLoading(false);
+    }
+  };
+
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button size="sm" className="h-8 gap-1">
           <PlusCircle className="h-3.5 w-3.5" />
@@ -75,41 +147,43 @@ function AddProductSheet() {
             <Label htmlFor="name" className="text-right">
               Nama Produk
             </Label>
-            <Input id="name" className="col-span-3" />
+            <Input id="name" value={newProduct.name} onChange={handleInputChange} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="sku" className="text-right">
               SKU
             </Label>
-            <Input id="sku" className="col-span-3" />
+            <Input id="sku" value={newProduct.sku} onChange={handleInputChange} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="purchase-price" className="text-right">
+            <Label htmlFor="purchasePrice" className="text-right">
               Harga Beli
             </Label>
-            <Input id="purchase-price" type="number" className="col-span-3" placeholder="Harga modal produk" />
+            <Input id="purchasePrice" type="number" value={newProduct.purchasePrice} onChange={handleInputChange} className="col-span-3" placeholder="Harga modal produk" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="price" className="text-right">
               Harga Jual
             </Label>
-            <Input id="price" type="number" className="col-span-3" placeholder="Harga yang akan tampil di toko" />
+            <Input id="price" type="number" value={newProduct.price} onChange={handleInputChange} className="col-span-3" placeholder="Harga yang akan tampil di toko" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="stock" className="text-right">
-              Stok
+              Stok Awal
             </Label>
-            <Input id="stock" type="number" className="col-span-3" />
+            <Input id="stock" type="number" value={newProduct.stock} onChange={handleInputChange} className="col-span-3" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="description" className="text-right">
               Deskripsi
             </Label>
-            <Textarea id="description" className="col-span-3" />
+            <Textarea id="description" value={newProduct.description} onChange={handleInputChange} className="col-span-3" />
           </div>
         </div>
         <div className="flex justify-end">
-            <Button>Simpan Produk</Button>
+            <Button onClick={handleSaveProduct} disabled={loading}>
+              {loading ? "Menyimpan..." : "Simpan Produk"}
+            </Button>
         </div>
       </SheetContent>
     </Sheet>
@@ -118,14 +192,17 @@ function AddProductSheet() {
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProducts = async () => {
+    setLoading(true);
+    const querySnapshot = await getDocs(collection(db, "products"));
+    const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+    setProducts(productsData);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      const querySnapshot = await getDocs(collection(db, "products"));
-      const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-      setProducts(productsData);
-    };
-
     fetchProducts();
   }, []);
 
@@ -138,7 +215,7 @@ export default function ProductsPage() {
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
                 <Button variant="outline" size="sm">Impor Massal</Button>
-                <AddProductSheet />
+                <AddProductSheet onProductAdded={fetchProducts} />
             </div>
         </div>
         <TabsContent value="all">
@@ -164,14 +241,18 @@ export default function ProductsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {products.map((product) => (
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-24 text-center">Memuat produk...</TableCell>
+                                </TableRow>
+                            ) : products.map((product) => (
                             <TableRow key={product.id}>
                                 <TableCell className="hidden sm:table-cell">
                                 <Image
                                     alt="Product image"
                                     className="aspect-square rounded-md object-cover"
                                     height="64"
-                                    src={product.image}
+                                    src={product.image || 'https://placehold.co/64x64.png'}
                                     width="64"
                                     data-ai-hint={product['data-ai-hint']}
                                 />

@@ -31,6 +31,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Landmark, PlusCircle, Trash2, XCircle, FilePlus2, Lightbulb, Users, Package } from "lucide-react";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
+
 
 interface CostCategory {
   id: string;
@@ -66,6 +70,10 @@ function AddCostDialog({ category, onAddCost }: { category: CostCategory, onAddC
   const [description, setDescription] = useState("");
 
   const handleSave = () => {
+    if (amount <= 0) {
+        // You can add a toast notification here
+        return;
+    }
     onAddCost(amount, description);
     setIsOpen(false);
     // Reset form
@@ -125,6 +133,9 @@ function AddCostDialog({ category, onAddCost }: { category: CostCategory, onAddC
 
 export default function OperationalCostsPage() {
   const [costCart, setCostCart] = useState<CostItem[]>([]);
+  const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState(false);
+
 
   const handleAddCost = (categoryName: string, amount: number, description: string) => {
     setCostCart(prevCart => {
@@ -135,6 +146,10 @@ export default function OperationalCostsPage() {
         description,
       };
       return [...prevCart, newItem];
+    });
+     toast({
+        title: "Biaya Ditambahkan",
+        description: `Biaya untuk ${categoryName} telah ditambahkan ke rincian.`,
     });
   };
 
@@ -150,6 +165,44 @@ export default function OperationalCostsPage() {
     return costCart.reduce((total, item) => total + item.amount, 0);
   }, [costCart]);
   
+  const handleSaveTransaction = async () => {
+    if (costCart.length === 0) {
+        toast({ variant: "destructive", title: "Rincian Kosong", description: "Tidak ada biaya untuk disimpan." });
+        return;
+    }
+    setIsProcessing(true);
+    try {
+        const promises = costCart.map(item => {
+            return addDoc(collection(db, "operational_expenses"), {
+                category: item.category,
+                amount: item.amount,
+                description: item.description,
+                date: serverTimestamp(),
+            });
+        });
+        
+        await Promise.all(promises);
+
+        toast({
+            title: "Transaksi Berhasil",
+            description: `${costCart.length} item biaya operasional telah berhasil disimpan.`,
+        });
+
+        setCostCart([]);
+
+    } catch (error) {
+         console.error("Error saving operational expenses: ", error);
+         toast({
+            variant: "destructive",
+            title: "Gagal Menyimpan Biaya",
+            description: "Terjadi kesalahan saat menyimpan data ke server.",
+        });
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Cost Categories List */}
@@ -251,8 +304,8 @@ export default function OperationalCostsPage() {
                 <span>Total Biaya</span>
                 <span>{formatCurrency(totalCost)}</span>
             </div>
-            <Button disabled={costCart.length === 0}>
-                Simpan Transaksi Biaya
+            <Button onClick={handleSaveTransaction} disabled={costCart.length === 0 || isProcessing}>
+                {isProcessing ? "Menyimpan..." : "Simpan Transaksi Biaya"}
             </Button>
           </CardFooter>
         </Card>
