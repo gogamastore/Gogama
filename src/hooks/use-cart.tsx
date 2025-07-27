@@ -32,28 +32,32 @@ const parseCurrency = (value: string): number => {
 
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    // Lazy initialization from localStorage
-    if (typeof window === 'undefined') {
-        return [];
-    }
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Load cart from localStorage on initial client-side render
+  useEffect(() => {
     try {
       const savedCart = window.localStorage.getItem('reseller-cart');
-      return savedCart ? JSON.parse(savedCart) : [];
+      if (savedCart) {
+        setCart(JSON.parse(savedCart));
+      }
     } catch (error) {
       console.error('Failed to parse cart from localStorage', error);
-      return [];
     }
-  });
+    setIsHydrated(true);
+  }, []);
 
+  // Persist cart to localStorage whenever it changes
   useEffect(() => {
-    // Persist cart to localStorage
-    try {
-      window.localStorage.setItem('reseller-cart', JSON.stringify(cart));
-    } catch (error) {
-      console.error('Failed to save cart to localStorage', error);
+    if (isHydrated) {
+        try {
+          window.localStorage.setItem('reseller-cart', JSON.stringify(cart));
+        } catch (error) {
+          console.error('Failed to save cart to localStorage', error);
+        }
     }
-  }, [cart]);
+  }, [cart, isHydrated]);
 
   const addToCart = (product: Product) => {
     setCart(prevCart => {
@@ -90,9 +94,19 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const totalAmount = cart.reduce((total, item) => total + (parseCurrency(item.price) * item.quantity), 0);
+  
+  const value = {
+      cart, 
+      addToCart, 
+      removeFromCart, 
+      updateQuantity, 
+      clearCart, 
+      totalItems: isHydrated ? totalItems : 0, // Return 0 on server / before hydration
+      totalAmount: isHydrated ? totalAmount : 0,
+  };
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, totalItems, totalAmount }}>
+    <CartContext.Provider value={value}>
       {children}
     </CartContext.Provider>
   );
