@@ -57,6 +57,11 @@ const getMonthOptions = () => {
   return options;
 };
 
+// Define fixed values
+const INITIAL_OWNER_CAPITAL = 300000000;
+const BUILDING_ASSET_VALUE = 800000000;
+
+
 export default function BalanceSheetPage() {
   const [loading, setLoading] = useState(true);
   const monthOptions = useMemo(() => getMonthOptions(), []);
@@ -70,10 +75,15 @@ export default function BalanceSheetPage() {
         inventory: 0,
         total: 0,
       },
+      fixedAssets: {
+          building: BUILDING_ASSET_VALUE,
+          total: BUILDING_ASSET_VALUE,
+      },
       total: 0,
     },
     liabilitiesAndEquity: {
       equity: {
+        initialCapital: INITIAL_OWNER_CAPITAL,
         retainedEarnings: 0,
         total: 0,
       },
@@ -85,7 +95,6 @@ export default function BalanceSheetPage() {
     setLoading(true);
     try {
         const [year, monthIndex] = month.split('-').map(Number);
-        const startDate = startOfMonth(new Date(year, monthIndex - 1));
         const endDate = endOfMonth(new Date(year, monthIndex - 1));
 
         // --- CALCULATE ASSETS ---
@@ -98,12 +107,13 @@ export default function BalanceSheetPage() {
             where("date", "<=", Timestamp.fromDate(endDate))
         );
         const receivablesSnapshot = await getDocs(receivablesQuery);
-        const totalReceivables = receivablesSnapshot.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+        const totalReceivables = receivablesSnapshot.docs.reduce((sum, doc) => {
+             const totalString = doc.data().total?.toString().replace(/[^0-9]/g, '') || '0';
+             return sum + parseFloat(totalString);
+        }, 0);
         
         // 2. Inventory Value (Nilai Persediaan) at end of month
         const productsSnapshot = await getDocs(collection(db, "products"));
-        // This is a simplified inventory valuation. A real system would need historical purchase prices.
-        // We'll use the latest purchase price we can find for each product.
         const purchasePrices = new Map<string, number>();
         const purchasesSnapshot = await getDocs(collection(db, "purchase_transactions"));
         purchasesSnapshot.docs.forEach(doc => {
@@ -122,39 +132,45 @@ export default function BalanceSheetPage() {
         // --- CALCULATE LIABILITIES & EQUITY ---
         
         // 3. Retained Earnings (Laba Ditahan) up to end of month
-        const allTimeEndDate = endOfMonth(new Date()); // Use a fixed end date for all-time calculation
         const revenueQuery = query(collection(db, "orders"), where("date", "<=", Timestamp.fromDate(endDate)));
         const expensesQuery = query(collection(db, "operational_expenses"), where("date", "<=", Timestamp.fromDate(endDate)));
-        const purchasesQuery = query(collection(db, "purchase_transactions"), where("date", "<=", Timestamp.fromDate(endDate)));
+        const cogsQuery = query(collection(db, "purchase_transactions"), where("date", "<=", Timestamp.fromDate(endDate)));
         
-        const [revenueSnapshot, expensesSnapshot, purchasesSnapshotData] = await Promise.all([
+        const [revenueSnapshot, expensesSnapshot, cogsSnapshot] = await Promise.all([
              getDocs(revenueQuery),
              getDocs(expensesQuery),
-             getDocs(purchasesQuery),
+             getDocs(cogsQuery),
         ]);
 
-        const totalRevenue = revenueSnapshot.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+        const totalRevenue = revenueSnapshot.docs.reduce((sum, doc) => {
+             const totalString = doc.data().total?.toString().replace(/[^0-9]/g, '') || '0';
+             return sum + parseFloat(totalString);
+        }, 0);
         const totalExpenses = expensesSnapshot.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
-        const totalCogs = purchasesSnapshotData.docs.reduce((sum, doc) => sum + (doc.data().totalAmount || 0), 0);
+        const totalCogs = cogsSnapshot.docs.reduce((sum, doc) => sum + (doc.data().totalAmount || 0), 0);
 
         const retainedEarnings = totalRevenue - totalCogs - totalExpenses;
         
         // 4. Cash (Kas) - Simplified calculation
-        const cash = retainedEarnings - totalReceivables; // A proxy for cash
+        // Cash = (Initial Capital + Total Revenue) - (Total COGS + Total Expenses + Value of Unpaid goods)
+        const cash = (INITIAL_OWNER_CAPITAL + totalRevenue) - (totalCogs + totalExpenses + totalReceivables);
 
+        // Summarize
         const totalCurrentAssets = cash + totalReceivables + totalInventoryValue;
-        const totalAssets = totalCurrentAssets; // Assuming no fixed assets for now
+        const totalFixedAssets = BUILDING_ASSET_VALUE;
+        const totalAssets = totalCurrentAssets + totalFixedAssets;
         
-        const totalEquity = retainedEarnings;
+        const totalEquity = INITIAL_OWNER_CAPITAL + retainedEarnings;
         const totalLiabilitiesAndEquity = totalEquity; // Assuming no liabilities for now
 
         setReportData({
             assets: {
                 currentAssets: { cash, receivables: totalReceivables, inventory: totalInventoryValue, total: totalCurrentAssets },
+                fixedAssets: { building: BUILDING_ASSET_VALUE, total: totalFixedAssets },
                 total: totalAssets,
             },
             liabilitiesAndEquity: {
-                equity: { retainedEarnings, total: totalEquity },
+                equity: { initialCapital: INITIAL_OWNER_CAPITAL, retainedEarnings, total: totalEquity },
                 total: totalLiabilitiesAndEquity,
             }
         });
@@ -179,17 +195,20 @@ export default function BalanceSheetPage() {
       [],
       ["AKTIVA", "", "PASIVA", ""],
       ["Aset Lancar", "" ,"Ekuitas", ""],
-      ["Kas & Bank", formatCurrency(reportData.assets.currentAssets.cash), "Laba Ditahan", formatCurrency(reportData.liabilitiesAndEquity.equity.retainedEarnings)],
-      ["Piutang Usaha", formatCurrency(reportData.assets.currentAssets.receivables)],
-      ["Persediaan", formatCurrency(reportData.assets.currentAssets.inventory)],
-      ["Total Aset Lancar", formatCurrency(reportData.assets.currentAssets.total), "Total Ekuitas", formatCurrency(reportData.liabilitiesAndEquity.equity.total)],
+      ["Kas & Bank", reportData.assets.currentAssets.cash, "Modal Disetor", reportData.liabilitiesAndEquity.equity.initialCapital],
+      ["Piutang Usaha", reportData.assets.currentAssets.receivables, "Laba Ditahan", reportData.liabilitiesAndEquity.equity.retainedEarnings],
+      ["Persediaan", reportData.assets.currentAssets.inventory],
+      ["Total Aset Lancar", reportData.assets.currentAssets.total, "Total Ekuitas", reportData.liabilitiesAndEquity.equity.total],
       [],
-      ["TOTAL AKTIVA", formatCurrency(reportData.assets.total), "TOTAL PASIVA", formatCurrency(reportData.liabilitiesAndEquity.total)],
+      ["Aset Tetap", ""],
+      ["Bangunan", reportData.assets.fixedAssets.building],
+      ["Total Aset Tetap", reportData.assets.fixedAssets.total],
+      [],
+      ["TOTAL AKTIVA", reportData.assets.total, "TOTAL PASIVA", reportData.liabilitiesAndEquity.total],
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(data);
     worksheet["!cols"] = [{ wch: 25 }, { wch: 20 }, { wch: 25 }, { wch: 20 }];
-    // Basic styling could be added here
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Neraca");
     XLSX.writeFile(workbook, `Laporan_Neraca_${selectedMonth}.xlsx`);
@@ -242,8 +261,7 @@ export default function BalanceSheetPage() {
                      <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Aset Lancar</TableHead>
-                                <TableHead className="text-right">Jumlah</TableHead>
+                                <TableHead colSpan={2}>Aset Lancar</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -264,6 +282,21 @@ export default function BalanceSheetPage() {
                                 <TableCell className="text-right">{formatCurrency(reportData.assets.currentAssets.total)}</TableCell>
                             </TableRow>
                         </TableBody>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead colSpan={2} className="pt-4">Aset Tetap</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                         <TableBody>
+                            <TableRow>
+                                <TableCell>Bangunan Tempat Usaha</TableCell>
+                                <TableCell className="text-right">{formatCurrency(reportData.assets.fixedAssets.building)}</TableCell>
+                            </TableRow>
+                            <TableRow className="font-bold bg-muted/50">
+                                <TableCell>Total Aset Tetap</TableCell>
+                                <TableCell className="text-right">{formatCurrency(reportData.assets.fixedAssets.total)}</TableCell>
+                            </TableRow>
+                        </TableBody>
                     </Table>
                 </div>
                 {/* Pasiva */}
@@ -272,11 +305,14 @@ export default function BalanceSheetPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Ekuitas</TableHead>
-                                <TableHead className="text-right">Jumlah</TableHead>
+                                <TableHead colSpan={2}>Ekuitas</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
+                            <TableRow>
+                                <TableCell>Modal Disetor</TableCell>
+                                <TableCell className="text-right">{formatCurrency(reportData.liabilitiesAndEquity.equity.initialCapital)}</TableCell>
+                            </TableRow>
                             <TableRow>
                                 <TableCell>Laba Ditahan</TableCell>
                                 <TableCell className="text-right">{formatCurrency(reportData.liabilitiesAndEquity.equity.retainedEarnings)}</TableCell>

@@ -12,10 +12,10 @@ import {
   FileText,
   DollarSign,
   ArrowUpRight,
-  ArrowDownRight,
   Landmark,
   FileWarning,
   Scale,
+  Warehouse,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -68,6 +68,12 @@ const reportCards = [
     icon: Scale,
     href: "/dashboard/reports/balance-sheet",
   },
+  {
+    title: "Laporan Modal Produk",
+    description: "Lihat total nilai modal dari stok produk.",
+    icon: Warehouse,
+    href: "/dashboard/reports/inventory-valuation",
+  }
 ]
 
 export default function ReportsPage() {
