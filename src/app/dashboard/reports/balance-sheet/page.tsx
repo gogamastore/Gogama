@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { Download, Balance } from "lucide-react";
+import { Download, Scale } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import * as XLSX from "xlsx";
@@ -293,14 +293,14 @@ export default function BalanceSheetPage() {
           <CardFooter className="bg-primary/10 p-6 mt-4 grid md:grid-cols-2 gap-8">
             <div className="flex justify-between items-center w-full text-lg font-bold text-primary">
                 <div className="flex items-center gap-3">
-                    <Balance className="h-6 w-6"/>
+                    <Scale className="h-6 w-6"/>
                     <span>TOTAL AKTIVA</span>
                 </div>
                 <span>{formatCurrency(reportData.assets.total)}</span>
             </div>
             <div className="flex justify-between items-center w-full text-lg font-bold text-primary">
                 <div className="flex items-center gap-3">
-                    <Balance className="h-6 w-6"/>
+                    <Scale className="h-6 w-6"/>
                     <span>TOTAL PASIVA</span>
                 </div>
                 <span>{formatCurrency(reportData.liabilitiesAndEquity.total)}</span>

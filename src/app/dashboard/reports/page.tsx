@@ -15,7 +15,7 @@ import {
   ArrowDownRight,
   Landmark,
   FileWarning,
-  Balance,
+  Scale,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -65,7 +65,7 @@ const reportCards = [
    {
     title: "Laporan Neraca",
     description: "Lihat posisi keuangan bisnis Anda.",
-    icon: Balance,
+    icon: Scale,
     href: "/dashboard/reports/balance-sheet",
   },
 ]
