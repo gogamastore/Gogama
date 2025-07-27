@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -45,7 +45,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { DollarSign, Package, Calendar as CalendarIcon, FileText } from "lucide-react";
-import { format, isValid } from "date-fns";
+import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 
 interface OrderProduct {
@@ -101,7 +101,22 @@ export default function SalesReportPage() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
+    from: startOfDay(new Date()),
+    to: endOfDay(new Date()),
+  });
+
+  const filterOrdersByDate = useCallback((orders: Order[], from?: Date, to?: Date) => {
+    if (!from && !to) {
+        return orders;
+    }
+    return orders.filter(order => {
+        const orderDate = new Date(order.date);
+        if (from && orderDate < startOfDay(from)) return false;
+        if (to && orderDate > endOfDay(to)) return false;
+        return true;
+    });
+  }, []);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -134,7 +149,9 @@ export default function SalesReportPage() {
         });
         const ordersData = await Promise.all(ordersDataPromises);
         setAllOrders(ordersData);
-        setFilteredOrders(ordersData);
+        // Initial filter for today
+        const todayOrders = filterOrdersByDate(ordersData, startOfDay(new Date()), endOfDay(new Date()));
+        setFilteredOrders(todayOrders);
       } catch (error) {
         console.error("Error fetching orders: ", error);
       } finally {
@@ -143,26 +160,20 @@ export default function SalesReportPage() {
     };
 
     fetchOrders();
-  }, []);
+  }, [filterOrdersByDate]);
 
   const handleFilter = () => {
     const { from, to } = dateRange;
-    if (!from && !to) {
-        setFilteredOrders(allOrders);
-        return;
-    }
-    const filtered = allOrders.filter(order => {
-        const orderDate = new Date(order.date);
-        if (from && orderDate < from) return false;
-        if (to && orderDate > new Date(to.getTime() + 86400000 - 1)) return false; // include the whole 'to' day
-        return true;
-    });
+    const filtered = filterOrdersByDate(allOrders, from, to);
     setFilteredOrders(filtered);
   };
 
   const handleReset = () => {
-    setDateRange({});
-    setFilteredOrders(allOrders);
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+    setDateRange({ from: todayStart, to: todayEnd });
+    const todayOrders = filterOrdersByDate(allOrders, todayStart, todayEnd);
+    setFilteredOrders(todayOrders);
   };
 
   const { totalRevenue, totalOrders, averageOrderValue, chartData } = useMemo(() => {
