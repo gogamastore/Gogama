@@ -97,10 +97,15 @@ export default function ResellerHeader() {
                         </div>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
+                         <DropdownMenuItem onSelect={() => router.push('/reseller/profile')}>
+                            <User className="mr-2 h-4 w-4" />
+                            <span>Profil Saya</span>
+                        </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => router.push('/reseller/orders')}>
                             <Archive className="mr-2 h-4 w-4" />
                             <span>Riwayat Pesanan</span>
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onSelect={handleSignOut}>
                             <span>Log out</span>
                         </DropdownMenuItem>

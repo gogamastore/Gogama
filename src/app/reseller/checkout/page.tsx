@@ -24,12 +24,31 @@ import {
   addDoc,
   serverTimestamp,
   getDocs,
+  doc,
+  getDoc,
+  query,
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db } from "@/lib/firebase";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Banknote, Bike, CreditCard, Loader2, Package, Upload } from "lucide-react";
+import {
+  Banknote,
+  Bike,
+  CreditCard,
+  Loader2,
+  Package,
+  Home,
+  PlusCircle,
+} from "lucide-react";
 import Link from "next/link";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("id-ID", {
@@ -49,6 +68,13 @@ interface BankAccount {
     accountHolder: string;
     accountNumber: string;
 }
+interface UserAddress {
+    id: string;
+    label: string;
+    address: string;
+    whatsapp: string;
+}
+
 
 export default function CheckoutPage() {
   const { cart, totalAmount, clearCart, totalItems } = useCart();
@@ -61,19 +87,38 @@ export default function CheckoutPage() {
     address: "",
     whatsapp: "",
   });
+
   const [shippingMethod, setShippingMethod] = useState("expedition");
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isAddressLoading, setIsAddressLoading] = useState(true);
 
-  useEffect(() => {
+   useEffect(() => {
     if (!authLoading && user) {
-      setCustomerDetails(prev => ({
-        ...prev,
-        name: user.displayName || "",
-      }));
+      async function fetchUserData() {
+        setIsAddressLoading(true);
+        const userDocRef = doc(db, "user", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setCustomerDetails(prev => ({
+            ...prev,
+            name: userData.name || user.displayName || "",
+            whatsapp: userData.whatsapp || "",
+          }));
+        }
+
+        const addressesQuery = query(collection(db, `user/${user.uid}/addresses`));
+        const addressesSnapshot = await getDocs(addressesQuery);
+        const addresses = addressesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserAddress));
+        setUserAddresses(addresses);
+        setIsAddressLoading(false);
+      }
+      fetchUserData();
     }
   }, [user, authLoading]);
 
@@ -109,6 +154,18 @@ export default function CheckoutPage() {
       setPaymentProofPreview(URL.createObjectURL(file));
     }
   };
+
+  const handleAddressSelect = (addressId: string) => {
+      const selected = userAddresses.find(addr => addr.id === addressId);
+      if (selected) {
+          setCustomerDetails(prev => ({
+              ...prev,
+              address: selected.address,
+              whatsapp: selected.whatsapp,
+          }));
+      }
+  }
+
 
   const handlePlaceOrder = async () => {
     if (!customerDetails.name || !customerDetails.address || !customerDetails.whatsapp) {
@@ -183,14 +240,38 @@ export default function CheckoutPage() {
             <div className="lg:col-span-2 space-y-6">
                  {/* Customer Details */}
                 <Card>
-                    <CardHeader><CardTitle>1. Detail Pelanggan</CardTitle></CardHeader>
+                    <CardHeader><CardTitle>1. Detail Pengiriman</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
+                         {isAddressLoading ? (
+                             <p>Memuat alamat...</p>
+                         ) : userAddresses.length > 0 ? (
+                            <div className="space-y-2">
+                                <Label>Pilih Alamat Tersimpan</Label>
+                                <Select onValueChange={handleAddressSelect}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih dari alamat yang sudah Anda simpan" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {userAddresses.map(addr => (
+                                            <SelectItem key={addr.id} value={addr.id}>
+                                                <div className="flex flex-col">
+                                                    <span className="font-semibold">{addr.label}</span>
+                                                    <span className="text-xs text-muted-foreground">{addr.address}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-sm text-muted-foreground text-center my-2">Atau isi manual di bawah ini.</p>
+                            </div>
+                         ) : null}
+
                         <div className="space-y-2">
-                            <Label htmlFor="name">Nama Lengkap</Label>
-                            <Input id="name" value={customerDetails.name} onChange={handleInputChange} placeholder="Masukkan nama lengkap Anda" />
+                            <Label htmlFor="name">Nama Penerima</Label>
+                            <Input id="name" value={customerDetails.name} onChange={handleInputChange} placeholder="Masukkan nama lengkap penerima" />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
+                            <Label htmlFor="whatsapp">Nomor WhatsApp Penerima</Label>
                             <Input id="whatsapp" value={customerDetails.whatsapp} onChange={handleInputChange} placeholder="Contoh: 081234567890" />
                         </div>
                          <div className="space-y-2">
