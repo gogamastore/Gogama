@@ -26,7 +26,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Home, Loader2, PlusCircle, Trash2, UserCircle } from 'lucide-react';
+import { Home, Loader2, PlusCircle, Trash2, UserCircle, ShieldCheck } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -45,13 +45,21 @@ interface UserAddress {
 }
 
 export default function ProfilePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, reauthenticate, changePassword } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileData, setProfileData] = useState({
     name: '',
     whatsapp: '',
   });
+
+  const [passwordData, setPasswordData] = useState({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+  });
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
+
 
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [isAddressLoading, setIsAddressLoading] = useState(true);
@@ -90,6 +98,12 @@ export default function ProfilePage() {
     const { id, value } = e.target;
     setProfileData((prev) => ({ ...prev, [id]: value }));
   };
+  
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setPasswordData((prev) => ({ ...prev, [id]: value }));
+  };
+
 
   const handleUpdateProfile = async () => {
     if (!user) return;
@@ -110,6 +124,29 @@ export default function ProfilePage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  const handleUpdatePassword = async () => {
+      if (!passwordData.newPassword || passwordData.newPassword !== passwordData.confirmPassword) {
+          toast({ variant: 'destructive', title: 'Password Tidak Cocok', description: 'Pastikan password baru dan konfirmasi password sama.'});
+          return;
+      }
+       if (passwordData.newPassword.length < 6) {
+          toast({ variant: 'destructive', title: 'Password Terlalu Pendek', description: 'Password baru minimal harus 6 karakter.'});
+          return;
+      }
+      setIsPasswordSubmitting(true);
+      try {
+        await reauthenticate(passwordData.currentPassword);
+        await changePassword(passwordData.newPassword);
+        toast({ title: 'Password Berhasil Diperbarui' });
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } catch (error) {
+          console.error(error);
+          toast({ variant: 'destructive', title: 'Gagal Memperbarui Password', description: 'Pastikan password lama Anda benar.' });
+      } finally {
+          setIsPasswordSubmitting(false);
+      }
   };
 
   const handleAddressDialogInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -197,7 +234,54 @@ export default function ProfilePage() {
         <div className="p-6 pt-0">
           <Button onClick={handleUpdateProfile} disabled={isSubmitting}>
              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Simpan Perubahan
+            Simpan Perubahan Profil
+          </Button>
+        </div>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-6 w-6" />
+            <CardTitle>Keamanan & Password</CardTitle>
+          </div>
+          <CardDescription>
+            Ubah password Anda secara berkala untuk menjaga keamanan akun.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">Password Lama</Label>
+            <Input
+              id="currentPassword"
+              type="password"
+              value={passwordData.currentPassword}
+              onChange={handlePasswordChange}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">Password Baru</Label>
+            <Input
+              id="newPassword"
+              type="password"
+              value={passwordData.newPassword}
+              onChange={handlePasswordChange}
+            />
+          </div>
+           <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              value={passwordData.confirmPassword}
+              onChange={handlePasswordChange}
+            />
+          </div>
+        </CardContent>
+        <div className="p-6 pt-0">
+          <Button onClick={handleUpdatePassword} disabled={isPasswordSubmitting}>
+             {isPasswordSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Ubah Password
           </Button>
         </div>
       </Card>
