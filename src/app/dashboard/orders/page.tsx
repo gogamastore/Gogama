@@ -27,6 +27,7 @@ import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import Link from "next/link";
+import { format } from 'date-fns';
 
 interface Order {
   id: string;
@@ -35,7 +36,7 @@ interface Order {
   paymentStatus: 'Paid' | 'Unpaid';
   paymentProofUrl?: string;
   total: string;
-  date: string;
+  date: any; // Allow for Firestore Timestamp object
 }
 
 export default function OrdersPage() {
@@ -133,7 +134,7 @@ export default function OrdersPage() {
                 <TableCell>
                   <Checkbox />
                 </TableCell>
-                <TableCell className="font-medium">{order.id}</TableCell>
+                <TableCell className="font-medium">{order.id.substring(0, 7)}...</TableCell>
                 <TableCell>{order.customer}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className={
@@ -147,7 +148,9 @@ export default function OrdersPage() {
                         {order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}
                     </Badge>
                 </TableCell>
-                <TableCell>{order.date}</TableCell>
+                <TableCell>
+                    {order.date && order.date.toDate ? format(order.date.toDate(), 'dd MMM yyyy') : 'N/A'}
+                </TableCell>
                 <TableCell className="text-right">{order.total}</TableCell>
                  <TableCell className="text-right">
                     <DropdownMenu>
