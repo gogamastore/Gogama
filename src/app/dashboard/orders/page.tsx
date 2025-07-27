@@ -21,22 +21,44 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText } from "lucide-react"
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer } from "lucide-react"
+import { collection, getDocs, doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import Link from "next/link";
 import { format } from 'date-fns';
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
+
+interface OrderProduct {
+  productId: string;
+  name: string;
+  quantity: number;
+  price: number;
+}
+interface CustomerDetails {
+    name: string;
+    address: string;
+    whatsapp: string;
+}
 
 interface Order {
   id: string;
   customer: string;
+  customerDetails?: CustomerDetails;
   status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
   paymentStatus: 'Paid' | 'Unpaid';
   paymentProofUrl?: string;
   total: string;
   date: any; // Allow for Firestore Timestamp object
+  products?: OrderProduct[];
 }
 
 export default function OrdersPage() {
@@ -69,6 +91,68 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, []);
+  
+  const generatePdf = async (order: Order) => {
+    const doc = new jsPDF();
+    
+    // Fetch full order details if needed
+    let detailedOrder = order;
+    if (!order.products || !order.customerDetails) {
+        const orderDoc = await getDoc(doc(db, "orders", order.id));
+        if (orderDoc.exists()) {
+            detailedOrder = { id: orderDoc.id, ...orderDoc.data() } as Order;
+        }
+    }
+
+    // Title
+    doc.setFontSize(20);
+    doc.text("Faktur Pesanan", 14, 22);
+
+    // Order Info
+    doc.setFontSize(10);
+    doc.text(`ID Pesanan: ${detailedOrder.id}`, 14, 32);
+    doc.text(`Tanggal: ${format(detailedOrder.date.toDate(), 'dd MMM yyyy')}`, 14, 37);
+    
+    // Customer Info
+    doc.text("Informasi Pelanggan:", 14, 47);
+    const customerInfo = detailedOrder.customerDetails;
+    doc.text(`Nama: ${customerInfo?.name || detailedOrder.customer}`, 14, 52);
+    doc.text(`Alamat: ${customerInfo?.address || 'N/A'}`, 14, 57);
+    doc.text(`WhatsApp: ${customerInfo?.whatsapp || 'N/A'}`, 14, 62);
+
+
+    // Products Table
+    const tableColumn = ["Nama Produk", "Jumlah", "Harga Satuan", "Subtotal"];
+    const tableRows: (string | number)[][] = [];
+
+    detailedOrder.products?.forEach(prod => {
+        const subtotal = prod.price * prod.quantity;
+        const row = [
+            prod.name,
+            prod.quantity,
+            new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(prod.price),
+            new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(subtotal)
+        ];
+        tableRows.push(row);
+    });
+
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 70,
+    });
+    
+    const finalY = (doc as any).lastAutoTable.finalY;
+    
+    // Total
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Total:", 150, finalY + 10, { align: 'right' });
+    doc.text(detailedOrder.total, 200, finalY + 10, { align: 'right' });
+
+    doc.output("dataurlnewwindow");
+  };
+
 
   const handleUpdatePaymentStatus = async (orderId: string, newStatus: 'Paid' | 'Unpaid') => {
     const orderRef = doc(db, "orders", orderId);
@@ -104,7 +188,7 @@ export default function OrdersPage() {
             </div>
             <Button>
                 <Download className="mr-2 h-4 w-4" />
-                Download PDF
+                Download Laporan
             </Button>
         </div>
       </CardHeader>
@@ -187,7 +271,10 @@ export default function OrdersPage() {
                             </DialogContent>
                         </Dialog>
 
-                        <DropdownMenuItem>Cetak Label</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => generatePdf(order)}>
+                          <Printer className="mr-2 h-4 w-4" />
+                          Download PDF
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel>Ubah Status Pembayaran</DropdownMenuLabel>
                         <DropdownMenuItem 
