@@ -1,9 +1,14 @@
+"use client";
+
 import { MainNav } from "@/components/main-nav";
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 function Logo() {
   return (
@@ -30,12 +35,28 @@ function Logo() {
   );
 }
 
-
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/');
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return (
+        <div className="flex h-screen items-center justify-center">
+            <p>Loading...</p>
+        </div>
+    )
+  }
+
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr] group">
       <div className="hidden border-r bg-card md:block">

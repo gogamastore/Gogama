@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -17,10 +20,31 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { allOrders } from "@/lib/placeholder-data"
 import { Download, MoreHorizontal } from "lucide-react"
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+interface Order {
+  id: string;
+  customer: string;
+  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
+  total: string;
+  date: string;
+}
 
 export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      const querySnapshot = await getDocs(collection(db, "orders"));
+      const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+      setOrders(ordersData);
+    };
+
+    fetchOrders();
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -51,7 +75,7 @@ export default function OrdersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {allOrders.map((order) => (
+            {orders.map((order) => (
               <TableRow key={order.id}>
                 <TableCell>
                   <Checkbox />

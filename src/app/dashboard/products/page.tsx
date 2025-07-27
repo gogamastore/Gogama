@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image"
 import {
   Card,
@@ -29,12 +31,25 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { allProducts } from "@/lib/placeholder-data"
 import { PlusCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useEffect, useState } from "react";
+
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  price: string;
+  stock: number;
+  image: string;
+  'data-ai-hint': string;
+}
 
 function AddProductSheet() {
   return (
@@ -95,6 +110,18 @@ function AddProductSheet() {
 }
 
 export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const querySnapshot = await getDocs(collection(db, "products"));
+      const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      setProducts(productsData);
+    };
+
+    fetchProducts();
+  }, []);
+
   return (
     <Tabs defaultValue="all">
         <div className="flex items-center">
@@ -130,7 +157,7 @@ export default function ProductsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {allProducts.map((product) => (
+                            {products.map((product) => (
                             <TableRow key={product.id}>
                                 <TableCell className="hidden sm:table-cell">
                                 <Image

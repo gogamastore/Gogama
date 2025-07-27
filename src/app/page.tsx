@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +11,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/use-auth";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 function Logo() {
   return (
@@ -32,25 +38,48 @@ function Logo() {
   );
 }
 
-
 export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { signIn } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await signIn(email, password);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error("Failed to sign in", error);
+      toast({
+        variant: "destructive",
+        title: "Login Gagal",
+        description: "Email atau password salah.",
+      });
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-2xl">
         <CardHeader className="space-y-1 text-center">
-            <div className="flex justify-center items-center gap-2 mb-4">
-                <Logo />
-                <CardTitle className="text-3xl font-bold font-headline">OrderFlow</CardTitle>
-            </div>
+          <div className="flex justify-center items-center gap-2 mb-4">
+            <Logo />
+            <CardTitle className="text-3xl font-bold font-headline">OrderFlow</CardTitle>
+          </div>
           <CardDescription>
-            Enter your credentials to access your dashboard
+            Masukkan kredensial Anda untuk mengakses dasbor
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" placeholder="admin" required />
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" placeholder="admin@orderflow.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
               <div className="flex items-center">
@@ -59,19 +88,19 @@ export default function LoginPage() {
                   href="#"
                   className="ml-auto inline-block text-sm underline"
                 >
-                  Forgot your password?
+                  Lupa password?
                 </Link>
               </div>
-              <Input id="password" type="password" required />
+              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
-            <Button type="submit" className="w-full as-child">
-              <Link href="/dashboard">Login</Link>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Logging in...' : 'Login'}
             </Button>
-          </div>
+          </form>
           <div className="mt-4 text-center text-sm">
-            Are you a reseller?{" "}
+            Apakah Anda seorang reseller?{" "}
             <Link href="/reseller" className="underline">
-              Go to Reseller Portal
+              Pergi ke Portal Reseller
             </Link>
           </div>
         </CardContent>

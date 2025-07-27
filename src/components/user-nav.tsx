@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Avatar,
   AvatarFallback,
@@ -14,24 +16,38 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { LogOut, Settings, User } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "next/navigation"
 
 export function UserNav() {
+  const { user, signOut } = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="/avatars/01.png" alt="@shadcn" />
-            <AvatarFallback>AD</AvatarFallback>
+            <AvatarImage src={user.photoURL || "/avatars/01.png"} alt={user.displayName || "User"} />
+            <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Admin</p>
+            <p className="text-sm font-medium leading-none">{user.displayName || 'Admin'}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              admin@orderflow.com
+              {user.email}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -47,7 +63,7 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={handleSignOut}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>
