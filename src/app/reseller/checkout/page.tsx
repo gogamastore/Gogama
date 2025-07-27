@@ -39,6 +39,7 @@ import {
   Package,
   Home,
   PlusCircle,
+  ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -235,7 +236,13 @@ export default function CheckoutPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6 font-headline">Checkout</h1>
+        <div className="flex items-center gap-4 mb-6">
+             <Button variant="outline" size="icon" onClick={() => router.back()}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali</span>
+            </Button>
+            <h1 className="text-3xl font-bold font-headline">Checkout</h1>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
                  {/* Customer Details */}

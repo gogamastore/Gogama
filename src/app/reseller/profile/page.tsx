@@ -26,7 +26,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Home, Loader2, PlusCircle, Trash2, UserCircle, ShieldCheck } from 'lucide-react';
+import { Home, Loader2, PlusCircle, Trash2, UserCircle, ShieldCheck, ArrowLeft } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useRouter } from 'next/navigation';
 
 interface UserAddress {
     id: string;
@@ -47,6 +48,7 @@ interface UserAddress {
 export default function ProfilePage() {
   const { user, loading: authLoading, reauthenticate, changePassword } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileData, setProfileData] = useState({
     name: '',
@@ -197,7 +199,13 @@ export default function ProfilePage() {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
-      <h1 className="text-3xl font-bold font-headline">Profil Saya</h1>
+       <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.back()}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali</span>
+            </Button>
+            <h1 className="text-3xl font-bold font-headline">Profil Saya</h1>
+       </div>
       
       <Card>
         <CardHeader>

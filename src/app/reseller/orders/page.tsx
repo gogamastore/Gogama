@@ -29,10 +29,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { FileText, Loader2, Package } from 'lucide-react';
+import { FileText, Loader2, Package, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as dateFnsLocaleId } from 'date-fns/locale';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 interface OrderProduct {
   productId: string;
@@ -64,6 +65,7 @@ export default function OrderHistoryPage() {
   const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     async function fetchOrders() {
@@ -100,7 +102,13 @@ export default function OrderHistoryPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 font-headline">Riwayat Pesanan</h1>
+      <div className="flex items-center gap-4 mb-6">
+         <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Kembali</span>
+        </Button>
+        <h1 className="text-3xl font-bold font-headline">Riwayat Pesanan</h1>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Pesanan Saya</CardTitle>

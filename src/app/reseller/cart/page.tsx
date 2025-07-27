@@ -13,7 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCart } from "@/hooks/use-cart";
-import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Trash2, X, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("id-ID", {
@@ -30,10 +31,18 @@ const parseCurrency = (value: string): number => {
 
 export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, totalAmount, clearCart } = useCart();
+  const router = useRouter();
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 font-headline">Keranjang Belanja</h1>
+      <div className="flex items-center gap-4 mb-6">
+         <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Kembali</span>
+        </Button>
+        <h1 className="text-3xl font-bold font-headline">Keranjang Belanja</h1>
+      </div>
+      
       {cart.length === 0 ? (
         <div className="text-center py-20 bg-card rounded-lg border">
           <ShoppingBag className="mx-auto h-16 w-16 text-muted-foreground" />
