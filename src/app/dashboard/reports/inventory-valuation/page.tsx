@@ -50,19 +50,12 @@ export default function InventoryValuationPage() {
       setLoading(true);
       try {
         const productsSnapshot = await getDocs(collection(db, "products"));
-        const purchasesSnapshot = await getDocs(collection(db, "purchase_transactions"));
         
-        const purchasePrices = new Map<string, number>();
-        purchasesSnapshot.docs.forEach(doc => {
-            doc.data().items.forEach((item: { productId: string; purchasePrice: number; }) => {
-                 purchasePrices.set(item.productId, item.purchasePrice); // Overwrites with latest, good enough for this purpose
-            });
-        });
-
         const productValuations: ProductValuation[] = productsSnapshot.docs.map(doc => {
             const productData = doc.data();
             const stock = productData.stock || 0;
-            const purchasePrice = purchasePrices.get(doc.id) || 0;
+            // Fix: Directly use the purchasePrice from the product document
+            const purchasePrice = productData.purchasePrice || 0; 
             return {
                 id: doc.id,
                 name: productData.name || "Unknown Product",
