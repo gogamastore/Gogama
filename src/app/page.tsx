@@ -56,7 +56,7 @@ export default function LoginPage() {
       const user = userCredential.user;
 
       // Fetch user role from Firestore
-      const userDocRef = doc(db, "users", user.uid);
+      const userDocRef = doc(db, "user", user.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
