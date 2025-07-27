@@ -79,6 +79,7 @@ export default function ProfitLossReportPage() {
         // 1. Fetch Sales (Revenue and Products Sold)
         const ordersQuery = query(
             collection(db, "orders"),
+            where("status", "in", ['Delivered', 'Shipped']),
             where("date", ">=", from),
             where("date", "<=", to)
         );
@@ -86,12 +87,7 @@ export default function ProfitLossReportPage() {
         let totalRevenue = 0;
         const soldProductsMap = new Map<string, number>();
 
-        const validOrders = ordersSnapshot.docs.filter(doc => {
-            const status = doc.data().status;
-            return status === 'Delivered' || status === 'Shipped';
-        });
-
-        validOrders.forEach(doc => {
+        ordersSnapshot.docs.forEach(doc => {
             const data = doc.data();
             const total = typeof data.total === 'string' ? parseFloat(data.total.replace(/[^0-9]/g, '')) : data.total || 0;
             totalRevenue += total;
