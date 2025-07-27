@@ -8,11 +8,32 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { resellerProducts } from "@/lib/placeholder-data"
 import { MessageSquare, ShoppingCart } from "lucide-react"
 import Link from "next/link"
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
-export default function ResellerDashboard() {
+interface Product {
+  id: string;
+  name: string;
+  price: string;
+  image: string;
+  'data-ai-hint': string;
+}
+
+async function getProducts(): Promise<Product[]> {
+    const querySnapshot = await getDocs(collection(db, "products"));
+    const productsData = querySnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+    } as Product));
+    return productsData;
+}
+
+
+export default async function ResellerDashboard() {
+  const products = await getProducts();
+
   return (
     <div className="relative">
       <div className="container mx-auto px-4 py-8">
@@ -48,7 +69,7 @@ export default function ResellerDashboard() {
         <section>
           <h2 className="text-2xl font-bold mb-4 font-headline">Galeri Produk</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {resellerProducts.map((product) => (
+            {products.map((product) => (
               <Card key={product.id} className="overflow-hidden group">
                 <CardContent className="p-0">
                   <div className="relative">
