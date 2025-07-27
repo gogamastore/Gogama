@@ -2,10 +2,21 @@
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, ShoppingCart, User } from "lucide-react"
+import { Search, ShoppingCart, User, Archive } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/hooks/use-cart"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "next/navigation"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 function Logo() {
   return (
@@ -34,6 +45,14 @@ function Logo() {
 
 export default function ResellerHeader() {
     const { totalItems } = useCart();
+    const { user, signOut } = useAuth();
+    const router = useRouter();
+
+    const handleSignOut = async () => {
+        await signOut();
+        router.push('/');
+    }
+
 
     return (
         <header className="bg-card sticky top-0 z-10 border-b">
@@ -44,7 +63,7 @@ export default function ResellerHeader() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Cari produk..." className="pl-9" />
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" asChild>
                 <Link href="/reseller/cart" className="relative">
                     {totalItems > 0 && (
@@ -53,9 +72,43 @@ export default function ResellerHeader() {
                     <ShoppingCart className="h-5 w-5" />
                 </Link>
               </Button>
-              <Button variant="ghost" size="icon">
-                <User className="h-5 w-5" />
+               <Button variant="ghost" size="icon" asChild>
+                <Link href="/reseller/orders">
+                  <Archive className="h-5 w-5" />
+                </Link>
               </Button>
+              {user ? (
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                        <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.photoURL || ""} alt={user.displayName || "User"} />
+                            <AvatarFallback>{user.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56" align="end" forceMount>
+                        <DropdownMenuLabel className="font-normal">
+                        <div className="flex flex-col space-y-1">
+                            <p className="text-sm font-medium leading-none">{user.displayName || 'Reseller'}</p>
+                            <p className="text-xs leading-none text-muted-foreground">
+                            {user.email}
+                            </p>
+                        </div>
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => router.push('/reseller/orders')}>
+                            <Archive className="mr-2 h-4 w-4" />
+                            <span>Riwayat Pesanan</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={handleSignOut}>
+                            <span>Log out</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button variant="outline" onClick={() => router.push('/')}>Login</Button>
+              )}
             </div>
           </div>
         </div>

@@ -126,8 +126,8 @@ export default function CartPage() {
                         <span>{formatCurrency(totalAmount)}</span>
                     </div>
                 </div>
-                 <Button className="w-full mt-6" size="lg">
-                    Lanjutkan ke Pembayaran
+                 <Button asChild className="w-full mt-6" size="lg">
+                    <Link href="/reseller/checkout">Lanjutkan ke Pembayaran</Link>
                 </Button>
             </div>
           </div>

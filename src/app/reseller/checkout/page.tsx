@@ -1,0 +1,349 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useCart } from "@/hooks/use-cart";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDocs,
+} from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db } from "@/lib/firebase";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Banknote, Bike, CreditCard, Loader2, Package, Upload } from "lucide-react";
+import Link from "next/link";
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(amount);
+};
+
+const parseCurrency = (value: string): number => {
+  return Number(value.replace(/[^0-9]/g, ""));
+};
+
+interface BankAccount {
+    id: string;
+    bankName: string;
+    accountHolder: string;
+    accountNumber: string;
+}
+
+export default function CheckoutPage() {
+  const { cart, totalAmount, clearCart, totalItems } = useCart();
+  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const [customerDetails, setCustomerDetails] = useState({
+    name: "",
+    address: "",
+    whatsapp: "",
+  });
+  const [shippingMethod, setShippingMethod] = useState("expedition");
+  const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      setCustomerDetails(prev => ({
+        ...prev,
+        name: user.displayName || "",
+      }));
+    }
+  }, [user, authLoading]);
+
+  useEffect(() => {
+    async function fetchBankAccounts() {
+      const querySnapshot = await getDocs(collection(db, "bank_accounts"));
+      const accounts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BankAccount));
+      setBankAccounts(accounts);
+    }
+    fetchBankAccounts();
+  }, []);
+  
+   useEffect(() => {
+    if (!authLoading && cart.length === 0) {
+      toast({
+        title: "Keranjang Kosong",
+        description: "Anda akan diarahkan kembali ke halaman utama.",
+        variant: "destructive",
+      });
+      router.push("/reseller");
+    }
+  }, [cart, authLoading, router, toast]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setCustomerDetails(prev => ({ ...prev, [id]: value }));
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPaymentProof(file);
+      setPaymentProofPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!customerDetails.name || !customerDetails.address || !customerDetails.whatsapp) {
+        toast({ title: "Data tidak lengkap", description: "Harap isi semua detail pelanggan.", variant: "destructive" });
+        return;
+    }
+    if (paymentMethod === 'bank_transfer' && !paymentProof) {
+        toast({ title: "Bukti pembayaran diperlukan", description: "Harap unggah bukti transfer Anda.", variant: "destructive" });
+        return;
+    }
+    setIsProcessing(true);
+    
+    try {
+        let paymentProofUrl = "";
+        if (paymentProof) {
+            const storage = getStorage();
+            const storageRef = ref(storage, `payment_proofs/${Date.now()}_${paymentProof.name}`);
+            await uploadBytes(storageRef, paymentProof);
+            paymentProofUrl = await getDownloadURL(storageRef);
+        }
+
+        const orderData = {
+            customer: customerDetails.name,
+            customerDetails: customerDetails,
+            customerId: user?.uid || 'guest',
+            products: cart.map(item => ({
+                productId: item.id,
+                name: item.name,
+                price: parseCurrency(item.price),
+                quantity: item.quantity,
+                image: item.image,
+            })),
+            total: totalAmount,
+            date: serverTimestamp(),
+            status: "Processing", // Initial status
+            paymentStatus: paymentMethod === 'cod' ? "Unpaid" : "Paid", // Assume paid if transfer
+            paymentMethod: paymentMethod,
+            paymentProofUrl: paymentProofUrl,
+            shippingMethod: shippingMethod,
+        };
+
+        await addDoc(collection(db, "orders"), orderData);
+
+        toast({
+            title: "Pesanan Berhasil Dibuat!",
+            description: "Terima kasih telah berbelanja. Pesanan Anda sedang diproses.",
+        });
+
+        clearCart();
+        router.push("/reseller/orders"); // Redirect to order history page
+
+    } catch (error) {
+         console.error("Error placing order:", error);
+         toast({ title: "Gagal Membuat Pesanan", description: "Terjadi kesalahan. Silakan coba lagi.", variant: "destructive" });
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+  if (cart.length === 0) {
+      return (
+        <div className="flex h-[60vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      )
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6 font-headline">Checkout</h1>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+                 {/* Customer Details */}
+                <Card>
+                    <CardHeader><CardTitle>1. Detail Pelanggan</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Nama Lengkap</Label>
+                            <Input id="name" value={customerDetails.name} onChange={handleInputChange} placeholder="Masukkan nama lengkap Anda" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
+                            <Input id="whatsapp" value={customerDetails.whatsapp} onChange={handleInputChange} placeholder="Contoh: 081234567890" />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="address">Alamat Pengiriman Lengkap</Label>
+                            <Textarea id="address" value={customerDetails.address} onChange={handleInputChange} placeholder="Masukkan alamat lengkap (Jalan, No. Rumah, RT/RW, Kelurahan, Kecamatan, Kota, Kode Pos)" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                 {/* Shipping Method */}
+                <Card>
+                    <CardHeader><CardTitle>2. Opsi Pengiriman</CardTitle></CardHeader>
+                    <CardContent>
+                        <RadioGroup value={shippingMethod} onValueChange={setShippingMethod}>
+                            <div className="flex items-center space-x-2 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
+                                <RadioGroupItem value="expedition" id="expedition" />
+                                <Label htmlFor="expedition" className="flex-1 cursor-pointer">
+                                    <div className="flex items-center gap-4">
+                                        <Package className="h-6 w-6"/>
+                                        <div>
+                                            <p className="font-semibold">Ekspedisi</p>
+                                            <p className="text-sm text-muted-foreground">Pesanan akan dikirim ke alamat Anda.</p>
+                                        </div>
+                                    </div>
+                                </Label>
+                            </div>
+                             <div className="flex items-center space-x-2 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
+                                <RadioGroupItem value="pickup" id="pickup" />
+                                <Label htmlFor="pickup" className="flex-1 cursor-pointer">
+                                     <div className="flex items-center gap-4">
+                                        <Bike className="h-6 w-6"/>
+                                        <div>
+                                            <p className="font-semibold">Jemput Sendiri</p>
+                                            <p className="text-sm text-muted-foreground">Ambil pesanan Anda langsung di lokasi kami.</p>
+                                        </div>
+                                    </div>
+                                </Label>
+                            </div>
+                        </RadioGroup>
+                    </CardContent>
+                </Card>
+                
+                 {/* Payment Method */}
+                <Card>
+                    <CardHeader><CardTitle>3. Metode Pembayaran</CardTitle></CardHeader>
+                    <CardContent>
+                        <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
+                            <div className="flex flex-col space-y-4 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="bank_transfer" id="bank_transfer" />
+                                    <Label htmlFor="bank_transfer" className="flex-1 cursor-pointer">
+                                        <div className="flex items-center gap-4">
+                                            <CreditCard className="h-6 w-6"/>
+                                            <div>
+                                                <p className="font-semibold">Transfer Bank</p>
+                                                <p className="text-sm text-muted-foreground">Transfer ke salah satu rekening kami.</p>
+                                            </div>
+                                        </div>
+                                    </Label>
+                                </div>
+                                {paymentMethod === 'bank_transfer' && (
+                                    <div className="pl-8 pt-4 border-t">
+                                        <h4 className="font-semibold mb-2">Silakan transfer ke rekening berikut:</h4>
+                                        {bankAccounts.length > 0 ? (
+                                            <div className="space-y-4">
+                                                {bankAccounts.map(acc => (
+                                                     <Alert key={acc.id}>
+                                                        <Banknote className="h-4 w-4"/>
+                                                        <AlertTitle>{acc.bankName.toUpperCase()}</AlertTitle>
+                                                        <AlertDescription>
+                                                            {acc.accountNumber} a/n {acc.accountHolder}
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                ))}
+                                            </div>
+                                        ): (
+                                            <p className="text-sm text-muted-foreground">Tidak ada rekening bank yang tersedia saat ini.</p>
+                                        )}
+                                        <div className="mt-4 space-y-2">
+                                            <Label htmlFor="payment-proof">Unggah Bukti Pembayaran</Label>
+                                            <Input id="payment-proof" type="file" accept="image/*" onChange={handleFileChange} />
+                                             {paymentProofPreview && (
+                                                <div className="mt-2">
+                                                    <Image src={paymentProofPreview} alt="Preview Bukti Pembayaran" width={150} height={150} className="rounded-md object-cover" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                             <div className="flex items-center space-x-2 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
+                                <RadioGroupItem value="cod" id="cod" />
+                                <Label htmlFor="cod" className="flex-1 cursor-pointer">
+                                    <div className="flex items-center gap-4">
+                                        <Banknote className="h-6 w-6"/>
+                                        <div>
+                                            <p className="font-semibold">COD (Bayar di Tempat)</p>
+                                            <p className="text-sm text-muted-foreground">Siapkan uang pas saat kurir tiba.</p>
+                                        </div>
+                                    </div>
+                                </Label>
+                            </div>
+                        </RadioGroup>
+                    </CardContent>
+                </Card>
+
+            </div>
+
+             {/* Order Summary */}
+            <div className="lg:col-span-1">
+                 <Card className="sticky top-20">
+                    <CardHeader>
+                        <CardTitle>Ringkasan Pesanan</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                            {cart.map(item => (
+                                <div key={item.id} className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Image src={item.image} alt={item.name} width={48} height={48} className="rounded-md"/>
+                                        <div>
+                                            <p className="font-medium text-sm">{item.name}</p>
+                                            <p className="text-xs text-muted-foreground">{item.quantity} x {item.price}</p>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm font-medium">{formatCurrency(parseCurrency(item.price) * item.quantity)}</p>
+                                </div>
+                            ))}
+                        </div>
+                         <div className="pt-4 border-t space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Subtotal ({totalItems} item)</span>
+                                <span>{formatCurrency(totalAmount)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span>Ongkos Kirim</span>
+                                <span className="text-muted-foreground">Akan dihitung</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                                <span>Total</span>
+                                <span>{formatCurrency(totalAmount)}</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button className="w-full" size="lg" onClick={handlePlaceOrder} disabled={isProcessing}>
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                            {isProcessing ? "Memproses Pesanan..." : "Buat Pesanan"}
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </div>
+        </div>
+    </div>
+  )
+}
