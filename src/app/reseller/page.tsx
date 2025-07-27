@@ -1,3 +1,5 @@
+"use client"
+
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -12,6 +14,8 @@ import { MessageSquare, ShoppingCart } from "lucide-react"
 import Link from "next/link"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { useEffect, useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 interface Product {
   id: string;
@@ -21,18 +25,56 @@ interface Product {
   'data-ai-hint': string;
 }
 
-async function getProducts(): Promise<Product[]> {
-    const querySnapshot = await getDocs(collection(db, "products"));
-    const productsData = querySnapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-    } as Product));
-    return productsData;
+interface CartItem extends Product {
+    quantity: number;
 }
 
+export default function ResellerDashboard() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const { toast } = useToast();
 
-export default async function ResellerDashboard() {
-  const products = await getProducts();
+  useEffect(() => {
+    async function getProducts() {
+        setLoading(true);
+        try {
+            const querySnapshot = await getDocs(collection(db, "products"));
+            const productsData = querySnapshot.docs.map(doc => ({ 
+                id: doc.id, 
+                ...doc.data() 
+            } as Product));
+            setProducts(productsData);
+        } catch(error) {
+            console.error("Failed to fetch products:", error);
+            toast({
+                variant: "destructive",
+                title: "Gagal memuat produk",
+                description: "Tidak bisa mengambil data produk dari server."
+            })
+        } finally {
+            setLoading(false);
+        }
+    }
+    getProducts();
+  }, [toast]);
+
+  const handleAddToCart = (product: Product) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.id === product.id);
+      if (existingItem) {
+        return prevCart.map(item =>
+          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...prevCart, { ...product, quantity: 1 }];
+    });
+
+    toast({
+        title: "Produk Ditambahkan",
+        description: `${product.name} telah ditambahkan ke keranjang.`,
+    });
+  };
 
   return (
     <div className="relative">
@@ -68,32 +110,47 @@ export default async function ResellerDashboard() {
 
         <section>
           <h2 className="text-2xl font-bold mb-4 font-headline">Galeri Produk</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <Card key={product.id} className="overflow-hidden group">
-                <CardContent className="p-0">
-                  <div className="relative">
-                    <Image
-                      src={product.image}
-                      alt={product.name}
-                      width={400}
-                      height={400}
-                      className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
-                      data-ai-hint={product['data-ai-hint']}
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-lg">{product.name}</h3>
-                    <p className="text-muted-foreground mt-1">{product.price}</p>
-                    <Button className="w-full mt-4" variant="secondary">
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                        Tambah ke Keranjang
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {[...Array(8)].map((_, i) => (
+                    <Card key={i} className="overflow-hidden group">
+                        <div className="bg-muted aspect-square w-full animate-pulse"></div>
+                        <div className="p-4 space-y-2">
+                             <div className="h-6 w-3/4 bg-muted rounded animate-pulse"></div>
+                             <div className="h-4 w-1/2 bg-muted rounded animate-pulse"></div>
+                             <div className="h-10 w-full bg-muted rounded animate-pulse mt-4"></div>
+                        </div>
+                    </Card>
+                ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {products.map((product) => (
+                <Card key={product.id} className="overflow-hidden group">
+                    <CardContent className="p-0">
+                    <div className="relative">
+                        <Image
+                        src={product.image}
+                        alt={product.name}
+                        width={400}
+                        height={400}
+                        className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
+                        data-ai-hint={product['data-ai-hint'] || 'product image'}
+                        />
+                    </div>
+                    <div className="p-4">
+                        <h3 className="font-semibold text-lg">{product.name}</h3>
+                        <p className="text-muted-foreground mt-1">{product.price}</p>
+                        <Button className="w-full mt-4" variant="secondary" onClick={() => handleAddToCart(product)}>
+                            <ShoppingCart className="mr-2 h-4 w-4" />
+                            Tambah ke Keranjang
+                        </Button>
+                    </div>
+                    </CardContent>
+                </Card>
+                ))}
+            </div>
+          )}
         </section>
       </div>
       <Button
