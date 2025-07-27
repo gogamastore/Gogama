@@ -10,13 +10,14 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from "@/components/ui/tooltip"
-import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive } from "lucide-react"
+import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive, ClipboardList } from "lucide-react"
 
 const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/orders", label: "Pesanan", icon: ShoppingCart },
     { href: "/dashboard/products", label: "Produk", icon: Package },
     { href: "/dashboard/purchases", label: "Transaksi Pembelian", icon: Archive },
+    { href: "/dashboard/operational-costs", label: "Biaya Operasional", icon: ClipboardList },
     { href: "/dashboard/reports", label: "Laporan", icon: LineChart },
     { href: "/dashboard/stock-suggestions", label: "Saran Stok", icon: Bot },
 ]

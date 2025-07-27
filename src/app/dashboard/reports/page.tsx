@@ -13,6 +13,7 @@ import {
   DollarSign,
   ArrowUpRight,
   ArrowDownRight,
+  Landmark,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -28,6 +29,12 @@ const reportCards = [
     description: "Lacak semua transaksi pembelian stok.",
     icon: FileText,
     href: "/dashboard/reports/purchases",
+  },
+   {
+    title: "Laporan Beban Operasional",
+    description: "Lacak semua pengeluaran operasional.",
+    icon: Landmark,
+    href: "/dashboard/reports/operational-expenses",
   },
   {
     title: "Laporan Laba-Rugi",
