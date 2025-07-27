@@ -9,7 +9,8 @@ import {
     User,
     EmailAuthProvider,
     reauthenticateWithCredential,
-    updatePassword
+    updatePassword,
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
@@ -20,6 +21,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   changePassword: (password: string) => Promise<void>;
   reauthenticate: (password: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -60,8 +62,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return updatePassword(user, password);
   };
 
+  const sendPasswordReset = (email: string) => {
+      return sendPasswordResetEmail(auth, email);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, reauthenticate, changePassword }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, reauthenticate, changePassword, sendPasswordReset }}>
       {children}
     </AuthContext.Provider>
   );

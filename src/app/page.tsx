@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -17,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Loader2 } from "lucide-react";
 
 function Logo() {
   return (
@@ -43,7 +45,7 @@ function Logo() {
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn } = useAuth();
+  const { signIn, sendPasswordReset } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -79,9 +81,38 @@ export default function LoginPage() {
         title: "Login Gagal",
         description: "Email atau password salah.",
       });
-      setLoading(false);
+    } finally {
+        setLoading(false);
     }
   };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      toast({
+        variant: "destructive",
+        title: "Email Diperlukan",
+        description: "Harap masukkan alamat email Anda terlebih dahulu.",
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordReset(email);
+      toast({
+        title: "Email Reset Password Terkirim",
+        description: "Silakan periksa kotak masuk email Anda untuk instruksi lebih lanjut.",
+      });
+    } catch (error) {
+       console.error("Failed to send password reset email", error);
+       toast({
+        variant: "destructive",
+        title: "Gagal Mengirim Email",
+        description: "Pastikan alamat email yang Anda masukkan benar.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -104,17 +135,20 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center">
                 <Label htmlFor="password">Password</Label>
-                <Link
-                  href="#"
-                  className="ml-auto inline-block text-sm underline"
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={handlePasswordReset}
+                  className="ml-auto inline-block text-sm underline h-auto p-0"
                 >
                   Lupa password?
-                </Link>
+                </Button>
               </div>
               <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login'}
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading ? 'Memproses...' : 'Login'}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
