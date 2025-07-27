@@ -15,6 +15,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 function Logo() {
   return (
@@ -50,8 +52,26 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await signIn(email, password);
-      router.push('/dashboard');
+      const userCredential = await signIn(email, password);
+      const user = userCredential.user;
+
+      // Fetch user role from Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === 'reseller') {
+          router.push('/reseller');
+        } else {
+          router.push('/dashboard');
+        }
+      } else {
+        // Default to dashboard if no role is found
+        console.warn("User document not found in Firestore, defaulting to dashboard.");
+        router.push('/dashboard');
+      }
+
     } catch (error) {
       console.error("Failed to sign in", error);
       toast({
