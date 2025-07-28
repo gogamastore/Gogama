@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp, get, set, child } from "firebase/database";
+import { ref, onValue, off, set, push, serverTimestamp, child } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -112,8 +112,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             avatar: userAvatar,
             lastMessage: firstMessage.text,
             timestamp: serverTimestamp(),
-            unreadByAdmin: 1,
-            adminId: "admin_placeholder" // Placeholder, can be updated when admin joins
+            adminId: "admin_placeholder" 
         },
         messages: {
             [generatePushID()]: firstMessage
@@ -149,14 +148,10 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             const messagesListRef = ref(rtdb, `chats/${currentChatId}/messages`);
             const newMessageRef = push(messagesListRef);
             await set(newMessageRef, messageData);
-
+            
             const metadataRef = ref(rtdb, `chats/${currentChatId}/metadata`);
-            const currentUnreadCount = (await get(child(metadataRef, 'unreadByAdmin'))).val() || 0;
-            await update(metadataRef, {
-                lastMessage: newMessage,
-                timestamp: serverTimestamp(),
-                unreadByAdmin: currentUnreadCount + 1,
-            });
+            await set(child(metadataRef, 'lastMessage'), newMessage);
+            await set(child(metadataRef, 'timestamp'), serverTimestamp());
         }
         setNewMessage('');
     } catch(error) {
