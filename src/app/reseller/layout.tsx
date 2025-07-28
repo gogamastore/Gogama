@@ -1,5 +1,6 @@
 import { CartProvider } from "@/hooks/use-cart"
 import ResellerHeader from "./components/reseller-header"
+import ResellerChatTrigger from "./components/reseller-chat-trigger";
 
 function Logo() {
   return (
@@ -38,6 +39,7 @@ export default function ResellerLayout({
               © {new Date().getFullYear()} OrderFlow. All rights reserved.
           </div>
         </footer>
+        <ResellerChatTrigger />
       </div>
     </CartProvider>
   );

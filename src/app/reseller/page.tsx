@@ -1,3 +1,4 @@
+
 "use client"
 
 import Image from "next/image"
@@ -140,12 +141,6 @@ export default function ResellerDashboard() {
           )}
         </section>
       </div>
-      <Button
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
-      >
-        <MessageSquare className="h-7 w-7" />
-        <span className="sr-only">Chat</span>
-      </Button>
     </div>
   )
 }
