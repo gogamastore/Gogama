@@ -122,18 +122,13 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         const chatMessagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
         await push(chatMessagesRef, messageData);
         
-        // Step 2: Update the conversation metadata
+        // Step 2: Update the conversation metadata in a separate operation
         const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
-        const currentConvoSnap = await get(conversationRef);
-        const currentConvoData = currentConvoSnap.val() || {};
-
-        const updateData: any = {
-            ...currentConvoData,
+        const updateData = {
             lastMessage: newMessage,
             timestamp: serverTimestamp(),
             unreadByUser: increment(1)
         };
-
         await update(conversationRef, updateData);
 
         setNewMessage('');
