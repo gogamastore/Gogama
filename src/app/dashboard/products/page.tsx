@@ -511,7 +511,3 @@ export default function ProductsPage() {
     </>
   )
 }
-
-    
-
-    
