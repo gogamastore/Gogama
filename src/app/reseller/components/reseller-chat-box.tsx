@@ -77,6 +77,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     // Chat metadata, including the crucial buyerId for security rules
     updates[`/chats/${newChatId}/metadata`] = {
         buyerId: user.uid,
+        adminId: null, // Placeholder for admin to claim
         buyerName: userName,
         avatar: userAvatar,
         lastMessage: firstMessageText,
