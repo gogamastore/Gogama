@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -207,7 +208,7 @@ export default function ReceivablesReportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-auto">
+          <div className="relative w-full overflow-auto">
             <Table>
                 <TableHeader>
                 <TableRow>

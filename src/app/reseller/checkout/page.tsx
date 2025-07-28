@@ -189,6 +189,12 @@ export default function CheckoutPage() {
             paymentProofUrl = await getDownloadURL(storageRef);
         }
 
+        // Determine initial status based on payment method
+        let initialStatus: 'Pending' | 'Processing' = 'Processing';
+        if (paymentMethod === 'bank_transfer' && !paymentProof) {
+            initialStatus = 'Pending';
+        }
+        
         // 1. Create a new order document reference in the batch
         const orderRef = doc(collection(db, "orders"));
         const orderData = {
@@ -202,9 +208,9 @@ export default function CheckoutPage() {
                 quantity: item.quantity,
                 image: item.image,
             })),
-            total: totalAmount,
+            total: formatCurrency(totalAmount),
             date: serverTimestamp(),
-            status: "Processing", // Initial status
+            status: initialStatus,
             paymentStatus: paymentMethod === 'cod' ? 'Unpaid' : (paymentProof ? 'Paid' : 'Unpaid'),
             paymentMethod: paymentMethod,
             paymentProofUrl: paymentProofUrl,
@@ -452,4 +458,3 @@ export default function CheckoutPage() {
     </div>
   )
 }
-

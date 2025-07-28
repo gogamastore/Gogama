@@ -288,8 +288,8 @@ export default function OrdersPage() {
                                   <DropdownMenuSeparator />
                                   
                                   {/* --- DYNAMIC ACTIONS --- */}
-                                  {order.paymentStatus === 'Unpaid' && order.paymentMethod === 'bank_transfer' && (
-                                     <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { paymentStatus: 'Paid' })}>
+                                  {order.paymentStatus === 'Unpaid' && (
+                                     <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { paymentStatus: 'Paid', status: 'Processing' })}>
                                         <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
                                      </DropdownMenuItem>
                                   )}
