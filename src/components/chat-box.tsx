@@ -12,7 +12,7 @@ import { ref, onValue, off, update, serverTimestamp, set, push } from "firebase/
 import { useAuth } from '@/hooks/use-auth';
 
 interface ConversationMetadata {
-    id: string; // This is the chatId
+    id: string; 
     buyerId: string;
     buyerName: string;
     lastMessage: string;
@@ -50,7 +50,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             const conversationList: ConversationMetadata[] = Object.keys(conversationsData).map(buyerId => {
                 const convo = conversationsData[buyerId];
                 return {
-                    id: convo.chatId, // The chatId is stored here
+                    id: convo.chatId,
                     buyerId: buyerId,
                     ...convo
                 };
@@ -120,7 +120,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         
         updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
         updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
-        updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid; // Ensure adminId is set
+        updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid;
 
         updates[`/conversations/${activeConversation.buyerId}/lastMessage`] = newMessage;
         updates[`/conversations/${activeConversation.buyerId}/timestamp`] = serverTimestamp();
