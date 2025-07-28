@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, set } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, set, push } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -17,43 +17,6 @@ interface Message {
     text: string;
     timestamp: any;
 }
-
-// Helper to generate a unique ID, similar to Firebase's push keys
-function generatePushID() {
-    const PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
-    let lastPushTime = 0;
-    const lastRandChars: number[] = [];
-    
-    return (function() {
-      let now = new Date().getTime();
-      let duplicateTime = (now === lastPushTime);
-      lastPushTime = now;
-  
-      let timeStampChars = new Array(8);
-      for (var i = 7; i >= 0; i--) {
-        timeStampChars[i] = PUSH_CHARS.charAt(now % 64);
-        now = Math.floor(now / 64);
-      }
-  
-      let id = timeStampChars.join('');
-  
-      if (!duplicateTime) {
-        for (i = 0; i < 12; i++) {
-          lastRandChars[i] = Math.floor(Math.random() * 64);
-        }
-      } else {
-        for (i = 11; i >= 0 && lastRandChars[i] === 63; i--) {
-          lastRandChars[i] = 0;
-        }
-        lastRandChars[i]++;
-      }
-      for (i = 0; i < 12; i++) {
-        id += PUSH_CHARS.charAt(lastRandChars[i]);
-      }
-      return id;
-    })();
-}
-
 
 export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const { user } = useAuth();
@@ -65,15 +28,18 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const savedChatId = localStorage.getItem('chatId');
-    if (savedChatId) {
-        setChatId(savedChatId);
+    // This effect runs once to get the chatId from localStorage.
+    if (typeof window !== 'undefined') {
+        const savedChatId = localStorage.getItem('chatId');
+        if (savedChatId) {
+            setChatId(savedChatId);
+        }
+        setIsInitialized(true);
     }
-    setIsInitialized(true);
   }, []);
 
   useEffect(() => {
-    if (!chatId || !isOpen) return;
+    if (!chatId || !isOpen || !isInitialized) return;
 
     const messagesRef = ref(rtdb, `chats/${chatId}/messages`);
     const listener = onValue(messagesRef, (snapshot) => {
@@ -83,14 +49,10 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         setMessages(loadedMessages);
     }, (error) => {
         console.error("Error fetching messages:", error);
-        if (error.message.includes('permission_denied')) {
-            localStorage.removeItem('chatId');
-            setChatId(null);
-        }
     });
 
     return () => off(messagesRef, 'value', listener);
-  }, [chatId, isOpen]);
+  }, [chatId, isOpen, isInitialized]);
 
 
   useEffect(() => {
@@ -106,31 +68,44 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
     const userAvatar = user.photoURL || `https://placehold.co/40x40.png`;
     
-    const newChatId = generatePushID();
-    const firstMessageId = generatePushID();
+    const newChatRef = push(ref(rtdb, 'chats'));
+    const newChatId = newChatRef.key;
+    if (!newChatId) return null;
 
-    const newChatData = {
-        metadata: {
-            buyerId: user.uid,
-            buyerName: userName,
-            avatar: userAvatar,
-            lastMessage: firstMessageText,
-            timestamp: serverTimestamp(),
-            unreadByAdmin: 1,
-            adminId: "not_assigned",
-        },
-        messages: {
-            [firstMessageId]: {
-                senderId: user.uid,
-                text: firstMessageText,
-                timestamp: serverTimestamp(),
-            }
-        }
+    const firstMessageRef = push(ref(rtdb, `chats/${newChatId}/messages`));
+    
+    const updates: { [key: string]: any } = {};
+
+    // Chat metadata
+    updates[`/chats/${newChatId}/metadata`] = {
+        buyerId: user.uid,
+        buyerName: userName,
+        avatar: userAvatar,
+        lastMessage: firstMessageText,
+        timestamp: serverTimestamp(),
+        unreadByAdmin: 1,
+        adminId: "not_assigned",
     };
 
+    // First message
+    updates[`/chats/${newChatId}/messages/${firstMessageRef.key}`] = {
+        senderId: user.uid,
+        text: firstMessageText,
+        timestamp: serverTimestamp(),
+    };
+    
+    // Conversation list metadata for admin dashboard
+    updates[`/conversations/${user.uid}`] = {
+        chatId: newChatId,
+        buyerName: userName,
+        avatar: userAvatar,
+        lastMessage: firstMessageText,
+        timestamp: serverTimestamp(),
+        unreadByAdmin: 1,
+    }
+
     try {
-      const chatRef = ref(rtdb, `chats/${newChatId}`);
-      await set(chatRef, newChatData);
+      await update(ref(rtdb), updates);
       return newChatId;
     } catch(error) {
       console.error("Failed to create new chat:", error);
@@ -153,24 +128,28 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
                 setChatId(currentChatId);
             }
         } else {
-            const messageId = generatePushID();
             const updates: { [key: string]: any } = {};
+            const messagesRef = ref(rtdb, `chats/${currentChatId}/messages`);
+            const newMessageRef = push(messagesRef);
 
             const messageData = {
                 senderId: user.uid,
                 text: newMessage,
                 timestamp: serverTimestamp(),
             };
-
-            updates[`/chats/${currentChatId}/messages/${messageId}`] = messageData;
+            
+            updates[`/chats/${currentChatId}/messages/${newMessageRef.key}`] = messageData;
             updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
             updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
-            const unreadRef = ref(rtdb, `chats/${currentChatId}/metadata/unreadByAdmin`);
-            onValue(unreadRef, (snapshot) => {
-              const currentUnread = snapshot.val() || 0;
-              updates[`/chats/${currentChatId}/metadata/unreadByAdmin`] = currentUnread + 1;
-            }, { onlyOnce: true });
+            const convoRef = ref(rtdb, `conversations/${user.uid}`);
+            const convoSnap = await getDoc(convoRef as any); // temp any
+            const currentUnread = convoSnap.exists() ? convoSnap.val().unreadByAdmin || 0 : 0;
+            
+            updates[`/conversations/${user.uid}/lastMessage`] = newMessage;
+            updates[`/conversations/${user.uid}/timestamp`] = serverTimestamp();
+            updates[`/conversations/${user.uid}/unreadByAdmin`] = currentUnread + 1;
+
 
             await update(ref(rtdb), updates);
         }

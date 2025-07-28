@@ -8,50 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, set, get, push } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, set, push } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 
-// Helper to generate a unique ID, similar to Firebase's push keys
-function generatePushID() {
-    const PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
-    let lastPushTime = 0;
-    const lastRandChars: number[] = [];
-    
-    return (function() {
-      let now = new Date().getTime();
-      let duplicateTime = (now === lastPushTime);
-      lastPushTime = now;
-  
-      let timeStampChars = new Array(8);
-      for (var i = 7; i >= 0; i--) {
-        timeStampChars[i] = PUSH_CHARS.charAt(now % 64);
-        now = Math.floor(now / 64);
-      }
-  
-      let id = timeStampChars.join('');
-  
-      if (!duplicateTime) {
-        for (i = 0; i < 12; i++) {
-          lastRandChars[i] = Math.floor(Math.random() * 64);
-        }
-      } else {
-        for (i = 11; i >= 0 && lastRandChars[i] === 63; i--) {
-          lastRandChars[i] = 0;
-        }
-        lastRandChars[i]++;
-      }
-      for (i = 0; i < 12; i++) {
-        id += PUSH_CHARS.charAt(lastRandChars[i]);
-      }
-      return id;
-    })();
-}
-
-
-interface ChatMetadata {
-    buyerId: string;
+interface ConversationMetadata {
+    id: string; // This is the chatId
     buyerName: string;
-    adminId?: string;
     lastMessage: string;
     timestamp: any;
     avatar?: string;
@@ -64,17 +26,11 @@ interface Message {
     timestamp: any;
 }
 
-interface Chat {
-    id: string;
-    metadata: ChatMetadata;
-    messages?: { [key: string]: Message };
-}
-
 export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { user: adminUser } = useAuth();
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [allChats, setAllChats] = useState<Chat[]>([]);
+  const [allConversations, setAllConversations] = useState<ConversationMetadata[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
@@ -85,47 +41,53 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     if (!adminUser || !isOpen) return;
 
     setLoading(true);
-    const chatsRef = ref(rtdb, 'chats');
+    const conversationsRef = ref(rtdb, 'conversations');
 
-    const listener = onValue(chatsRef, (snapshot) => {
+    const listener = onValue(conversationsRef, (snapshot) => {
         if (snapshot.exists()) {
-            const chatsData = snapshot.val();
-            const chatList: Chat[] = Object.keys(chatsData).map(id => ({
-                id,
-                metadata: chatsData[id].metadata,
-                messages: chatsData[id].messages || {},
-            })).sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);
-            setAllChats(chatList);
+            const conversationsData = snapshot.val();
+            const conversationList: ConversationMetadata[] = Object.keys(conversationsData).map(buyerId => {
+                const convo = conversationsData[buyerId];
+                return {
+                    id: convo.chatId, // The chatId is stored here
+                    buyerId: buyerId,
+                    ...convo
+                };
+            }).sort((a, b) => b.timestamp - a.timestamp);
+            setAllConversations(conversationList);
         } else {
-            setAllChats([]);
+            setAllConversations([]);
         }
         setLoading(false);
     }, (error) => {
-        console.error("Error fetching chats:", error);
-        setAllChats([]);
+        console.error("Error fetching conversations:", error);
+        setAllConversations([]);
         setLoading(false);
     });
 
-    return () => off(chatsRef, 'value', listener);
+    return () => off(conversationsRef, 'value', listener);
   }, [adminUser, isOpen]);
-
-  useEffect(() => {
+  
+   useEffect(() => {
     if (activeChatId) {
-        const activeChatData = allChats.find(c => c.id === activeChatId);
-        if (activeChatData) {
-            const loadedMessages = activeChatData.messages ? Object.values(activeChatData.messages) as Message[] : [];
-            loadedMessages.sort((a,b) => a.timestamp - b.timestamp);
-            setMessages(loadedMessages);
+      const messagesRef = ref(rtdb, `chats/${activeChatId}/messages`);
+      const listener = onValue(messagesRef, (snapshot) => {
+        const data = snapshot.val();
+        const loadedMessages = data ? Object.values(data) as Message[] : [];
+        loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
+        setMessages(loadedMessages);
+      });
+      
+      const conversationRef = ref(rtdb, `conversations/${activeChat?.buyerId}`);
+      update(conversationRef, { unreadByAdmin: 0 });
 
-             // Mark as read
-            const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
-            update(metadataRef, { unreadByAdmin: 0, adminId: adminUser?.uid })
-            .catch(err => console.error("Could not mark as read:", err));
-        }
+
+      return () => off(messagesRef, 'value', listener);
     } else {
         setMessages([]);
     }
-  }, [activeChatId, allChats, adminUser?.uid]);
+  }, [activeChatId]);
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -135,22 +97,38 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     if (!newMessage.trim() || !activeChatId || !adminUser) return;
     setIsSending(true);
 
-    const messageId = generatePushID();
-    const updates: { [key: string]: any } = {};
-    
+    const activeConversation = allConversations.find(c => c.id === activeChatId);
+    if (!activeConversation) {
+        setIsSending(false);
+        return;
+    }
+
+    const messagesRef = ref(rtdb, `chats/${activeChatId}/messages`);
+    const newMessageRef = push(messagesRef);
+
     const messageData = {
         senderId: adminUser.uid,
         text: newMessage,
         timestamp: serverTimestamp(),
     };
 
-    updates[`/chats/${activeChatId}/messages/${messageId}`] = messageData;
-    updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
-    updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
-    updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid;
-
     try {
-        await update(ref(rtdb), updates);
+        await set(newMessageRef, messageData);
+        
+        // Update metadata in two places: chats and conversations
+        const chatMetadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
+        await update(chatMetadataRef, { 
+            lastMessage: newMessage, 
+            timestamp: serverTimestamp(),
+            adminId: adminUser.uid,
+        });
+
+        const conversationRef = ref(rtdb, `conversations/${activeConversation.buyerId}`);
+         await update(conversationRef, { 
+            lastMessage: newMessage, 
+            timestamp: serverTimestamp(),
+        });
+
         setNewMessage('');
     } catch (error) {
       console.error("Failed to send message: ", error);
@@ -167,11 +145,11 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     return null;
   }
 
-  const filteredChats = allChats.filter(c =>
-    c.metadata.buyerName.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredConversations = allConversations.filter(c =>
+    c.buyerName.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const activeChat = allChats.find(c => c.id === activeChatId);
+  const activeChat = allConversations.find(c => c.id === activeChatId);
 
   return (
     <div className="fixed bottom-24 right-6 z-40 w-full max-w-sm">
@@ -183,8 +161,8 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             </Button>
           )}
           <div className="flex-1">
-            <CardTitle>{activeChatId ? activeChat?.metadata.buyerName : 'Pesan'}</CardTitle>
-            <CardDescription>{activeChatId ? 'Online' : `${allChats.length} percakapan`}</CardDescription>
+            <CardTitle>{activeChatId ? activeChat?.buyerName : 'Pesan'}</CardTitle>
+            <CardDescription>{activeChatId ? 'Online' : `${allConversations.length} percakapan`}</CardDescription>
           </div>
         </CardHeader>
 
@@ -193,7 +171,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((chat, index) => (
                     <div key={index} className={`flex items-end gap-2 ${chat.senderId === adminUser?.uid ? 'justify-end' : 'justify-start'}`}>
-                       {chat.senderId !== adminUser?.uid && <Avatar className="h-8 w-8"><AvatarImage src={activeChat?.metadata.avatar || undefined} /><AvatarFallback>{activeChat?.metadata.buyerName?.charAt(0)}</AvatarFallback></Avatar>}
+                       {chat.senderId !== adminUser?.uid && <Avatar className="h-8 w-8"><AvatarImage src={activeChat?.avatar || undefined} /><AvatarFallback>{activeChat?.buyerName?.charAt(0)}</AvatarFallback></Avatar>}
                        <div className={`max-w-[75%] rounded-lg p-3 ${chat.senderId === adminUser?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                            <p className="text-sm">{chat.text}</p>
                        </div>
@@ -228,23 +206,23 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
                 <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin"/></div>
               ) : (
                 <div className="divide-y">
-                  {filteredChats.map(chat => (
+                  {filteredConversations.map(convo => (
                     <div
-                      key={chat.id}
+                      key={convo.id}
                       className="flex items-center gap-4 p-4 hover:bg-muted cursor-pointer"
-                      onClick={() => handleSelectChat(chat.id)}
+                      onClick={() => handleSelectChat(convo.id)}
                     >
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={chat.metadata.avatar} alt={chat.metadata.buyerName} />
-                        <AvatarFallback>{chat.metadata.buyerName.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={convo.avatar} alt={convo.buyerName} />
+                        <AvatarFallback>{convo.buyerName.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 overflow-hidden">
-                        <p className="font-semibold truncate">{chat.metadata.buyerName}</p>
-                        <p className="text-sm text-muted-foreground truncate">{chat.metadata.lastMessage}</p>
+                        <p className="font-semibold truncate">{convo.buyerName}</p>
+                        <p className="text-sm text-muted-foreground truncate">{convo.lastMessage}</p>
                       </div>
-                      {chat.metadata.unreadByAdmin && chat.metadata.unreadByAdmin > 0 && (
+                      {convo.unreadByAdmin && convo.unreadByAdmin > 0 && (
                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                          {chat.metadata.unreadByAdmin}
+                          {convo.unreadByAdmin}
                         </div>
                       )}
                     </div>
