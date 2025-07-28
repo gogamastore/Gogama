@@ -59,7 +59,6 @@ const getMonthOptions = () => {
 
 // Define fixed values
 const INITIAL_OWNER_CAPITAL = 300000000;
-const BUILDING_ASSET_VALUE = 800000000;
 
 
 export default function BalanceSheetPage() {
@@ -74,10 +73,6 @@ export default function BalanceSheetPage() {
         receivables: 0,
         inventory: 0,
         total: 0,
-      },
-      fixedAssets: {
-          building: BUILDING_ASSET_VALUE,
-          total: BUILDING_ASSET_VALUE,
       },
       total: 0,
     },
@@ -157,8 +152,7 @@ export default function BalanceSheetPage() {
 
         // Summarize
         const totalCurrentAssets = cash + totalReceivables + totalInventoryValue;
-        const totalFixedAssets = BUILDING_ASSET_VALUE;
-        const totalAssets = totalCurrentAssets + totalFixedAssets;
+        const totalAssets = totalCurrentAssets;
         
         const totalEquity = INITIAL_OWNER_CAPITAL + retainedEarnings;
         const totalLiabilitiesAndEquity = totalEquity; // Assuming no liabilities for now
@@ -166,7 +160,6 @@ export default function BalanceSheetPage() {
         setReportData({
             assets: {
                 currentAssets: { cash, receivables: totalReceivables, inventory: totalInventoryValue, total: totalCurrentAssets },
-                fixedAssets: { building: BUILDING_ASSET_VALUE, total: totalFixedAssets },
                 total: totalAssets,
             },
             liabilitiesAndEquity: {
@@ -199,10 +192,6 @@ export default function BalanceSheetPage() {
       ["Piutang Usaha", reportData.assets.currentAssets.receivables, "Laba Ditahan", reportData.liabilitiesAndEquity.equity.retainedEarnings],
       ["Persediaan", reportData.assets.currentAssets.inventory],
       ["Total Aset Lancar", reportData.assets.currentAssets.total, "Total Ekuitas", reportData.liabilitiesAndEquity.equity.total],
-      [],
-      ["Aset Tetap", ""],
-      ["Bangunan", reportData.assets.fixedAssets.building],
-      ["Total Aset Tetap", reportData.assets.fixedAssets.total],
       [],
       ["TOTAL AKTIVA", reportData.assets.total, "TOTAL PASIVA", reportData.liabilitiesAndEquity.total],
     ];
@@ -280,21 +269,6 @@ export default function BalanceSheetPage() {
                             <TableRow className="font-bold bg-muted/50">
                                 <TableCell>Total Aset Lancar</TableCell>
                                 <TableCell className="text-right">{formatCurrency(reportData.assets.currentAssets.total)}</TableCell>
-                            </TableRow>
-                        </TableBody>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead colSpan={2} className="pt-4">Aset Tetap</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                         <TableBody>
-                            <TableRow>
-                                <TableCell>Bangunan Tempat Usaha</TableCell>
-                                <TableCell className="text-right">{formatCurrency(reportData.assets.fixedAssets.building)}</TableCell>
-                            </TableRow>
-                            <TableRow className="font-bold bg-muted/50">
-                                <TableCell>Total Aset Tetap</TableCell>
-                                <TableCell className="text-right">{formatCurrency(reportData.assets.fixedAssets.total)}</TableCell>
                             </TableRow>
                         </TableBody>
                     </Table>
