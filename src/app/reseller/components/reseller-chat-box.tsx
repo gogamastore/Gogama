@@ -8,50 +8,87 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp, increment, get } from "firebase/database";
+import { ref, onValue, off, update, push, serverTimestamp, get, set } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
 interface Message {
-    sender: string; // 'admin' or 'user'
+    senderId: string;
     text: string;
     timestamp: any;
 }
 
+const CHAT_ID_KEY = 'orderflow_chat_id';
+
 export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const { user } = useAuth();
+  const [chatId, setChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    if (user) {
-        const messagesRef = ref(rtdb, `chats/${user.uid}/messages`);
-        const listener = onValue(messagesRef, (snapshot) => {
-            const data = snapshot.val();
-            const loadedMessages = data ? Object.values(data) as Message[] : [];
-            loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
-            setMessages(loadedMessages);
-        });
-
-        const convoRef = ref(rtdb, `conversations/${user.uid}`);
-        get(convoRef).then(snapshot => {
-            if(snapshot.exists()) {
-                update(convoRef, {
-                    unreadByUser: 0
-                });
-            }
-        });
-
-
-        return () => off(messagesRef, 'value', listener);
+    if (typeof window !== 'undefined') {
+        const storedChatId = localStorage.getItem(CHAT_ID_KEY);
+        if (storedChatId) {
+            setChatId(storedChatId);
+        }
     }
-  }, [user]);
+    setIsInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    if (!chatId) return;
+
+    const messagesRef = ref(rtdb, `chats/${chatId}/messages`);
+    const listener = onValue(messagesRef, (snapshot) => {
+        const data = snapshot.val();
+        const loadedMessages = data ? Object.values(data) as Message[] : [];
+        loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
+        setMessages(loadedMessages);
+    });
+
+    return () => off(messagesRef, 'value', listener);
+  }, [chatId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+
+  const createNewChat = async (firstMessage: Message) => {
+    if (!user) return null;
+
+    const userDocRef = doc(db, 'user', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
+    const userAvatar = user.photoURL || `https://placehold.co/40x40.png`;
+
+    const newChatRef = push(ref(rtdb, 'chats'));
+    const newChatId = newChatRef.key;
+
+    if (!newChatId) return null;
+
+    const chatData = {
+        metadata: {
+            buyerId: user.uid,
+            buyerName: userName,
+            avatar: userAvatar,
+            lastMessage: firstMessage.text,
+            timestamp: serverTimestamp(),
+            unreadByAdmin: 1,
+        },
+        messages: {
+            [push(ref(rtdb, `chats/${newChatId}/messages`)).key!]: firstMessage
+        }
+    };
+
+    await set(newChatRef, chatData);
+    localStorage.setItem(CHAT_ID_KEY, newChatId);
+    return newChatId;
+  };
 
 
   const handleSendMessage = async () => {
@@ -59,37 +96,33 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     
     setIsSending(true);
 
-    const messageData = {
-      sender: 'user',
+    const messageData: Message = {
+      senderId: user.uid,
       text: newMessage,
       timestamp: serverTimestamp(),
     };
     
     try {
-        // 1. Push the new message
-        const chatRef = ref(rtdb, `chats/${user.uid}/messages`);
-        await push(chatRef, messageData);
+        let currentChatId = chatId;
+        
+        if (!currentChatId) {
+            currentChatId = await createNewChat(messageData);
+            if(currentChatId) {
+                setChatId(currentChatId);
+            }
+        } else {
+            const messagesRef = ref(rtdb, `chats/${currentChatId}/messages`);
+            await push(messagesRef, messageData);
 
-        // 2. Update conversation metadata
-        const conversationRef = ref(rtdb, `conversations/${user.uid}`);
-        const userDocRef = doc(db, 'user', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
-
-        const conversationData = {
-            lastMessage: newMessage,
-            timestamp: serverTimestamp(),
-            unreadByAdmin: increment(1),
-            unreadByUser: 0,
-            name: userName,
-            avatar: user.photoURL || `https://placehold.co/40x40.png`,
-        };
-        await update(conversationRef, conversationData);
-
+            const metadataRef = ref(rtdb, `chats/${currentChatId}/metadata`);
+            await update(metadataRef, {
+                lastMessage: newMessage,
+                timestamp: serverTimestamp()
+            });
+        }
         setNewMessage('');
     } catch(error) {
         console.error("Failed to send message: ", error);
-        // Add toast notification here
     } finally {
         setIsSending(false);
     }
@@ -99,6 +132,16 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     return null;
   }
   
+  if (!isInitialized) {
+      return (
+          <div className="fixed bottom-24 right-6 z-40 w-full max-w-sm">
+             <Card className="h-[60vh] flex items-center justify-center">
+                 <Loader2 className="h-8 w-8 animate-spin" />
+             </Card>
+          </div>
+      )
+  }
+
   if (!user) {
     return (
         <div className="fixed bottom-24 right-6 z-40 w-full max-w-sm">
@@ -125,9 +168,9 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map((chat, index) => (
-                <div key={index} className={`flex items-end gap-2 ${chat.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    {chat.sender === 'admin' && <Avatar className="h-8 w-8"><AvatarImage src="/logo.svg" /><AvatarFallback>A</AvatarFallback></Avatar>}
-                    <div className={`max-w-[75%] rounded-lg p-3 ${chat.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                <div key={index} className={`flex items-end gap-2 ${chat.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
+                    {chat.senderId !== user.uid && <Avatar className="h-8 w-8"><AvatarImage src="/logo.svg" /><AvatarFallback>A</AvatarFallback></Avatar>}
+                    <div className={`max-w-[75%] rounded-lg p-3 ${chat.senderId === user.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                         <p className="text-sm">{chat.text}</p>
                     </div>
                 </div>

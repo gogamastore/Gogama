@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -7,39 +6,37 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
-import { db, rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp, increment, get } from "firebase/database";
+import { rtdb } from '@/lib/firebase';
+import { ref, onValue, off, update, push, serverTimestamp, set } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
-import { collection, getDocs, doc } from 'firebase/firestore';
 
-interface Conversation {
-    id: string;
-    name: string;
+interface ChatMetadata {
+    buyerId: string;
+    buyerName: string;
+    adminId?: string;
     lastMessage: string;
-    unread: number;
-    avatar: string;
-    timestamp: number;
+    timestamp: any;
+    unreadByAdmin: number;
+    avatar?: string;
+}
+
+interface Chat {
+    id: string;
+    metadata: ChatMetadata;
 }
 
 interface Message {
-    sender: string; // 'admin' or 'user'
+    senderId: string;
     text: string;
     timestamp: any;
 }
 
-interface User {
-    id: string;
-    name: string;
-    photoURL?: string;
-}
-
 export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { user: adminUser } = useAuth();
-  const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -47,33 +44,17 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
 
 
   useEffect(() => {
-    async function fetchUsers() {
-        const querySnapshot = await getDocs(collection(db, "user"));
-        const usersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-        setUsers(usersData);
-    }
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    if (users.length === 0 || !adminUser) return; 
+    if (!adminUser) return; 
 
     setLoading(true);
-    const convosRef = ref(rtdb, 'conversations');
-    const listener = onValue(convosRef, (snapshot) => {
+    const chatsRef = ref(rtdb, 'chats');
+    const listener = onValue(chatsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            const convosList = Object.keys(data).map(key => {
-                const user = users.find(u => u.id === key);
-                return {
-                    id: key,
-                    name: data[key].name || user?.name || 'Unknown User',
-                    lastMessage: data[key].lastMessage,
-                    timestamp: data[key].timestamp,
-                    unread: data[key].unreadByAdmin || 0,
-                    avatar: data[key].avatar || user?.photoURL || `https://placehold.co/40x40.png`
-                };
-            }).sort((a, b) => b.timestamp - a.timestamp);
+            const convosList: Chat[] = Object.keys(data).map(key => ({
+                id: key,
+                metadata: data[key].metadata
+            })).sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);
             setConversations(convosList);
         } else {
           setConversations([]);
@@ -84,12 +65,12 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         setLoading(false);
     });
 
-    return () => off(convosRef, 'value', listener);
-  }, [users, adminUser]);
+    return () => off(chatsRef, 'value', listener);
+  }, [adminUser]);
   
   useEffect(() => {
-    if (activeChatUserId) {
-        const messagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
+    if (activeChatId) {
+        const messagesRef = ref(rtdb, `chats/${activeChatId}/messages`);
         const listener = onValue(messagesRef, (snapshot) => {
             const data = snapshot.val();
             const loadedMessages = data ? Object.values(data) as Message[] : [];
@@ -99,14 +80,15 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
           console.error("Permission error fetching messages:", error);
         });
         
-        const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
-        update(conversationRef, {
+        // Mark as read
+        const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
+        update(metadataRef, {
           unreadByAdmin: 0
         }).catch(err => console.error("Could not mark as read:", err));
 
         return () => off(messagesRef, 'value', listener);
     }
-  }, [activeChatUserId]);
+  }, [activeChatId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -114,41 +96,38 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
 
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !activeChatUserId || !adminUser) return;
+    if (!newMessage.trim() || !activeChatId || !adminUser) return;
 
     setIsSending(true);
 
-    const messageData = {
-      sender: 'admin',
+    const messageData: Message = {
+      senderId: adminUser.uid,
       text: newMessage,
       timestamp: serverTimestamp(),
     };
 
     try {
-      // Step 1: Push the new message to the chat
-      const chatMessagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
+      const chatMessagesRef = ref(rtdb, `chats/${activeChatId}/messages`);
       await push(chatMessagesRef, messageData);
       
-      // Step 2: Update the conversation metadata
-      const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
-      const conversationUpdate = {
+      const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
+      const metadataUpdate = {
         lastMessage: newMessage,
         timestamp: serverTimestamp(),
-        unreadByUser: increment(1)
+        adminId: adminUser.uid,
       };
-      await update(conversationRef, conversationUpdate);
+      await update(metadataRef, metadataUpdate);
 
       setNewMessage('');
     } catch (error) {
       console.error("Failed to send message: ", error);
-      // You might want a toast here
     } finally {
       setIsSending(false);
     }
   };
 
-  const handleSelectChat = (userId: string) => {
-      setActiveChatUserId(userId);
+  const handleSelectChat = (chatId: string) => {
+      setActiveChatId(chatId);
   }
 
   if (!isOpen) {
@@ -156,34 +135,33 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
   }
 
   const filteredConversations = conversations.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+    c.metadata.buyerName.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const activeUser = users.find(u => u.id === activeChatUserId);
-
+  const activeConversation = conversations.find(c => c.id === activeChatId);
 
   return (
     <div className="fixed bottom-24 right-6 z-40 w-full max-w-sm">
       <Card className="flex h-[60vh] flex-col shadow-2xl">
         <CardHeader className="flex flex-row items-center border-b p-4">
-          {activeChatUserId && (
-            <Button variant="ghost" size="icon" className="mr-2" onClick={() => setActiveChatUserId(null)}>
+          {activeChatId && (
+            <Button variant="ghost" size="icon" className="mr-2" onClick={() => setActiveChatId(null)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
           )}
           <div className="flex-1">
-            <CardTitle>{activeChatUserId ? activeUser?.name : 'Pesan'}</CardTitle>
-            <CardDescription>{activeChatUserId ? 'Online' : `${conversations.length} percakapan`}</CardDescription>
+            <CardTitle>{activeChatId ? activeConversation?.metadata.buyerName : 'Pesan'}</CardTitle>
+            <CardDescription>{activeChatId ? 'Online' : `${conversations.length} percakapan`}</CardDescription>
           </div>
         </CardHeader>
 
-        {activeChatUserId ? (
+        {activeChatId ? (
           <>
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((chat, index) => (
-                    <div key={index} className={`flex items-end gap-2 ${chat.sender === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                       {chat.sender !== 'admin' && <Avatar className="h-8 w-8"><AvatarImage src={activeUser?.photoURL || undefined} /><AvatarFallback>{activeUser?.name?.charAt(0)}</AvatarFallback></Avatar>}
-                       <div className={`max-w-[75%] rounded-lg p-3 ${chat.sender === 'admin' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                    <div key={index} className={`flex items-end gap-2 ${chat.senderId === adminUser?.uid ? 'justify-end' : 'justify-start'}`}>
+                       {chat.senderId !== adminUser?.uid && <Avatar className="h-8 w-8"><AvatarImage src={activeConversation?.metadata.avatar || undefined} /><AvatarFallback>{activeConversation?.metadata.buyerName?.charAt(0)}</AvatarFallback></Avatar>}
+                       <div className={`max-w-[75%] rounded-lg p-3 ${chat.senderId === adminUser?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                            <p className="text-sm">{chat.text}</p>
                        </div>
                     </div>
@@ -224,16 +202,16 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
                       onClick={() => handleSelectChat(convo.id)}
                     >
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={convo.avatar} alt={convo.name} />
-                        <AvatarFallback>{convo.name.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={convo.metadata.avatar} alt={convo.metadata.buyerName} />
+                        <AvatarFallback>{convo.metadata.buyerName.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 overflow-hidden">
-                        <p className="font-semibold truncate">{convo.name}</p>
-                        <p className="text-sm text-muted-foreground truncate">{convo.lastMessage}</p>
+                        <p className="font-semibold truncate">{convo.metadata.buyerName}</p>
+                        <p className="text-sm text-muted-foreground truncate">{convo.metadata.lastMessage}</p>
                       </div>
-                      {convo.unread > 0 && (
+                      {convo.metadata.unreadByAdmin > 0 && (
                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                          {convo.unread}
+                          {convo.metadata.unreadByAdmin}
                         </div>
                       )}
                     </div>
