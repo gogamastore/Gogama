@@ -10,7 +10,7 @@ import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { db, rtdb } from '@/lib/firebase';
 import { ref, onValue, off, update, push, serverTimestamp, increment, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc } from 'firebase/firestore';
 
 interface Conversation {
     id: string;
@@ -99,7 +99,6 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
           console.error("Permission error fetching messages:", error);
         });
         
-        // Mark messages as read by admin - this should be allowed by rules
         const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
         update(conversationRef, {
           unreadByAdmin: 0
@@ -135,7 +134,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
       const conversationUpdate = {
         lastMessage: newMessage,
         timestamp: serverTimestamp(),
-        unreadByUser: increment(1) // Notify the user
+        unreadByUser: increment(1)
       };
       await update(conversationRef, conversationUpdate);
 
