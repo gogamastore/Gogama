@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp, get } from "firebase/database";
+import { ref, onValue, off, update, push, serverTimestamp, set } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -94,7 +94,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   }, [messages]);
 
 
-  const createNewChat = async (firstMessage: Message) => {
+  const createNewChat = async (firstMessageText: string) => {
     if (!user) return null;
 
     const userDocRef = doc(db, 'user', user.uid);
@@ -105,22 +105,27 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     const newChatId = generatePushID();
     const firstMessageId = generatePushID();
 
-    const updates: { [key: string]: any } = {};
-
-    updates[`/chats/${newChatId}/messages/${firstMessageId}`] = firstMessage;
-    updates[`/chats/${newChatId}/members/${user.uid}`] = true;
-    
-    updates[`/conversations/${newChatId}`] = {
-        buyerId: user.uid,
-        buyerName: userName,
-        avatar: userAvatar,
-        lastMessage: firstMessage.text,
-        timestamp: serverTimestamp(),
-        unreadByAdmin: 1,
+    const newChatData = {
+        metadata: {
+            buyerId: user.uid,
+            buyerName: userName,
+            avatar: userAvatar,
+            lastMessage: firstMessageText,
+            timestamp: serverTimestamp(),
+            unreadByAdmin: 1,
+        },
+        messages: {
+            [firstMessageId]: {
+                senderId: user.uid,
+                text: firstMessageText,
+                timestamp: serverTimestamp(),
+            }
+        }
     };
 
     try {
-      await update(ref(rtdb), updates);
+      const chatRef = ref(rtdb, `chats/${newChatId}`);
+      await set(chatRef, newChatData);
       return newChatId;
     } catch(error) {
       console.error("Failed to create new chat:", error);
@@ -133,18 +138,12 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     if (!newMessage.trim() || !user) return;
     
     setIsSending(true);
-
-    const messageData: Message = {
-      senderId: user.uid,
-      text: newMessage,
-      timestamp: serverTimestamp(),
-    };
     
     try {
         let currentChatId = chatId;
         
         if (!currentChatId) {
-            currentChatId = await createNewChat(messageData);
+            currentChatId = await createNewChat(newMessage);
             if(currentChatId) {
                 localStorage.setItem('chatId', currentChatId);
                 setChatId(currentChatId);
@@ -153,13 +152,21 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             const updates: { [key: string]: any } = {};
             const newMessageKey = push(ref(rtdb, `chats/${currentChatId}/messages`)).key;
             
-            updates[`/chats/${currentChatId}/messages/${newMessageKey}`] = messageData;
-            updates[`/conversations/${currentChatId}/lastMessage`] = newMessage;
-            updates[`/conversations/${currentChatId}/timestamp`] = serverTimestamp();
+            updates[`/chats/${currentChatId}/messages/${newMessageKey}`] = {
+              senderId: user.uid,
+              text: newMessage,
+              timestamp: serverTimestamp(),
+            };
+            updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
+            updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
-            const unreadRef = ref(rtdb, `conversations/${currentChatId}/unreadByAdmin`);
-            const snapshot = await get(unreadRef);
-            updates[`/conversations/${currentChatId}/unreadByAdmin`] = (snapshot.val() || 0) + 1;
+            // Increment unread count for admin
+            const unreadRef = ref(rtdb, `chats/${currentChatId}/metadata/unreadByAdmin`);
+            onValue(unreadRef, (snapshot) => {
+              const currentUnread = snapshot.val() || 0;
+              updates[`/chats/${currentChatId}/metadata/unreadByAdmin`] = currentUnread + 1;
+            }, { onlyOnce: true });
+
 
             await update(ref(rtdb), updates);
         }

@@ -8,12 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp, get } from "firebase/database";
+import { ref, onValue, off, update, push, serverTimestamp } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
-
-interface ChatMember {
-    [uid: string]: boolean;
-}
 
 interface ChatMetadata {
     buyerId: string;
@@ -21,14 +17,8 @@ interface ChatMetadata {
     adminId?: string;
     lastMessage: string;
     timestamp: any;
-    unreadByAdmin?: number;
     avatar?: string;
-    members: ChatMember;
-}
-
-interface Conversation {
-    id: string;
-    metadata: ChatMetadata;
+    unreadByAdmin?: number;
 }
 
 interface Message {
@@ -37,11 +27,17 @@ interface Message {
     timestamp: any;
 }
 
+interface Chat {
+    id: string;
+    metadata: ChatMetadata;
+    messages: { [key: string]: Message };
+}
+
 export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { user: adminUser } = useAuth();
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [allChats, setAllChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
@@ -52,25 +48,25 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     if (!adminUser || !isOpen) return;
 
     setLoading(true);
-    const conversationsRef = ref(rtdb, 'conversations');
-    const listener = onValue(conversationsRef, (snapshot) => {
+    const chatsRef = ref(rtdb, 'chats');
+    const listener = onValue(chatsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            const convosList: Conversation[] = Object.keys(data).map(key => ({
+            const chatList: Chat[] = Object.keys(data).map(key => ({
                 id: key,
-                metadata: data[key]
+                ...data[key]
             })).sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);
-            setConversations(convosList);
+            setAllChats(chatList);
         } else {
-            setConversations([]);
+            setAllChats([]);
         }
         setLoading(false);
     }, (error) => {
-        console.error("Permission error fetching conversations:", error);
+        console.error("Permission error fetching chats:", error);
         setLoading(false);
     });
 
-    return () => off(conversationsRef, 'value', listener);
+    return () => off(chatsRef, 'value', listener);
   }, [adminUser, isOpen]);
 
   useEffect(() => {
@@ -85,9 +81,12 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
           console.error("Permission error fetching messages:", error);
           setMessages([]);
         });
+        
+        // Mark as read
+        const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata/unreadByAdmin`);
+        update(ref(rtdb), { [metadataRef.toString().substring(metadataRef.root.toString().length-1)]: 0 })
+          .catch(err => console.error("Could not mark as read:", err));
 
-        const conversationRef = ref(rtdb, `conversations/${activeChatId}`);
-        update(conversationRef, { unreadByAdmin: 0 }).catch(err => console.error("Could not mark as read:", err));
 
         return () => off(messagesRef, 'value', listener);
     }
@@ -113,10 +112,9 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
       const newMessageKey = push(ref(rtdb, `chats/${activeChatId}/messages`)).key;
       
       updates[`/chats/${activeChatId}/messages/${newMessageKey}`] = messageData;
-      updates[`/chats/${activeChatId}/members/${adminUser.uid}`] = true;
-      updates[`/conversations/${activeChatId}/lastMessage`] = newMessage;
-      updates[`/conversations/${activeChatId}/timestamp`] = serverTimestamp();
-      updates[`/conversations/${activeChatId}/adminId`] = adminUser.uid;
+      updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
+      updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
+      updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid;
 
       await update(ref(rtdb), updates);
 
@@ -136,11 +134,11 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     return null;
   }
 
-  const filteredConversations = conversations.filter(c =>
+  const filteredChats = allChats.filter(c =>
     c.metadata.buyerName.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const activeConversation = conversations.find(c => c.id === activeChatId);
+  const activeChat = allChats.find(c => c.id === activeChatId);
 
   return (
     <div className="fixed bottom-24 right-6 z-40 w-full max-w-sm">
@@ -152,8 +150,8 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             </Button>
           )}
           <div className="flex-1">
-            <CardTitle>{activeChatId ? activeConversation?.metadata.buyerName : 'Pesan'}</CardTitle>
-            <CardDescription>{activeChatId ? 'Online' : `${conversations.length} percakapan`}</CardDescription>
+            <CardTitle>{activeChatId ? activeChat?.metadata.buyerName : 'Pesan'}</CardTitle>
+            <CardDescription>{activeChatId ? 'Online' : `${allChats.length} percakapan`}</CardDescription>
           </div>
         </CardHeader>
 
@@ -162,7 +160,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((chat, index) => (
                     <div key={index} className={`flex items-end gap-2 ${chat.senderId === adminUser?.uid ? 'justify-end' : 'justify-start'}`}>
-                       {chat.senderId !== adminUser?.uid && <Avatar className="h-8 w-8"><AvatarImage src={activeConversation?.metadata.avatar || undefined} /><AvatarFallback>{activeConversation?.metadata.buyerName?.charAt(0)}</AvatarFallback></Avatar>}
+                       {chat.senderId !== adminUser?.uid && <Avatar className="h-8 w-8"><AvatarImage src={activeChat?.metadata.avatar || undefined} /><AvatarFallback>{activeChat?.metadata.buyerName?.charAt(0)}</AvatarFallback></Avatar>}
                        <div className={`max-w-[75%] rounded-lg p-3 ${chat.senderId === adminUser?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                            <p className="text-sm">{chat.text}</p>
                        </div>
@@ -197,23 +195,23 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
                 <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin"/></div>
               ) : (
                 <div className="divide-y">
-                  {filteredConversations.map(convo => (
+                  {filteredChats.map(chat => (
                     <div
-                      key={convo.id}
+                      key={chat.id}
                       className="flex items-center gap-4 p-4 hover:bg-muted cursor-pointer"
-                      onClick={() => handleSelectChat(convo.id)}
+                      onClick={() => handleSelectChat(chat.id)}
                     >
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={convo.metadata.avatar} alt={convo.metadata.buyerName} />
-                        <AvatarFallback>{convo.metadata.buyerName.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={chat.metadata.avatar} alt={chat.metadata.buyerName} />
+                        <AvatarFallback>{chat.metadata.buyerName.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 overflow-hidden">
-                        <p className="font-semibold truncate">{convo.metadata.buyerName}</p>
-                        <p className="text-sm text-muted-foreground truncate">{convo.metadata.lastMessage}</p>
+                        <p className="font-semibold truncate">{chat.metadata.buyerName}</p>
+                        <p className="text-sm text-muted-foreground truncate">{chat.metadata.lastMessage}</p>
                       </div>
-                      {convo.metadata.unreadByAdmin && convo.metadata.unreadByAdmin > 0 && (
+                      {chat.metadata.unreadByAdmin && chat.metadata.unreadByAdmin > 0 && (
                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                          {convo.metadata.unreadByAdmin}
+                          {chat.metadata.unreadByAdmin}
                         </div>
                       )}
                     </div>
