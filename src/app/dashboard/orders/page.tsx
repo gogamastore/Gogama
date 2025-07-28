@@ -224,12 +224,7 @@ export default function OrdersPage() {
       .filter(o => o.paymentMethod === 'bank_transfer' && o.paymentStatus === 'Unpaid' && o.status === 'Pending')
       .sort((a, b) => a.date.toMillis() - b.date.toMillis());
 
-    // toProcess: All non-COD pending orders that admin can process even if unpaid.
-     const toProcess = allOrders
-      .filter(o => o.status === 'Pending')
-      .sort((a, b) => a.date.toMillis() - b.date.toMillis());
-
-    // toShip: All COD orders, or Bank transfers that are paid. Status is 'Processing'.
+    // toShip: All orders that need to be shipped. They are either COD, or Bank transfers that are paid. Status is 'Processing'.
     const toShip = allOrders
       .filter(o => o.status === 'Processing')
       .sort((a, b) => a.date.toMillis() - b.date.toMillis());
@@ -238,7 +233,7 @@ export default function OrdersPage() {
     const delivered = allOrders.filter(o => o.status === 'Delivered');
     const cancelled = allOrders.filter(o => o.status === 'Cancelled');
 
-    return { unpaid, toShip, shipped, delivered, toProcess, cancelled };
+    return { unpaid, toShip, shipped, delivered, cancelled };
   }, [allOrders]);
 
 
@@ -372,13 +367,10 @@ export default function OrdersPage() {
         <CardDescription>Lihat dan kelola semua pesanan yang masuk berdasarkan statusnya.</CardDescription>
       </CardHeader>
       <CardContent>
-          <Tabs defaultValue="toProcess">
-            <TabsList className="grid w-full grid-cols-5">
+          <Tabs defaultValue="toShip">
+            <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="unpaid">
                     Belum Bayar <Badge className="ml-2">{filteredOrders.unpaid.length}</Badge>
-                </TabsTrigger>
-                 <TabsTrigger value="toProcess">
-                    Perlu Diproses <Badge className="ml-2">{filteredOrders.toProcess.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="toShip">
                     Perlu Dikirim <Badge className="ml-2">{filteredOrders.toShip.length}</Badge>
@@ -392,9 +384,6 @@ export default function OrdersPage() {
             </TabsList>
             <TabsContent value="unpaid" className="mt-4">
                 {renderOrderTable(filteredOrders.unpaid, 'unpaid')}
-            </TabsContent>
-             <TabsContent value="toProcess" className="mt-4">
-                {renderOrderTable(filteredOrders.toProcess, 'toProcess')}
             </TabsContent>
             <TabsContent value="toShip" className="mt-4">
                 {renderOrderTable(filteredOrders.toShip, 'toShip')}
@@ -410,5 +399,3 @@ export default function OrdersPage() {
     </Card>
   )
 }
-
-    
