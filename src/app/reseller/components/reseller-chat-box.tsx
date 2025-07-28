@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp, get, set } from "firebase/database";
+import { ref, onValue, off, update, push, serverTimestamp, get, set, child } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -19,6 +19,42 @@ interface Message {
 }
 
 const CHAT_ID_KEY = 'orderflow_chat_id';
+
+// Helper to generate a unique ID, similar to Firebase's push keys
+function generatePushID() {
+    const PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+    let lastPushTime = 0;
+    const lastRandChars: number[] = [];
+    
+    return (function() {
+      let now = new Date().getTime();
+      let duplicateTime = (now === lastPushTime);
+      lastPushTime = now;
+  
+      let timeStampChars = new Array(8);
+      for (var i = 7; i >= 0; i--) {
+        timeStampChars[i] = PUSH_CHARS.charAt(now % 64);
+        now = Math.floor(now / 64);
+      }
+  
+      let id = timeStampChars.join('');
+  
+      if (!duplicateTime) {
+        for (i = 0; i < 12; i++) {
+          lastRandChars[i] = Math.floor(Math.random() * 64);
+        }
+      } else {
+        for (i = 11; i >= 0 && lastRandChars[i] === 63; i--) {
+          lastRandChars[i] = 0;
+        }
+        lastRandChars[i]++;
+      }
+      for (i = 0; i < 12; i++) {
+        id += PUSH_CHARS.charAt(lastRandChars[i]);
+      }
+      return id;
+    })();
+}
 
 export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const { user } = useAuth();
@@ -65,11 +101,9 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     const userDoc = await getDoc(userDocRef);
     const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
     const userAvatar = user.photoURL || `https://placehold.co/40x40.png`;
-
-    const newChatRef = push(ref(rtdb, 'chats'));
-    const newChatId = newChatRef.key;
-
-    if (!newChatId) return null;
+    
+    const newChatId = generatePushID();
+    const newChatRef = ref(rtdb, `chats/${newChatId}`);
 
     const chatData = {
         metadata: {
@@ -79,9 +113,10 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             lastMessage: firstMessage.text,
             timestamp: serverTimestamp(),
             unreadByAdmin: 1,
+            adminId: "admin_placeholder" // Placeholder, can be updated when admin joins
         },
         messages: {
-            [push(ref(rtdb, `chats/${newChatId}/messages`)).key!]: firstMessage
+            [generatePushID()]: firstMessage
         }
     };
 
@@ -111,13 +146,16 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
                 setChatId(currentChatId);
             }
         } else {
-            const messagesRef = ref(rtdb, `chats/${currentChatId}/messages`);
-            await push(messagesRef, messageData);
+            const messagesListRef = ref(rtdb, `chats/${currentChatId}/messages`);
+            const newMessageRef = push(messagesListRef);
+            await set(newMessageRef, messageData);
 
             const metadataRef = ref(rtdb, `chats/${currentChatId}/metadata`);
+            const currentUnreadCount = (await get(child(metadataRef, 'unreadByAdmin'))).val() || 0;
             await update(metadataRef, {
                 lastMessage: newMessage,
-                timestamp: serverTimestamp()
+                timestamp: serverTimestamp(),
+                unreadByAdmin: currentUnreadCount + 1,
             });
         }
         setNewMessage('');
