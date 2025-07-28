@@ -108,35 +108,28 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChatUserId || !adminUser) return;
-    
+
     setIsSending(true);
 
     const messageData = {
-        sender: 'admin',
-        text: newMessage,
-        timestamp: serverTimestamp(),
+      sender: 'admin',
+      text: newMessage,
+      timestamp: serverTimestamp(),
     };
 
     try {
-        // Step 1: Push the new message to the chat path
-        const chatMessagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
-        await push(chatMessagesRef, messageData);
-        
-        // Step 2: Update the conversation metadata in a separate operation
-        const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
-        const updateData = {
-            lastMessage: newMessage,
-            timestamp: serverTimestamp(),
-            unreadByUser: increment(1)
-        };
-        await update(conversationRef, updateData);
+      const chatMessagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
+      await push(chatMessagesRef, messageData);
+      
+      // The reseller's side will update the conversation metadata.
+      // Admin only needs to send the message.
 
-        setNewMessage('');
-    } catch(error) {
-        console.error("Failed to send message: ", error);
-        // You might want a toast here
+      setNewMessage('');
+    } catch (error) {
+      console.error("Failed to send message: ", error);
+      // You might want a toast here
     } finally {
-        setIsSending(false);
+      setIsSending(false);
     }
   };
 
