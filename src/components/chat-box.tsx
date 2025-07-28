@@ -56,7 +56,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
   }, []);
 
   useEffect(() => {
-    if (users.length === 0) return; // Wait for users to be fetched
+    if (users.length === 0 || !adminUser) return; 
 
     setLoading(true);
     const convosRef = ref(rtdb, 'conversations');
@@ -75,12 +75,17 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
                 };
             }).sort((a, b) => b.timestamp - a.timestamp);
             setConversations(convosList);
+        } else {
+          setConversations([]);
         }
+        setLoading(false);
+    }, (error) => {
+        console.error("Permission error fetching conversations:", error);
         setLoading(false);
     });
 
     return () => off(convosRef, 'value', listener);
-  }, [users]);
+  }, [users, adminUser]);
   
   useEffect(() => {
     if (activeChatUserId) {
@@ -90,12 +95,15 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             const loadedMessages = data ? Object.values(data) as Message[] : [];
             loadedMessages.sort((a,b) => a.timestamp - b.timestamp);
             setMessages(loadedMessages);
+        }, (error) => {
+          console.error("Permission error fetching messages:", error);
         });
         
-        // Mark messages as read
-        update(ref(rtdb, `conversations/${activeChatUserId}`), {
+        // Mark messages as read by admin - this should be allowed by rules
+        const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
+        update(conversationRef, {
           unreadByAdmin: 0
-        });
+        }).catch(err => console.error("Could not mark as read:", err));
 
         return () => off(messagesRef, 'value', listener);
     }
@@ -118,11 +126,18 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     };
 
     try {
+      // Step 1: Push the new message to the chat
       const chatMessagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
       await push(chatMessagesRef, messageData);
       
-      // The reseller's side will update the conversation metadata.
-      // Admin only needs to send the message.
+      // Step 2: Update the conversation metadata
+      const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
+      const conversationUpdate = {
+        lastMessage: newMessage,
+        timestamp: serverTimestamp(),
+        unreadByUser: increment(1) // Notify the user
+      };
+      await update(conversationRef, conversationUpdate);
 
       setNewMessage('');
     } catch (error) {
