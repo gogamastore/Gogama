@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp, set } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, set } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -83,6 +83,11 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         setMessages(loadedMessages);
     }, (error) => {
         console.error("Error fetching messages:", error);
+        // If permission is denied on the specific chat, maybe the ID is stale.
+        if (error.code === 'PERMISSION_DENIED') {
+            localStorage.removeItem('chatId');
+            setChatId(null);
+        }
     });
 
     return () => off(messagesRef, 'value', listener);
@@ -113,6 +118,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             lastMessage: firstMessageText,
             timestamp: serverTimestamp(),
             unreadByAdmin: 1,
+            adminId: "not_assigned", // Placeholder for admin
         },
         messages: {
             [firstMessageId]: {
@@ -150,7 +156,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             }
         } else {
             const updates: { [key: string]: any } = {};
-            const newMessageKey = push(ref(rtdb, `chats/${currentChatId}/messages`)).key;
+            const newMessageKey = generatePushID();
             
             updates[`/chats/${currentChatId}/messages/${newMessageKey}`] = {
               senderId: user.uid,
@@ -160,7 +166,6 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
             updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
-            // Increment unread count for admin
             const unreadRef = ref(rtdb, `chats/${currentChatId}/metadata/unreadByAdmin`);
             onValue(unreadRef, (snapshot) => {
               const currentUnread = snapshot.val() || 0;
