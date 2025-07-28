@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import ChatTrigger from "@/components/chat-trigger";
 
 function Logo() {
   return (
@@ -113,6 +114,7 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+      <ChatTrigger />
     </div>
   );
 }
