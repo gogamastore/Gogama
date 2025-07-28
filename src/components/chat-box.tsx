@@ -8,17 +8,18 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, push, get } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, push } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 
 interface ConversationMetadata {
-    id: string;
+    id: string; // This is the chatId
     buyerId: string;
     buyerName: string;
     lastMessage: string;
     timestamp: any;
     avatar?: string;
     unreadByAdmin?: number;
+    adminId?: string;
 }
 
 interface Message {
@@ -83,7 +84,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
       });
       
       const activeConversation = allConversations.find(c => c.id === activeChatId);
-      if (activeConversation) {
+      if (activeConversation?.unreadByAdmin) {
         const conversationRef = ref(rtdb, `conversations/${activeConversation.buyerId}`);
         update(conversationRef, { unreadByAdmin: 0 });
       }
@@ -121,6 +122,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         const newMessageKey = push(ref(rtdb, `chats/${activeChatId}/messages`)).key;
         updates[`/chats/${activeChatId}/messages/${newMessageKey}`] = messageData;
         
+        // Update metadata for both chat and conversation list
         updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
         updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
         updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid; // Ensure adminId is set

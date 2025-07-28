@@ -34,8 +34,8 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         if (savedChatId) {
             setChatId(savedChatId);
         }
-        setIsInitialized(true);
     }
+    setIsInitialized(true);
   }, []);
 
   useEffect(() => {
@@ -74,14 +74,13 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
 
     const updates: { [key: string]: any } = {};
 
-    // Chat metadata
+    // Chat metadata, including the crucial buyerId for security rules
     updates[`/chats/${newChatId}/metadata`] = {
         buyerId: user.uid,
         buyerName: userName,
         avatar: userAvatar,
         lastMessage: firstMessageText,
         timestamp: serverTimestamp(),
-        adminId: "not_assigned",
     };
 
     // First message
@@ -140,8 +139,6 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
             updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
-            // This is the correct way to update the unread count without reading first.
-            // It relies on a server-side atomic increment operation.
             updates[`/conversations/${user.uid}/lastMessage`] = newMessage;
             updates[`/conversations/${user.uid}/timestamp`] = serverTimestamp();
             updates[`/conversations/${user.uid}/unreadByAdmin`] = increment(1);
