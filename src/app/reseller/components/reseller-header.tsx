@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, ShoppingCart, User, Archive } from "lucide-react"
+import { Search, ShoppingCart, User, Archive, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/hooks/use-cart"
 import { Badge } from "@/components/ui/badge"
@@ -59,32 +59,14 @@ export default function ResellerHeader() {
         router.push('/');
     }
 
+    const renderAuthSection = () => {
+        if (!isMounted) {
+            return <div className="h-8 w-8"></div>; // Placeholder to prevent layout shift
+        }
 
-    return (
-        <header className="bg-card sticky top-0 z-10 border-b">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <Logo />
-            <div className="hidden md:flex flex-1 max-w-lg items-center relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Cari produk..." className="pl-9" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/reseller/cart" className="relative">
-                    {isMounted && totalItems > 0 && (
-                         <Badge className="absolute -top-2 -right-2 h-5 w-5 justify-center p-0">{totalItems}</Badge>
-                    )}
-                    <ShoppingCart className="h-5 w-5" />
-                </Link>
-              </Button>
-               <Button variant="ghost" size="icon" asChild>
-                <Link href="/reseller/orders">
-                  <Archive className="h-5 w-5" />
-                </Link>
-              </Button>
-              {isMounted && user ? (
-                 <DropdownMenu>
+        if (user) {
+            return (
+                <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                         <Avatar className="h-8 w-8">
@@ -117,9 +99,37 @@ export default function ResellerHeader() {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-              ) : (
-                <Button variant="outline" onClick={() => router.push('/')}>Login</Button>
-              )}
+            );
+        }
+
+        return <Button variant="outline" onClick={() => router.push('/')}>Login</Button>;
+    }
+
+
+    return (
+        <header className="bg-card sticky top-0 z-10 border-b">
+        <div className="container mx-auto px-4">
+          <div className="flex h-16 items-center justify-between">
+            <Logo />
+            <div className="hidden md:flex flex-1 max-w-lg items-center relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Cari produk..." className="pl-9" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" asChild>
+                <Link href="/reseller/cart" className="relative">
+                    {isMounted && totalItems > 0 && (
+                         <Badge className="absolute -top-2 -right-2 h-5 w-5 justify-center p-0">{totalItems}</Badge>
+                    )}
+                    <ShoppingCart className="h-5 w-5" />
+                </Link>
+              </Button>
+               <Button variant="ghost" size="icon" asChild>
+                <Link href="/reseller/orders">
+                  <Archive className="h-5 w-5" />
+                </Link>
+              </Button>
+              {renderAuthSection()}
             </div>
           </div>
         </div>
