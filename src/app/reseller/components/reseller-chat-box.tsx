@@ -66,11 +66,12 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     };
     
     try {
+        // 1. Push the new message
         const chatRef = ref(rtdb, `chats/${user.uid}/messages`);
         await push(chatRef, messageData);
 
+        // 2. Update conversation metadata
         const conversationRef = ref(rtdb, `conversations/${user.uid}`);
-        
         const userDocRef = doc(db, 'user', user.uid);
         const userDoc = await getDoc(userDocRef);
         const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
@@ -83,6 +84,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             lastMessage: newMessage,
             timestamp: serverTimestamp(),
             unreadByAdmin: increment(1),
+            unreadByUser: 0,
             name: userName,
             avatar: user.photoURL || `https://placehold.co/40x40.png`,
         };
