@@ -269,19 +269,23 @@ export default function OrdersPage() {
 
 
   const filteredOrders = useMemo(() => {
-    // unpaid: Bank transfer, not yet paid, status is still pending
+    const safeSort = (a: Order, b: Order) => {
+        const dateA = a.date?.toMillis ? a.date.toMillis() : 0;
+        const dateB = b.date?.toMillis ? b.date.toMillis() : 0;
+        return dateA - dateB;
+    };
+
     const unpaid = allOrders
       .filter(o => o.paymentMethod === 'bank_transfer' && o.paymentStatus === 'Unpaid' && o.status === 'Pending')
-      .sort((a, b) => a.date.toMillis() - b.date.toMillis());
+      .sort(safeSort);
 
-    // toShip: All orders that need to be shipped. They are either COD, or Bank transfers that are paid. Status is 'Processing'.
     const toShip = allOrders
       .filter(o => o.status === 'Processing')
-      .sort((a, b) => a.date.toMillis() - b.date.toMillis());
+      .sort(safeSort);
 
-    const shipped = allOrders.filter(o => o.status === 'Shipped');
-    const delivered = allOrders.filter(o => o.status === 'Delivered');
-    const cancelled = allOrders.filter(o => o.status === 'Cancelled');
+    const shipped = allOrders.filter(o => o.status === 'Shipped').sort(safeSort);
+    const delivered = allOrders.filter(o => o.status === 'Delivered').sort(safeSort);
+    const cancelled = allOrders.filter(o => o.status === 'Cancelled').sort(safeSort);
 
     return { unpaid, toShip, shipped, delivered, cancelled };
   }, [allOrders]);
