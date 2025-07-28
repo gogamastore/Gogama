@@ -83,7 +83,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
       });
       
       const activeConversation = allConversations.find(c => c.chatId === activeChatId);
-      if (activeConversation?.unreadByAdmin) {
+      if (activeConversation?.unreadByAdmin && activeConversation.unreadByAdmin > 0) {
         const conversationRef = ref(rtdb, `conversations/${activeConversation.buyerId}`);
         update(conversationRef, { unreadByAdmin: 0 });
       }
@@ -122,7 +122,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         updates[`/chats/${activeChatId}/messages/${newMessageKey}`] = messageData;
         updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
         updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
-        updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid; // Ensure adminId is set
+        updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid; 
 
         updates[`/conversations/${activeConversation.buyerId}/lastMessage`] = newMessage;
         updates[`/conversations/${activeConversation.buyerId}/timestamp`] = serverTimestamp();
