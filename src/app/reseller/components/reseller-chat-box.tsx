@@ -76,11 +76,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         const userDoc = await getDoc(userDocRef);
         const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
 
-        const currentConvoSnap = await get(conversationRef);
-        const currentConvoData = currentConvoSnap.val() || {};
-        
         const conversationData = {
-            ...currentConvoData,
             lastMessage: newMessage,
             timestamp: serverTimestamp(),
             unreadByAdmin: increment(1),
