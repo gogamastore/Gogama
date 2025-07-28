@@ -115,7 +115,7 @@ function PaymentUploader({ order, onUploadSuccess }: { order: Order, onUploadSuc
             const downloadUrl = await getDownloadURL(storageRef);
 
             const orderRef = doc(db, "orders", order.id);
-            await updateDoc(orderRef, { paymentProofUrl: downloadUrl });
+            await updateDoc(orderRef, { paymentProofUrl: downloadUrl, paymentStatus: 'Paid', status: 'Processing' });
 
             toast({ title: "Bukti pembayaran berhasil diunggah!" });
             onUploadSuccess(order.id, downloadUrl);
@@ -212,7 +212,8 @@ export default function OrderHistoryPage() {
   }, [user, authLoading]);
 
   const handleUploadSuccess = (orderId: string, url: string) => {
-      setOrders(prevOrders => prevOrders.map(o => o.id === orderId ? { ...o, paymentProofUrl: url } : o));
+      setOrders(prevOrders => prevOrders.map(o => o.id === orderId ? { ...o, paymentProofUrl: url, status: 'Processing', paymentStatus: 'Paid' } : o));
+      fetchOrders();
   };
 
   const handleCancelOrder = async (order: Order) => {
