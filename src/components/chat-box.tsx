@@ -8,10 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { db, rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update } from "firebase/database";
+import { ref, onValue, off, update, push, serverTimestamp, increment, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { collection, getDocs } from 'firebase/firestore';
-import { sendChatMessage } from '@/ai/flows/send-chat-message';
 
 interface Conversation {
     id: string;
@@ -111,16 +110,35 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     if (!newMessage.trim() || !activeChatUserId || !adminUser) return;
     
     setIsSending(true);
+
+    const messageData = {
+        sender: 'admin',
+        text: newMessage,
+        timestamp: serverTimestamp(),
+    };
+
     try {
-        await sendChatMessage({
-            text: newMessage,
-            userId: activeChatUserId,
-            senderId: adminUser.uid,
-            senderType: 'admin'
-        });
+        // Step 1: Push the new message to the chat path
+        const chatMessagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
+        await push(chatMessagesRef, messageData);
+        
+        // Step 2: Update the conversation metadata
+        const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
+        const currentConvoSnap = await get(conversationRef);
+        const currentConvoData = currentConvoSnap.val() || {};
+
+        const updateData: any = {
+            ...currentConvoData,
+            lastMessage: newMessage,
+            timestamp: serverTimestamp(),
+            unreadByUser: increment(1)
+        };
+
+        await update(conversationRef, updateData);
+
         setNewMessage('');
     } catch(error) {
-        console.error("Failed to send message via flow: ", error);
+        console.error("Failed to send message: ", error);
         // You might want a toast here
     } finally {
         setIsSending(false);
