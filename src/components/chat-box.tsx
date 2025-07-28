@@ -60,7 +60,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     const listener = onValue(convosRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            const convosList: Conversation[] = Object.keys(data).map(key => {
+            const convosList = Object.keys(data).map(key => {
                 const user = users.find(u => u.id === key);
                 return {
                     id: key,
@@ -71,7 +71,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
                     avatar: user?.photoURL || `https://placehold.co/40x40.png`
                 };
             }).sort((a, b) => b.timestamp - a.timestamp);
-            setConversations(convoList);
+            setConversations(convosList);
         }
         setLoading(false);
     });
