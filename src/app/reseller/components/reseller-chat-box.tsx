@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, set, push, get } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, set, push, get, increment } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -72,8 +72,6 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     const newChatId = newChatRef.key;
     if (!newChatId) return null;
 
-    const firstMessageRef = push(ref(rtdb, `chats/${newChatId}/messages`));
-    
     const updates: { [key: string]: any } = {};
 
     // Chat metadata
@@ -83,11 +81,11 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         avatar: userAvatar,
         lastMessage: firstMessageText,
         timestamp: serverTimestamp(),
-        unreadByAdmin: 1,
         adminId: "not_assigned",
     };
 
     // First message
+    const firstMessageRef = push(ref(rtdb, `chats/${newChatId}/messages`));
     updates[`/chats/${newChatId}/messages/${firstMessageRef.key}`] = {
         senderId: user.uid,
         text: firstMessageText,
@@ -142,14 +140,11 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
             updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
-            const convoRef = ref(rtdb, `conversations/${user.uid}`);
-            const convoSnap = await get(convoRef); // Corrected: use get from rtdb
-            const currentUnread = convoSnap.exists() ? convoSnap.val().unreadByAdmin || 0 : 0;
-            
+            // This is the correct way to update the unread count without reading first.
+            // It relies on a server-side atomic increment operation.
             updates[`/conversations/${user.uid}/lastMessage`] = newMessage;
             updates[`/conversations/${user.uid}/timestamp`] = serverTimestamp();
-            updates[`/conversations/${user.uid}/unreadByAdmin`] = currentUnread + 1;
-
+            updates[`/conversations/${user.uid}/unreadByAdmin`] = increment(1);
 
             await update(ref(rtdb), updates);
         }
