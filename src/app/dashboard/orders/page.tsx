@@ -26,8 +26,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw } from "lucide-react"
 import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -59,13 +59,65 @@ interface Order {
   id: string;
   customer: string;
   customerDetails?: CustomerDetails;
-  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
+  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
   paymentStatus: 'Paid' | 'Unpaid';
   paymentMethod: 'cod' | 'bank_transfer';
   paymentProofUrl?: string;
   total: string;
   date: any; // Allow for Firestore Timestamp object
   products?: OrderProduct[];
+}
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(amount);
+};
+
+
+function EditOrderDialog({ order }: { order: Order }) {
+    // This is a placeholder for the full edit functionality.
+    // Implementing full editing (quantity change, item removal, total recalculation, stock adjustment) is complex.
+    // For now, it displays the items.
+    return (
+         <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>Edit Pesanan #{order.id}</DialogTitle>
+                <DialogDescription>
+                    Ubah jumlah atau hapus item dari pesanan. Total akan dihitung ulang secara otomatis.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Produk</TableHead>
+                            <TableHead>Jumlah</TableHead>
+                            <TableHead className="text-right">Aksi</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {order.products?.map(p => (
+                            <TableRow key={p.productId}>
+                                <TableCell>{p.name}</TableCell>
+                                <TableCell>{p.quantity}</TableCell>
+                                <TableCell className="text-right">
+                                    {/* Placeholder for future actions */}
+                                    <Button variant="outline" size="sm" disabled>Ubah</Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+             <DialogFooter>
+                <Button variant="outline">Batal</Button>
+                <Button disabled>Simpan Perubahan</Button>
+            </DialogFooter>
+        </DialogContent>
+    )
 }
 
 export default function OrdersPage() {
@@ -79,11 +131,9 @@ export default function OrdersPage() {
     try {
         const q = query(collection(db, "orders"), orderBy("date", "desc"));
         const querySnapshot = await getDocs(q);
-        const ordersData = querySnapshot.docs.map(doc => ({ 
-            id: doc.id, 
-            paymentStatus: 'Unpaid', // Default
-            status: 'Processing', // Default
-            ...doc.data() 
+        const ordersData = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
         } as Order));
         setAllOrders(ordersData);
     } catch (error) {
@@ -101,7 +151,7 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, []);
-  
+
   const generatePdf = async (orderId: string) => {
     const orderDoc = await getDoc(doc(db, "orders", orderId));
     if (!orderDoc.exists()) {
@@ -115,13 +165,15 @@ export default function OrdersPage() {
     pdfDoc.text("Faktur Pesanan", 14, 22);
     pdfDoc.setFontSize(10);
     pdfDoc.text(`ID Pesanan: ${detailedOrder.id}`, 14, 32);
-    pdfDoc.text(`Tanggal: ${format(detailedOrder.date.toDate(), 'dd MMM yyyy')}`, 14, 37);
+    const orderDate = detailedOrder.date && detailedOrder.date.toDate ? format(detailedOrder.date.toDate(), 'dd MMM yyyy') : 'N/A';
+    pdfDoc.text(`Tanggal: ${orderDate}`, 14, 37);
+
     const customerInfo = detailedOrder.customerDetails;
     pdfDoc.text("Informasi Pelanggan:", 14, 47);
     pdfDoc.text(`Nama: ${customerInfo?.name || detailedOrder.customer}`, 14, 52);
     pdfDoc.text(`Alamat: ${customerInfo?.address || 'N/A'}`, 14, 57);
     pdfDoc.text(`WhatsApp: ${customerInfo?.whatsapp || 'N/A'}`, 14, 62);
-    
+
     const tableColumn = ["Nama Produk", "Jumlah", "Harga Satuan", "Subtotal"];
     const tableRows: (string | number)[][] = [];
     detailedOrder.products?.forEach(prod => {
@@ -149,14 +201,11 @@ export default function OrdersPage() {
       const orderRef = doc(db, "orders", orderId);
       try {
           await updateDoc(orderRef, updates);
-          setAllOrders(prevOrders => 
-              prevOrders.map(order => 
-                  order.id === orderId ? { ...order, ...updates } : order
-              )
-          );
+          // Instead of local update, fetch all orders again to ensure consistency
+          await fetchOrders();
           toast({
               title: "Status Pesanan Diperbarui",
-              description: `Pesanan ${orderId.substring(0,7)} telah diperbarui.`,
+              description: `Pesanan ${orderId.substring(0,7)}... telah diperbarui.`,
           });
       } catch (error) {
            console.error("Error updating order status: ", error);
@@ -170,18 +219,26 @@ export default function OrdersPage() {
   };
 
   const filteredOrders = useMemo(() => {
+    // unpaid: Bank transfer, not yet paid, status is still pending
     const unpaid = allOrders
-      .filter(o => o.paymentMethod === 'bank_transfer' && o.paymentStatus === 'Unpaid')
+      .filter(o => o.paymentMethod === 'bank_transfer' && o.paymentStatus === 'Unpaid' && o.status === 'Pending')
       .sort((a, b) => a.date.toMillis() - b.date.toMillis());
-      
+
+    // toProcess: All non-COD pending orders that admin can process even if unpaid.
+     const toProcess = allOrders
+      .filter(o => o.status === 'Pending')
+      .sort((a, b) => a.date.toMillis() - b.date.toMillis());
+
+    // toShip: All COD orders, or Bank transfers that are paid. Status is 'Processing'.
     const toShip = allOrders
-      .filter(o => o.status === 'Processing' && (o.paymentMethod === 'cod' || o.paymentStatus === 'Paid'))
+      .filter(o => o.status === 'Processing')
       .sort((a, b) => a.date.toMillis() - b.date.toMillis());
 
     const shipped = allOrders.filter(o => o.status === 'Shipped');
     const delivered = allOrders.filter(o => o.status === 'Delivered');
-    
-    return { unpaid, toShip, shipped, delivered };
+    const cancelled = allOrders.filter(o => o.status === 'Cancelled');
+
+    return { unpaid, toShip, shipped, delivered, toProcess, cancelled };
   }, [allOrders]);
 
 
@@ -233,23 +290,43 @@ export default function OrdersPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                   <DropdownMenuLabel>Aksi Cepat</DropdownMenuLabel>
-                                  {tabName === 'unpaid' && (
+                                  <DropdownMenuSeparator />
+                                  
+                                  {/* --- DYNAMIC ACTIONS --- */}
+                                  {order.paymentStatus === 'Unpaid' && order.paymentMethod === 'bank_transfer' && (
                                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { paymentStatus: 'Paid' })}>
                                         <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
                                      </DropdownMenuItem>
                                   )}
-                                  {tabName === 'toShip' && (
+                                  
+                                  {order.status === 'Pending' && (
+                                     <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Processing' })}>
+                                        <RefreshCw className="mr-2 h-4 w-4" /> Proses Pesanan
+                                     </DropdownMenuItem>
+                                  )}
+                                  
+                                  {order.status === 'Processing' && (
                                       <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Shipped' })}>
-                                          <Truck className="mr-2 h-4 w-4" /> Proses & Kirim Pesanan
+                                          <Truck className="mr-2 h-4 w-4" /> Kirim Pesanan
                                       </DropdownMenuItem>
                                   )}
-                                   {tabName === 'shipped' && (
+
+                                   {order.status === 'Shipped' && (
                                       <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Delivered' })}>
                                           <Check className="mr-2 h-4 w-4" /> Tandai Telah Sampai
                                       </DropdownMenuItem>
                                   )}
                                   <DropdownMenuSeparator />
-                                  <Dialog>
+                                   <Dialog>
+                                      <DialogTrigger asChild>
+                                        <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                                            <Edit className="mr-2 h-4 w-4" /> Edit Pesanan
+                                        </button>
+                                      </DialogTrigger>
+                                      <EditOrderDialog order={order} />
+                                   </Dialog>
+                                  
+                                   <Dialog>
                                       <DialogTrigger asChild>
                                           <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
                                               <FileText className="mr-2 h-4 w-4" /> Lihat Bukti Bayar
@@ -295,10 +372,13 @@ export default function OrdersPage() {
         <CardDescription>Lihat dan kelola semua pesanan yang masuk berdasarkan statusnya.</CardDescription>
       </CardHeader>
       <CardContent>
-          <Tabs defaultValue="toShip">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs defaultValue="toProcess">
+            <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="unpaid">
                     Belum Bayar <Badge className="ml-2">{filteredOrders.unpaid.length}</Badge>
+                </TabsTrigger>
+                 <TabsTrigger value="toProcess">
+                    Perlu Diproses <Badge className="ml-2">{filteredOrders.toProcess.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="toShip">
                     Perlu Dikirim <Badge className="ml-2">{filteredOrders.toShip.length}</Badge>
@@ -312,6 +392,9 @@ export default function OrdersPage() {
             </TabsList>
             <TabsContent value="unpaid" className="mt-4">
                 {renderOrderTable(filteredOrders.unpaid, 'unpaid')}
+            </TabsContent>
+             <TabsContent value="toProcess" className="mt-4">
+                {renderOrderTable(filteredOrders.toProcess, 'toProcess')}
             </TabsContent>
             <TabsContent value="toShip" className="mt-4">
                 {renderOrderTable(filteredOrders.toShip, 'toShip')}
@@ -327,3 +410,5 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
