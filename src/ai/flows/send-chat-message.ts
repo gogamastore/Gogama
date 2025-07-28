@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -14,11 +15,11 @@ const ChatMessageSchema = z.object({
   text: z.string(),
 });
 
-export const SendChatMessageInputSchema = z.object({
+const SendChatMessageInputSchema = z.object({
   conversationId: z.string().describe('The ID of the user who is part of the conversation.'),
   message: ChatMessageSchema,
 });
-export type SendChatMessageInput = z.infer<typeof SendChatMessageInputSchema>;
+type SendChatMessageInput = z.infer<typeof SendChatMessageInputSchema>;
 
 export async function sendChatMessage(input: SendChatMessageInput): Promise<{ success: boolean }> {
   return sendChatMessageFlow(input);
