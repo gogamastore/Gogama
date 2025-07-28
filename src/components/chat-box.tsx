@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/use-auth';
 
 interface ConversationMetadata {
     id: string; // This is the chatId
+    buyerId: string;
     buyerName: string;
     lastMessage: string;
     timestamp: any;
@@ -78,15 +79,17 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         setMessages(loadedMessages);
       });
       
-      const conversationRef = ref(rtdb, `conversations/${activeChat?.buyerId}`);
-      update(conversationRef, { unreadByAdmin: 0 });
-
+      const activeConversation = allConversations.find(c => c.id === activeChatId);
+      if (activeConversation) {
+        const conversationRef = ref(rtdb, `conversations/${activeConversation.buyerId}`);
+        update(conversationRef, { unreadByAdmin: 0 });
+      }
 
       return () => off(messagesRef, 'value', listener);
     } else {
         setMessages([]);
     }
-  }, [activeChatId]);
+  }, [activeChatId, allConversations]);
 
 
   useEffect(() => {
@@ -102,32 +105,27 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         setIsSending(false);
         return;
     }
-
-    const messagesRef = ref(rtdb, `chats/${activeChatId}/messages`);
-    const newMessageRef = push(messagesRef);
-
-    const messageData = {
-        senderId: adminUser.uid,
-        text: newMessage,
-        timestamp: serverTimestamp(),
-    };
-
+    
     try {
-        await set(newMessageRef, messageData);
-        
-        // Update metadata in two places: chats and conversations
-        const chatMetadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
-        await update(chatMetadataRef, { 
-            lastMessage: newMessage, 
-            timestamp: serverTimestamp(),
-            adminId: adminUser.uid,
-        });
+        const updates: { [key: string]: any } = {};
 
-        const conversationRef = ref(rtdb, `conversations/${activeConversation.buyerId}`);
-         await update(conversationRef, { 
-            lastMessage: newMessage, 
+        const messageData = {
+            senderId: adminUser.uid,
+            text: newMessage,
             timestamp: serverTimestamp(),
-        });
+        };
+
+        const newMessageKey = push(ref(rtdb, `chats/${activeChatId}/messages`)).key;
+        updates[`/chats/${activeChatId}/messages/${newMessageKey}`] = messageData;
+        
+        updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
+        updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
+        updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid; // Ensure adminId is set
+
+        updates[`/conversations/${activeConversation.buyerId}/lastMessage`] = newMessage;
+        updates[`/conversations/${activeConversation.buyerId}/timestamp`] = serverTimestamp();
+        
+        await update(ref(rtdb), updates);
 
         setNewMessage('');
     } catch (error) {
