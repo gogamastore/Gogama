@@ -10,7 +10,7 @@ import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { db, rtdb } from '@/lib/firebase';
 import { ref, onValue, off, update } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
-import { collection, getDocs, doc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { sendChatMessage } from '@/ai/flows/send-chat-message';
 
 interface Conversation {
@@ -88,10 +88,8 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         const messagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
         const listener = onValue(messagesRef, (snapshot) => {
             const data = snapshot.val();
-            const loadedMessages = data ? Object.values(data) : [];
-            // @ts-ignore
+            const loadedMessages = data ? Object.values(data) as Message[] : [];
             loadedMessages.sort((a,b) => a.timestamp - b.timestamp);
-            // @ts-ignore
             setMessages(loadedMessages);
         });
         
@@ -164,7 +162,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((chat, index) => (
                     <div key={index} className={`flex items-end gap-2 ${chat.sender === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                       {chat.sender !== 'admin' && <Avatar className="h-8 w-8"><AvatarImage src={activeUser?.photoURL} /><AvatarFallback>{activeUser?.name?.charAt(0)}</AvatarFallback></Avatar>}
+                       {chat.sender !== 'admin' && <Avatar className="h-8 w-8"><AvatarImage src={activeUser?.photoURL || undefined} /><AvatarFallback>{activeUser?.name?.charAt(0)}</AvatarFallback></Avatar>}
                        <div className={`max-w-[75%] rounded-lg p-3 ${chat.sender === 'admin' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                            <p className="text-sm">{chat.text}</p>
                        </div>
@@ -175,7 +173,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             <div className="border-t p-4">
               <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative">
                 <Input placeholder="Ketik pesan..." className="pr-12" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} disabled={isSending} />
-                <Button type="submit" variant="ghost" size="icon" className="absolute top-1/2 right-1 -translate-y-1/2" disabled={isSending}>
+                <Button type="submit" variant="ghost" size="icon" className="absolute top-1/2 right-1 -translate-y-1/2" disabled={isSending || !newMessage.trim()}>
                   {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </Button>
               </form>

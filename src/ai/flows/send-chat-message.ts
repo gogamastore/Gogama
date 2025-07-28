@@ -11,8 +11,8 @@ import { ref, push, update, serverTimestamp, increment, get } from "firebase/dat
 
 const SendChatMessageInputSchema = z.object({
   text: z.string(),
-  userId: z.string(),
-  senderId: z.string(),
+  userId: z.string(), // The ID of the user/reseller receiving the message
+  senderId: z.string(), // The ID of the admin sending the message
   senderType: z.enum(['admin', 'user']),
 });
 
@@ -22,14 +22,13 @@ export async function sendChatMessage(input: SendChatMessageInput) {
     return sendChatMessageFlow(input);
 }
 
-
 const sendChatMessageFlow = ai.defineFlow(
   {
     name: 'sendChatMessageFlow',
     inputSchema: SendChatMessageInputSchema,
     outputSchema: z.object({ success: z.boolean() }),
   },
-  async ({ text, userId, senderId, senderType }) => {
+  async ({ text, userId, senderType }) => {
     try {
         const messageData = {
             sender: senderType,
@@ -50,9 +49,11 @@ const sendChatMessageFlow = ai.defineFlow(
             timestamp: serverTimestamp(),
         };
 
+        // If the admin sends a message, increment the unread counter for the user.
         if (senderType === 'admin') {
             updateData.unreadByUser = increment(1);
         } else {
+             // This case is handled client-side but included for completeness.
             updateData.unreadByAdmin = increment(1);
         }
 
