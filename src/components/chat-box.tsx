@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, push } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, push, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 
 interface ConversationMetadata {
-    id: string; // This is the chatId
+    chatId: string;
     buyerId: string;
     buyerName: string;
     lastMessage: string;
@@ -51,7 +51,6 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             const conversationList: ConversationMetadata[] = Object.keys(conversationsData).map(buyerId => {
                 const convo = conversationsData[buyerId];
                 return {
-                    id: convo.chatId,
                     buyerId: buyerId,
                     ...convo
                 };
@@ -83,7 +82,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         setMessages([]);
       });
       
-      const activeConversation = allConversations.find(c => c.id === activeChatId);
+      const activeConversation = allConversations.find(c => c.chatId === activeChatId);
       if (activeConversation?.unreadByAdmin) {
         const conversationRef = ref(rtdb, `conversations/${activeConversation.buyerId}`);
         update(conversationRef, { unreadByAdmin: 0 });
@@ -104,7 +103,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     if (!newMessage.trim() || !activeChatId || !adminUser) return;
     setIsSending(true);
 
-    const activeConversation = allConversations.find(c => c.id === activeChatId);
+    const activeConversation = allConversations.find(c => c.chatId === activeChatId);
     if (!activeConversation) {
         setIsSending(false);
         return;
@@ -152,7 +151,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     c.buyerName.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const activeChat = allConversations.find(c => c.id === activeChatId);
+  const activeChat = allConversations.find(c => c.chatId === activeChatId);
 
   return (
     <div className="fixed bottom-24 right-6 z-40 w-full max-w-sm">
@@ -211,9 +210,9 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
                 <div className="divide-y">
                   {filteredConversations.map(convo => (
                     <div
-                      key={convo.id}
+                      key={convo.chatId}
                       className="flex items-center gap-4 p-4 hover:bg-muted cursor-pointer"
-                      onClick={() => handleSelectChat(convo.id)}
+                      onClick={() => handleSelectChat(convo.chatId)}
                     >
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={convo.avatar} alt={convo.buyerName} />
