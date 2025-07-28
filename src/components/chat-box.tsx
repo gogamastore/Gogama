@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, set, push } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, push, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 
 interface ConversationMetadata {
-    id: string; 
+    id: string;
     buyerId: string;
     buyerName: string;
     lastMessage: string;
@@ -77,6 +77,9 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         const loadedMessages = data ? Object.values(data) as Message[] : [];
         loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
         setMessages(loadedMessages);
+      }, (error) => {
+        console.error("Failed to fetch messages for active chat:", error);
+        setMessages([]);
       });
       
       const activeConversation = allConversations.find(c => c.id === activeChatId);
@@ -120,7 +123,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         
         updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
         updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
-        updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid;
+        updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid; // Ensure adminId is set
 
         updates[`/conversations/${activeConversation.buyerId}/lastMessage`] = newMessage;
         updates[`/conversations/${activeConversation.buyerId}/timestamp`] = serverTimestamp();
