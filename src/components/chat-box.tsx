@@ -111,17 +111,15 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     
     try {
         const updates: { [key: string]: any } = {};
+        const newMessageKey = push(ref(rtdb, `chats/${activeChatId}/messages`)).key;
 
         const messageData = {
             senderId: adminUser.uid,
             text: newMessage,
             timestamp: serverTimestamp(),
         };
-
-        const newMessageKey = push(ref(rtdb, `chats/${activeChatId}/messages`)).key;
-        updates[`/chats/${activeChatId}/messages/${newMessageKey}`] = messageData;
         
-        // Update metadata for both chat and conversation list
+        updates[`/chats/${activeChatId}/messages/${newMessageKey}`] = messageData;
         updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
         updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
         updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid; // Ensure adminId is set
