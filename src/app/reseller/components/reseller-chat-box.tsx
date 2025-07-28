@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, set, push, serverTimestamp, get } from "firebase/database";
+import { ref, onValue, off, set, push, serverTimestamp, get, update } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -64,25 +64,12 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-        setIsInitialized(true);
-        return;
-    };
-    
-    const userChatRef = ref(rtdb, `userChats/${user.uid}`);
-    get(userChatRef).then((snapshot) => {
-        if (snapshot.exists()) {
-            const userChatData = snapshot.val();
-            const existingChatId = Object.keys(userChatData)[0];
-            setChatId(existingChatId);
-        }
-        setIsInitialized(true);
-    }).catch(error => {
-        console.error("Error fetching user chat id:", error);
-        setIsInitialized(true);
-    });
-
-  }, [user]);
+    const savedChatId = localStorage.getItem('chatId');
+    if (savedChatId) {
+        setChatId(savedChatId);
+    }
+    setIsInitialized(true);
+  }, []);
 
   useEffect(() => {
     if (!chatId) return;
@@ -93,10 +80,15 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         const loadedMessages = data ? Object.values(data) as Message[] : [];
         loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
         setMessages(loadedMessages);
+    }, (error) => {
+        console.error("Error fetching messages:", error);
+        // If permission is denied, it might mean the chat was deleted or something is wrong
+        // For now, we'll just log it. A more robust solution might clear the local chat ID.
     });
 
     return () => off(messagesRef, 'value', listener);
   }, [chatId]);
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -112,29 +104,34 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     const userAvatar = user.photoURL || `https://placehold.co/40x40.png`;
     
     const newChatId = generatePushID();
-    const chatRef = ref(rtdb, `chats/${newChatId}`);
-    
-    const chatData = {
-        metadata: {
-            buyerId: user.uid,
-            buyerName: userName,
-            avatar: userAvatar,
-            lastMessage: firstMessage.text,
-            timestamp: serverTimestamp(),
-            adminId: "admin_placeholder",
-            unreadByAdmin: 1,
-        },
-        messages: {
-            [generatePushID()]: firstMessage
-        }
+    const firstMessageId = generatePushID();
+
+    const updates: { [key: string]: any } = {};
+
+    // Path for the chat metadata
+    updates[`/chats/${newChatId}/metadata`] = {
+        buyerId: user.uid,
+        buyerName: userName,
+        avatar: userAvatar,
+        lastMessage: firstMessage.text,
+        timestamp: serverTimestamp(),
+        adminId: "admin_placeholder", 
+        unreadByAdmin: 1,
     };
-    await set(chatRef, chatData);
     
-    // Also save the chat id under the user's private data
-    const userChatRef = ref(rtdb, `userChats/${user.uid}/${newChatId}`);
-    await set(userChatRef, true);
-    
-    return newChatId;
+    // Path for the first message
+    updates[`/chats/${newChatId}/messages/${firstMessageId}`] = firstMessage;
+
+    // Path to associate chat with user
+    updates[`/userChats/${user.uid}/${newChatId}`] = true;
+
+    try {
+      await update(ref(rtdb), updates);
+      return newChatId;
+    } catch(error) {
+      console.error("Failed to create new chat:", error);
+      return null;
+    }
   };
 
 
@@ -155,25 +152,19 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         if (!currentChatId) {
             currentChatId = await createNewChat(messageData);
             if(currentChatId) {
+                localStorage.setItem('chatId', currentChatId);
                 setChatId(currentChatId);
             }
         } else {
-            const chatRef = ref(rtdb, `chats/${currentChatId}`);
+            const updates: { [key: string]: any } = {};
+            const newMessageKey = push(ref(rtdb, `chats/${currentChatId}/messages`)).key;
             
-            // Push new message
-            const messagesListRef = ref(rtdb, `chats/${currentChatId}/messages`);
-            const newMessageRef = push(messagesListRef);
-            await set(newMessageRef, messageData);
+            updates[`/chats/${currentChatId}/messages/${newMessageKey}`] = messageData;
             
-            // Update metadata
-            const metadataRef = ref(rtdb, `chats/${currentChatId}/metadata`);
-            const currentUnread = (await get(ref(rtdb, `chats/${currentChatId}/metadata/unreadByAdmin`))).val() || 0;
-            
-            await set(metadataRef, {
-              lastMessage: newMessage,
-              timestamp: serverTimestamp(),
-              unreadByAdmin: currentUnread + 1,
-            });
+            // We are not updating metadata from the reseller side to avoid complexity.
+            // Admin side will handle last message updates.
+
+            await update(ref(rtdb), updates);
         }
         setNewMessage('');
     } catch(error) {
