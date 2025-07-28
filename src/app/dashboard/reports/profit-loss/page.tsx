@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -96,28 +96,23 @@ export default function ProfitLossReportPage() {
             });
         });
 
-        // 2. Fetch Purchase Prices for COGS
+        // 2. Calculate COGS based on sold products
         let totalCogs = 0;
-        if (soldProductsMap.size > 0) {
-            const productIds = Array.from(soldProductsMap.keys());
-            // Firestore 'in' query is limited to 30 items per query.
-            // If more products, we would need to batch this. For now, assume < 30.
-            const purchasesQuery = query(collection(db, "purchase_transactions"), where("items.productId", "in", productIds));
-            const purchasesSnapshot = await getDocs(purchasesQuery);
-            
-            const purchasePrices = new Map<string, number>();
-            purchasesSnapshot.docs.forEach(doc => {
-                doc.data().items.forEach((item: { productId: string; purchasePrice: number; }) => {
-                    if (!purchasePrices.has(item.productId)) { // Use first found price for simplicity
-                        purchasePrices.set(item.productId, item.purchasePrice);
-                    }
-                });
-            });
+        const productPurchasePrices = new Map<string, number>();
 
-            soldProductsMap.forEach((quantity, productId) => {
-                const price = purchasePrices.get(productId) || 0; // Default to 0 if no purchase history
-                totalCogs += price * quantity;
-            });
+        for (const [productId, quantity] of soldProductsMap.entries()) {
+            let purchasePrice = productPurchasePrices.get(productId);
+            if (purchasePrice === undefined) {
+                const productRef = doc(db, "products", productId);
+                const productSnap = await getDoc(productRef);
+                if (productSnap.exists()) {
+                    purchasePrice = productSnap.data().purchasePrice || 0;
+                    productPurchasePrices.set(productId, purchasePrice);
+                } else {
+                    purchasePrice = 0; // Product might be deleted
+                }
+            }
+            totalCogs += purchasePrice * quantity;
         }
         
         // 3. Fetch Operational Expenses

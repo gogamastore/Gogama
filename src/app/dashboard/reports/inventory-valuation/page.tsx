@@ -54,7 +54,6 @@ export default function InventoryValuationPage() {
         const productValuations: ProductValuation[] = productsSnapshot.docs.map(doc => {
             const productData = doc.data();
             const stock = productData.stock || 0;
-            // Fix: Directly use the purchasePrice from the product document
             const purchasePrice = productData.purchasePrice || 0; 
             return {
                 id: doc.id,

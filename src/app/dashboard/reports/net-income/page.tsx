@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -75,32 +76,22 @@ export default function NetIncomeReportPage() {
 
         // 2. Fetch Purchase Prices for COGS
         let totalCogs = 0;
+        const productPurchasePrices = new Map<string, number>();
         if (soldProductsMap.size > 0) {
-            const productIds = Array.from(soldProductsMap.keys());
-            // Firestore 'in' query is limited to 30 items. Batching needed for more.
-            const productBatches = [];
-            for (let i = 0; i < productIds.length; i += 30) {
-                productBatches.push(productIds.slice(i, i + 30));
+            for (const [productId, quantity] of soldProductsMap.entries()) {
+                let purchasePrice = productPurchasePrices.get(productId);
+                if (purchasePrice === undefined) {
+                    const productRef = doc(db, "products", productId);
+                    const productSnap = await getDoc(productRef);
+                    if (productSnap.exists()) {
+                        purchasePrice = productSnap.data().purchasePrice || 0;
+                        productPurchasePrices.set(productId, purchasePrice);
+                    } else {
+                        purchasePrice = 0; // Product might be deleted
+                    }
+                }
+                totalCogs += purchasePrice * quantity;
             }
-            
-            const purchasePrices = new Map<string, number>();
-
-            for (const batch of productBatches) {
-                 const purchasesQuery = query(collection(db, "purchase_transactions"), where("items.productId", "in", batch));
-                 const purchasesSnapshot = await getDocs(purchasesQuery);
-                 purchasesSnapshot.docs.forEach(doc => {
-                    doc.data().items.forEach((item: { productId: string; purchasePrice: number; }) => {
-                        if (!purchasePrices.has(item.productId)) {
-                            purchasePrices.set(item.productId, item.purchasePrice);
-                        }
-                    });
-                });
-            }
-
-            soldProductsMap.forEach((quantity, productId) => {
-                const price = purchasePrices.get(productId) || 0;
-                totalCogs += price * quantity;
-            });
         }
         
         // 3. Fetch Operational Expenses
