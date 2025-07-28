@@ -91,7 +91,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, [toast]);
+  }, []);
   
   const generatePdf = async (order: Order) => {
     const doc = new jsPDF();

@@ -469,7 +469,7 @@ export default function ProductsPage() {
                         Lakukan penyesuaian stok untuk produk Anda dan lihat riwayat perubahan.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent>
                      <div className="overflow-auto">
                         <Table>
                             <TableHeader>
