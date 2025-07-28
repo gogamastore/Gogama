@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, set, push } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, set, push, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -143,7 +143,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
             const convoRef = ref(rtdb, `conversations/${user.uid}`);
-            const convoSnap = await getDoc(convoRef as any); // temp any
+            const convoSnap = await get(convoRef); // Corrected: use get from rtdb
             const currentUnread = convoSnap.exists() ? convoSnap.val().unreadByAdmin || 0 : 0;
             
             updates[`/conversations/${user.uid}/lastMessage`] = newMessage;
