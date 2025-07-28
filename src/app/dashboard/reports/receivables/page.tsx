@@ -207,47 +207,49 @@ export default function ReceivablesReportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Pelanggan</TableHead>
-                <TableHead>Tanggal Pesan</TableHead>
-                <TableHead>Status Pesanan</TableHead>
-                <TableHead className="text-right">Jumlah Piutang</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredReceivables.length > 0 ? (
-                filteredReceivables.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.id}</TableCell>
-                    <TableCell>{order.customer}</TableCell>
-                    <TableCell>{format(new Date(order.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                         className={
-                            order.status === 'Delivered' ? 'text-green-600 border-green-600' : 'text-blue-600 border-blue-600'
-                          }
-                      >
-                        {order.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(order.total)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+          <div className="overflow-auto">
+            <Table>
+                <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
-                    Tidak ada data piutang untuk rentang tanggal ini.
-                  </TableCell>
+                    <TableHead>Order ID</TableHead>
+                    <TableHead>Pelanggan</TableHead>
+                    <TableHead>Tanggal Pesan</TableHead>
+                    <TableHead>Status Pesanan</TableHead>
+                    <TableHead className="text-right">Jumlah Piutang</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {filteredReceivables.length > 0 ? (
+                    filteredReceivables.map((order) => (
+                    <TableRow key={order.id}>
+                        <TableCell className="font-medium">{order.id}</TableCell>
+                        <TableCell>{order.customer}</TableCell>
+                        <TableCell>{format(new Date(order.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
+                        <TableCell>
+                        <Badge
+                            variant="outline"
+                            className={
+                                order.status === 'Delivered' ? 'text-green-600 border-green-600' : 'text-blue-600 border-blue-600'
+                            }
+                        >
+                            {order.status}
+                        </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                        {formatCurrency(order.total)}
+                        </TableCell>
+                    </TableRow>
+                    ))
+                ) : (
+                    <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">
+                        Tidak ada data piutang untuk rentang tanggal ini.
+                    </TableCell>
+                    </TableRow>
+                )}
+                </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

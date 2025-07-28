@@ -109,24 +109,26 @@ export default function Dashboard() {
                 <CardDescription>A list of the most recent orders.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                <TableHeader>
-                    <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {recentOrders.map(order => (
-                    <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.customer}</TableCell>
-                        <TableCell>{order.amount}</TableCell>
-                        <TableCell><Badge variant={order.status === 'Shipped' ? 'default' : 'secondary'} className="bg-accent text-accent-foreground">{order.status}</Badge></TableCell>
-                    </TableRow>
-                    ))}
-                </TableBody>
-                </Table>
+                <div className="overflow-auto">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {recentOrders.map(order => (
+                        <TableRow key={order.id}>
+                            <TableCell className="font-medium">{order.customer}</TableCell>
+                            <TableCell>{order.amount}</TableCell>
+                            <TableCell><Badge variant={order.status === 'Shipped' ? 'default' : 'secondary'} className="bg-accent text-accent-foreground">{order.status}</Badge></TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                    </Table>
+                </div>
             </CardContent>
             </Card>
             <Card>
@@ -135,22 +137,24 @@ export default function Dashboard() {
                 <CardDescription>Products that need to be restocked soon.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                <TableHeader>
-                    <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {lowStockProducts.map(product => (
-                    <TableRow key={product.name}>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell className="text-right"><Badge variant="destructive">{product.stock}</Badge></TableCell>
-                    </TableRow>
-                    ))}
-                </TableBody>
-                </Table>
+                <div className="overflow-auto">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead className="text-right">Stock</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {lowStockProducts.map(product => (
+                        <TableRow key={product.name}>
+                            <TableCell className="font-medium">{product.name}</TableCell>
+                            <TableCell className="text-right"><Badge variant="destructive">{product.stock}</Badge></TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                    </Table>
+                </div>
             </CardContent>
             </Card>
         </div>

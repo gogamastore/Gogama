@@ -180,85 +180,89 @@ export default function CustomersReportPage() {
                  </CardDescription>
             </CardHeader>
             <CardContent>
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Nama Pelanggan</TableHead>
-                            <TableHead className="text-center">Jumlah Transaksi</TableHead>
-                            <TableHead className="text-right">Total Belanja</TableHead>
-                            <TableHead className="text-right">Total Piutang</TableHead>
-                            <TableHead className="text-center w-[100px]">Aksi</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                         {loading ? (
+                 <div className="overflow-auto">
+                    <Table>
+                        <TableHeader>
                             <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">Memuat data pelanggan...</TableCell>
+                                <TableHead>Nama Pelanggan</TableHead>
+                                <TableHead className="text-center">Jumlah Transaksi</TableHead>
+                                <TableHead className="text-right">Total Belanja</TableHead>
+                                <TableHead className="text-right">Total Piutang</TableHead>
+                                <TableHead className="text-center w-[100px]">Aksi</TableHead>
                             </TableRow>
-                        ) : customerReports.length > 0 ? (
-                            customerReports.map((customer) => (
-                            <TableRow key={customer.id}>
-                                <TableCell className="font-medium">{customer.name}</TableCell>
-                                <TableCell className="text-center">{customer.transactionCount}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(customer.totalSpent)}</TableCell>
-                                <TableCell className="text-right">
-                                    <Badge variant={customer.receivables > 0 ? "destructive" : "outline"}>
-                                        {formatCurrency(customer.receivables)}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                   <Dialog>
-                                        <DialogTrigger asChild>
-                                            <Button variant="ghost" size="icon">
-                                                <FileText className="h-4 w-4" />
-                                                <span className="sr-only">Lihat Riwayat</span>
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="sm:max-w-3xl">
-                                            <DialogHeader>
-                                                <DialogTitle>Riwayat Transaksi: {customer.name}</DialogTitle>
-                                                <DialogDescription>
-                                                    Semua transaksi yang dilakukan oleh pelanggan ini dalam periode yang dipilih.
-                                                </DialogDescription>
-                                            </DialogHeader>
-                                            <div className="max-h-[60vh] overflow-y-auto p-1">
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead>Order ID</TableHead>
-                                                            <TableHead>Tanggal</TableHead>
-                                                            <TableHead>Status</TableHead>
-                                                            <TableHead>Pembayaran</TableHead>
-                                                            <TableHead className="text-right">Total</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {customer.orders.map(order => (
-                                                            <TableRow key={order.id}>
-                                                                <TableCell className="font-medium">{order.id}</TableCell>
-                                                                <TableCell>{format(new Date(order.date), "dd MMM yyyy")}</TableCell>
-                                                                <TableCell><Badge variant="outline">{order.status}</Badge></TableCell>
-                                                                <TableCell><Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>{order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}</Badge></TableCell>
-                                                                <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                </TableCell>
-                            </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={5} className="text-center h-24">
-                                    Tidak ada data pelanggan untuk periode ini.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-24 text-center">Memuat data pelanggan...</TableCell>
+                                </TableRow>
+                            ) : customerReports.length > 0 ? (
+                                customerReports.map((customer) => (
+                                <TableRow key={customer.id}>
+                                    <TableCell className="font-medium">{customer.name}</TableCell>
+                                    <TableCell className="text-center">{customer.transactionCount}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(customer.totalSpent)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Badge variant={customer.receivables > 0 ? "destructive" : "outline"}>
+                                            {formatCurrency(customer.receivables)}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                    <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="ghost" size="icon">
+                                                    <FileText className="h-4 w-4" />
+                                                    <span className="sr-only">Lihat Riwayat</span>
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="sm:max-w-3xl">
+                                                <DialogHeader>
+                                                    <DialogTitle>Riwayat Transaksi: {customer.name}</DialogTitle>
+                                                    <DialogDescription>
+                                                        Semua transaksi yang dilakukan oleh pelanggan ini dalam periode yang dipilih.
+                                                    </DialogDescription>
+                                                </DialogHeader>
+                                                <div className="max-h-[60vh] overflow-y-auto p-1">
+                                                    <div className="overflow-auto">
+                                                        <Table>
+                                                            <TableHeader>
+                                                                <TableRow>
+                                                                    <TableHead>Order ID</TableHead>
+                                                                    <TableHead>Tanggal</TableHead>
+                                                                    <TableHead>Status</TableHead>
+                                                                    <TableHead>Pembayaran</TableHead>
+                                                                    <TableHead className="text-right">Total</TableHead>
+                                                                </TableRow>
+                                                            </TableHeader>
+                                                            <TableBody>
+                                                                {customer.orders.map(order => (
+                                                                    <TableRow key={order.id}>
+                                                                        <TableCell className="font-medium">{order.id}</TableCell>
+                                                                        <TableCell>{format(new Date(order.date), "dd MMM yyyy")}</TableCell>
+                                                                        <TableCell><Badge variant="outline">{order.status}</Badge></TableCell>
+                                                                        <TableCell><Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>{order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}</Badge></TableCell>
+                                                                        <TableCell className="text-right">{formatCurrency(order.total)}</TableCell>
+                                                                    </TableRow>
+                                                                ))}
+                                                            </TableBody>
+                                                        </Table>
+                                                    </div>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </TableCell>
+                                </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-center h-24">
+                                        Tidak ada data pelanggan untuk periode ini.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                 </div>
             </CardContent>
         </Card>
     </div>

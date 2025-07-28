@@ -213,35 +213,37 @@ export default function OperationalCostsPage() {
             <CardDescription>Pilih kategori biaya untuk mencatat pengeluaran operasional baru.</CardDescription>
           </CardHeader>
           <CardContent>
-             <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Kategori Biaya</TableHead>
-                        <TableHead className="text-right w-[150px]">Aksi</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {operationalCostCategories.map((category) => {
-                    const Icon = category.icon;
-                    return (
-                      <TableRow key={category.id}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-3">
-                            <Icon className="h-5 w-5 text-muted-foreground" />
-                            <span>{category.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <AddCostDialog 
-                            category={category}
-                            onAddCost={(amount, description) => handleAddCost(category.name, amount, description)}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-             </Table>
+             <div className="overflow-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Kategori Biaya</TableHead>
+                            <TableHead className="text-right w-[150px]">Aksi</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {operationalCostCategories.map((category) => {
+                        const Icon = category.icon;
+                        return (
+                        <TableRow key={category.id}>
+                            <TableCell className="font-medium">
+                            <div className="flex items-center gap-3">
+                                <Icon className="h-5 w-5 text-muted-foreground" />
+                                <span>{category.name}</span>
+                            </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                            <AddCostDialog 
+                                category={category}
+                                onAddCost={(amount, description) => handleAddCost(category.name, amount, description)}
+                            />
+                            </TableCell>
+                        </TableRow>
+                        )
+                    })}
+                    </TableBody>
+                </Table>
+             </div>
           </CardContent>
         </Card>
       </div>
@@ -263,35 +265,37 @@ export default function OperationalCostsPage() {
           </CardHeader>
           <CardContent className="max-h-[400px] overflow-y-auto">
             {costCart.length > 0 ? (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Keterangan</TableHead>
-                            <TableHead className="text-right">Jumlah</TableHead>
-                            <TableHead className="w-[40px]"></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {costCart.map(item => (
-                            <TableRow key={item.id}>
-                                <TableCell>
-                                    <div className="font-medium">{item.category}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {item.description}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right font-medium">
-                                    {formatCurrency(item.amount)}
-                                </TableCell>
-                                <TableCell>
-                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveFromCart(item.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </TableCell>
+                <div className="overflow-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Keterangan</TableHead>
+                                <TableHead className="text-right">Jumlah</TableHead>
+                                <TableHead className="w-[40px]"></TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {costCart.map(item => (
+                                <TableRow key={item.id}>
+                                    <TableCell>
+                                        <div className="font-medium">{item.category}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {item.description}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right font-medium">
+                                        {formatCurrency(item.amount)}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveFromCart(item.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             ) : (
                 <div className="text-center text-muted-foreground p-8">
                     <Landmark className="mx-auto h-12 w-12" />

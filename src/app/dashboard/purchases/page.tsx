@@ -258,51 +258,53 @@ export default function PurchaseTransactionPage() {
             </div>
           </CardHeader>
           <CardContent>
-             <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead className="hidden w-[80px] sm:table-cell">Gambar</TableHead>
-                        <TableHead>Produk</TableHead>
-                        <TableHead>SKU</TableHead>
-                         <TableHead>Stok Saat Ini</TableHead>
-                        <TableHead className="text-right w-[120px]">Aksi</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {loading ? (
+            <div className="overflow-auto">
+                <Table>
+                    <TableHeader>
                         <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
+                            <TableHead className="hidden w-[80px] sm:table-cell">Gambar</TableHead>
+                            <TableHead>Produk</TableHead>
+                            <TableHead>SKU</TableHead>
+                            <TableHead>Stok Saat Ini</TableHead>
+                            <TableHead className="text-right w-[120px]">Aksi</TableHead>
                         </TableRow>
-                    ) : filteredProducts.length > 0 ? (
-                        filteredProducts.map((product) => (
-                            <TableRow key={product.id}>
-                                <TableCell className="hidden sm:table-cell">
-                                    <Image
-                                        alt={product.name}
-                                        className="aspect-square rounded-md object-cover"
-                                        height="64"
-                                        src={product.image || "https://placehold.co/64x64.png"}
-                                        width="64"
-                                    />
-                                </TableCell>
-                                <TableCell className="font-medium">{product.name}</TableCell>
-                                <TableCell>{product.sku}</TableCell>
-                                <TableCell>{product.stock}</TableCell>
-                                <TableCell className="text-right">
-                                    <AddToCartDialog 
-                                        product={product} 
-                                        onAddToCart={(quantity, purchasePrice) => handleAddToCart(product, quantity, purchasePrice)} 
-                                    />
-                                </TableCell>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
                             </TableRow>
-                        ))
-                    ) : (
-                         <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">Produk tidak ditemukan.</TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-             </Table>
+                        ) : filteredProducts.length > 0 ? (
+                            filteredProducts.map((product) => (
+                                <TableRow key={product.id}>
+                                    <TableCell className="hidden sm:table-cell">
+                                        <Image
+                                            alt={product.name}
+                                            className="aspect-square rounded-md object-cover"
+                                            height="64"
+                                            src={product.image || "https://placehold.co/64x64.png"}
+                                            width="64"
+                                        />
+                                    </TableCell>
+                                    <TableCell className="font-medium">{product.name}</TableCell>
+                                    <TableCell>{product.sku}</TableCell>
+                                    <TableCell>{product.stock}</TableCell>
+                                    <TableCell className="text-right">
+                                        <AddToCartDialog 
+                                            product={product} 
+                                            onAddToCart={(quantity, purchasePrice) => handleAddToCart(product, quantity, purchasePrice)} 
+                                        />
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center">Produk tidak ditemukan.</TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -324,35 +326,37 @@ export default function PurchaseTransactionPage() {
           </CardHeader>
           <CardContent className="max-h-[400px] overflow-y-auto">
             {cart.length > 0 ? (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Produk</TableHead>
-                            <TableHead className="text-right">Subtotal</TableHead>
-                            <TableHead className="w-[40px]"></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {cart.map(item => (
-                            <TableRow key={item.id}>
-                                <TableCell>
-                                    <div className="font-medium">{item.name}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {item.quantity} x {formatCurrency(item.purchasePrice)}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right font-medium">
-                                    {formatCurrency(item.quantity * item.purchasePrice)}
-                                </TableCell>
-                                <TableCell>
-                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveFromCart(item.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </TableCell>
+                <div className="overflow-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Produk</TableHead>
+                                <TableHead className="text-right">Subtotal</TableHead>
+                                <TableHead className="w-[40px]"></TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {cart.map(item => (
+                                <TableRow key={item.id}>
+                                    <TableCell>
+                                        <div className="font-medium">{item.name}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {item.quantity} x {formatCurrency(item.purchasePrice)}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right font-medium">
+                                        {formatCurrency(item.quantity * item.purchasePrice)}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveFromCart(item.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             ) : (
                 <div className="text-center text-muted-foreground p-8">
                     <ShoppingCart className="mx-auto h-12 w-12" />

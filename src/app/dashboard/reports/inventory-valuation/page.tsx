@@ -130,36 +130,38 @@ export default function InventoryValuationPage() {
             </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nama Produk</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead className="text-right">Stok Saat Ini</TableHead>
-                <TableHead className="text-right">Harga Modal (Beli)</TableHead>
-                <TableHead className="text-right">Total Nilai Modal</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredProducts.length > 0 ? (
-                filteredProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell>{product.sku}</TableCell>
-                    <TableCell className="text-right">{product.stock}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(product.purchasePrice)}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(product.totalValue)}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
+          <div className="overflow-auto">
+            <Table>
+                <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
-                    Tidak ada produk yang ditemukan.
-                  </TableCell>
+                    <TableHead>Nama Produk</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="text-right">Stok Saat Ini</TableHead>
+                    <TableHead className="text-right">Harga Modal (Beli)</TableHead>
+                    <TableHead className="text-right">Total Nilai Modal</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {filteredProducts.length > 0 ? (
+                    filteredProducts.map((product) => (
+                    <TableRow key={product.id}>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell>{product.sku}</TableCell>
+                        <TableCell className="text-right">{product.stock}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(product.purchasePrice)}</TableCell>
+                        <TableCell className="text-right font-medium">{formatCurrency(product.totalValue)}</TableCell>
+                    </TableRow>
+                    ))
+                ) : (
+                    <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">
+                        Tidak ada produk yang ditemukan.
+                    </TableCell>
+                    </TableRow>
+                )}
+                </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

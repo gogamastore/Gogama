@@ -398,64 +398,66 @@ export default function ProductsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                            <TableHead className="hidden w-[100px] sm:table-cell">
-                                <span className="sr-only">Image</span>
-                            </TableHead>
-                            <TableHead>Nama</TableHead>
-                            <TableHead>SKU</TableHead>
-                            <TableHead>Stok</TableHead>
-                            <TableHead className="text-right">Harga Beli</TableHead>
-                            <TableHead className="text-right">Harga Jual</TableHead>
-                            <TableHead className="w-[50px] text-right">Aksi</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
+                    <div className="overflow-auto">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">Memuat produk...</TableCell>
+                                <TableHead className="hidden w-[100px] sm:table-cell">
+                                    <span className="sr-only">Image</span>
+                                </TableHead>
+                                <TableHead>Nama</TableHead>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>Stok</TableHead>
+                                <TableHead className="text-right">Harga Beli</TableHead>
+                                <TableHead className="text-right">Harga Jual</TableHead>
+                                <TableHead className="w-[50px] text-right">Aksi</TableHead>
                                 </TableRow>
-                            ) : products.map((product) => (
-                            <TableRow key={product.id}>
-                                <TableCell className="hidden sm:table-cell">
-                                <Image
-                                    alt="Product image"
-                                    className="aspect-square rounded-md object-cover"
-                                    height="64"
-                                    src={product.image || 'https://placehold.co/64x64.png'}
-                                    width="64"
-                                    data-ai-hint={product['data-ai-hint']}
-                                />
-                                </TableCell>
-                                <TableCell className="font-medium">{product.name}</TableCell>
-                                <TableCell>{product.sku}</TableCell>
-                                <TableCell>
-                                  <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock} in stock` : 'Out of Stock'}</Badge>
-                                </TableCell>
-                                <TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
-                                <TableCell className="text-right">{product.price}</TableCell>
-                                <TableCell className="text-right">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                            <DropdownMenuItem onSelect={() => handleEditClick(product)}>
-                                                <Edit className="mr-2 h-4 w-4"/>
-                                                Edit Produk
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-24 text-center">Memuat produk...</TableCell>
+                                    </TableRow>
+                                ) : products.map((product) => (
+                                <TableRow key={product.id}>
+                                    <TableCell className="hidden sm:table-cell">
+                                    <Image
+                                        alt="Product image"
+                                        className="aspect-square rounded-md object-cover"
+                                        height="64"
+                                        src={product.image || 'https://placehold.co/64x64.png'}
+                                        width="64"
+                                        data-ai-hint={product['data-ai-hint']}
+                                    />
+                                    </TableCell>
+                                    <TableCell className="font-medium">{product.name}</TableCell>
+                                    <TableCell>{product.sku}</TableCell>
+                                    <TableCell>
+                                    <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock} in stock` : 'Out of Stock'}</Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
+                                    <TableCell className="text-right">{product.price}</TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                                <DropdownMenuItem onSelect={() => handleEditClick(product)}>
+                                                    <Edit className="mr-2 h-4 w-4"/>
+                                                    Edit Produk
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </TabsContent>
@@ -468,32 +470,34 @@ export default function ProductsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Nama Produk</TableHead>
-                                <TableHead>SKU</TableHead>
-                                <TableHead className="text-center">Stok Saat Ini</TableHead>
-                                <TableHead className="text-right">Aksi</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                         <TableBody>
-                            {loading ? (
+                     <div className="overflow-auto">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">Memuat produk...</TableCell>
+                                    <TableHead>Nama Produk</TableHead>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="text-center">Stok Saat Ini</TableHead>
+                                    <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
-                            ) : products.map((product) => (
-                                <TableRow key={product.id}>
-                                    <TableCell className="font-medium">{product.name}</TableCell>
-                                    <TableCell>{product.sku}</TableCell>
-                                    <TableCell className="text-center font-bold">{product.stock}</TableCell>
-                                    <TableCell className="text-right">
-                                        <AdjustStockDialog product={product} onStockAdjusted={fetchProducts} />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                     </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">Memuat produk...</TableCell>
+                                    </TableRow>
+                                ) : products.map((product) => (
+                                    <TableRow key={product.id}>
+                                        <TableCell className="font-medium">{product.name}</TableCell>
+                                        <TableCell>{product.sku}</TableCell>
+                                        <TableCell className="text-center font-bold">{product.stock}</TableCell>
+                                        <TableCell className="text-right">
+                                            <AdjustStockDialog product={product} onStockAdjusted={fetchProducts} />
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                     </div>
                 </CardContent>
             </Card>
         </TabsContent>

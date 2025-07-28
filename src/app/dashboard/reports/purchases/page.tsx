@@ -276,87 +276,91 @@ export default function PurchasesReportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID Transaksi</TableHead>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-center">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell className="font-medium">{transaction.id}</TableCell>
-                    <TableCell>{format(new Date(transaction.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
-                    <TableCell>{transaction.supplier || 'N/A'}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(transaction.totalAmount)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                       <Dialog>
-                            <DialogTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <FileText className="h-4 w-4" />
-                                    <span className="sr-only">Lihat Faktur Pembelian</span>
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-2xl">
-                                <DialogHeader>
-                                    <DialogTitle>Faktur Pembelian #{transaction.id}</DialogTitle>
-                                    <DialogDescription>
-                                        Tanggal: {format(new Date(transaction.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Rincian Produk Dibeli</CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                             <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Produk</TableHead>
-                                                        <TableHead>Jumlah</TableHead>
-                                                        <TableHead className="text-right">Harga Beli Satuan</TableHead>
-                                                        <TableHead className="text-right">Subtotal</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {transaction.items?.map(item => (
-                                                        <TableRow key={item.productId}>
-                                                            <TableCell>{item.productName}</TableCell>
-                                                            <TableCell>{item.quantity}</TableCell>
-                                                            <TableCell className="text-right">{formatCurrency(item.purchasePrice)}</TableCell>
-                                                            <TableCell className="text-right">{formatCurrency(item.quantity * item.purchasePrice)}</TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </CardContent>
-                                    </Card>
-                                    <div className="text-right font-bold text-lg">
-                                        Total Pembelian: {formatCurrency(transaction.totalAmount)}
-                                    </div>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+          <div className="overflow-auto">
+            <Table>
+                <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
-                    Tidak ada data pembelian untuk rentang tanggal ini.
-                  </TableCell>
+                    <TableHead>ID Transaksi</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-center">Aksi</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {filteredTransactions.length > 0 ? (
+                    filteredTransactions.map((transaction) => (
+                    <TableRow key={transaction.id}>
+                        <TableCell className="font-medium">{transaction.id}</TableCell>
+                        <TableCell>{format(new Date(transaction.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
+                        <TableCell>{transaction.supplier || 'N/A'}</TableCell>
+                        <TableCell className="text-right">
+                        {formatCurrency(transaction.totalAmount)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                        <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <FileText className="h-4 w-4" />
+                                        <span className="sr-only">Lihat Faktur Pembelian</span>
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle>Faktur Pembelian #{transaction.id}</DialogTitle>
+                                        <DialogDescription>
+                                            Tanggal: {format(new Date(transaction.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>Rincian Produk Dibeli</CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="overflow-auto">
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow>
+                                                                <TableHead>Produk</TableHead>
+                                                                <TableHead>Jumlah</TableHead>
+                                                                <TableHead className="text-right">Harga Beli Satuan</TableHead>
+                                                                <TableHead className="text-right">Subtotal</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {transaction.items?.map(item => (
+                                                                <TableRow key={item.productId}>
+                                                                    <TableCell>{item.productName}</TableCell>
+                                                                    <TableCell>{item.quantity}</TableCell>
+                                                                    <TableCell className="text-right">{formatCurrency(item.purchasePrice)}</TableCell>
+                                                                    <TableCell className="text-right">{formatCurrency(item.quantity * item.purchasePrice)}</TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                        <div className="text-right font-bold text-lg">
+                                            Total Pembelian: {formatCurrency(transaction.totalAmount)}
+                                        </div>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                        </TableCell>
+                    </TableRow>
+                    ))
+                ) : (
+                    <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">
+                        Tidak ada data pembelian untuk rentang tanggal ini.
+                    </TableCell>
+                    </TableRow>
+                )}
+                </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

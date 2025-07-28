@@ -256,7 +256,7 @@ export default function BalanceSheetPage() {
           <CardContent>
             <div className="grid md:grid-cols-2 gap-8">
                 {/* Aktiva */}
-                <div>
+                <div className="overflow-auto">
                     <h3 className="text-lg font-semibold mb-2 text-center">AKTIVA</h3>
                      <Table>
                         <TableHeader>
@@ -300,7 +300,7 @@ export default function BalanceSheetPage() {
                     </Table>
                 </div>
                 {/* Pasiva */}
-                <div>
+                <div className="overflow-auto">
                     <h3 className="text-lg font-semibold mb-2 text-center">PASIVA</h3>
                     <Table>
                         <TableHeader>

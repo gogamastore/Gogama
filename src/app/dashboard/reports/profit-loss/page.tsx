@@ -222,37 +222,39 @@ export default function ProfitLossReportPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                    <TableBody>
-                        <TableRow className="text-base">
-                            <TableCell>
+                <div className="overflow-auto">
+                    <Table>
+                        <TableBody>
+                            <TableRow className="text-base">
+                                <TableCell>
+                                    <div className="flex items-center gap-3">
+                                        <TrendingUp className="h-5 w-5 text-green-500"/>
+                                        <span className="font-medium">Pendapatan Kotor</span>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right font-medium">{formatCurrency(reportData.totalRevenue)}</TableCell>
+                            </TableRow>
+                            <TableRow className="text-base">
+                                <TableCell>
+                                    <div className="flex items-center gap-3">
+                                        <TrendingDown className="h-5 w-5 text-red-500"/>
+                                        <span>Harga Pokok Penjualan (HPP)</span>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right">{formatCurrency(reportData.totalCogs)}</TableCell>
+                            </TableRow>
+                            <TableRow className="text-base">
+                                <TableCell>
                                 <div className="flex items-center gap-3">
-                                    <TrendingUp className="h-5 w-5 text-green-500"/>
-                                    <span className="font-medium">Pendapatan Kotor</span>
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-right font-medium">{formatCurrency(reportData.totalRevenue)}</TableCell>
-                        </TableRow>
-                        <TableRow className="text-base">
-                            <TableCell>
-                                <div className="flex items-center gap-3">
-                                    <TrendingDown className="h-5 w-5 text-red-500"/>
-                                    <span>Harga Pokok Penjualan (HPP)</span>
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-right">{formatCurrency(reportData.totalCogs)}</TableCell>
-                        </TableRow>
-                         <TableRow className="text-base">
-                            <TableCell>
-                               <div className="flex items-center gap-3">
-                                    <TrendingDown className="h-5 w-5 text-yellow-500"/>
-                                    <span>Beban Operasional</span>
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-right">{formatCurrency(reportData.totalExpenses)}</TableCell>
-                        </TableRow>
-                    </TableBody>
-                </Table>
+                                        <TrendingDown className="h-5 w-5 text-yellow-500"/>
+                                        <span>Beban Operasional</span>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right">{formatCurrency(reportData.totalExpenses)}</TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </div>
             </CardContent>
             <CardFooter className="bg-muted/50 p-6 mt-4">
                  <div className={`flex justify-between items-center w-full text-xl font-bold ${reportData.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>

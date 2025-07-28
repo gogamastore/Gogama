@@ -194,109 +194,111 @@ export default function OrdersPage() {
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[40px]">
-                <Checkbox />
-              </TableHead>
-              <TableHead>Order ID</TableHead>
-              <TableHead>Pelanggan</TableHead>
-              <TableHead>Status Pesanan</TableHead>
-              <TableHead>Status Pembayaran</TableHead>
-              <TableHead>Tanggal</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right w-[50px]">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
+        <div className="overflow-auto">
+            <Table>
+            <TableHeader>
                 <TableRow>
-                    <TableCell colSpan={8} className="h-24 text-center">Memuat pesanan...</TableCell>
+                <TableHead className="w-[40px]">
+                    <Checkbox />
+                </TableHead>
+                <TableHead>Order ID</TableHead>
+                <TableHead>Pelanggan</TableHead>
+                <TableHead>Status Pesanan</TableHead>
+                <TableHead>Status Pembayaran</TableHead>
+                <TableHead>Tanggal</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right w-[50px]">Aksi</TableHead>
                 </TableRow>
-            ) : orders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell>
-                  <Checkbox />
-                </TableCell>
-                <TableCell className="font-medium">{order.id.substring(0, 7)}...</TableCell>
-                <TableCell>{order.customer}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={
-                    order.status === 'Delivered' ? 'text-green-600 border-green-600' :
-                    order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
-                    order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 'text-gray-600 border-gray-600'
-                  }>{order.status}</Badge>
-                </TableCell>
-                <TableCell>
-                   <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>
-                        {order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}
-                    </Badge>
-                </TableCell>
-                <TableCell>
-                    {order.date && order.date.toDate ? format(order.date.toDate(), 'dd MMM yyyy') : 'N/A'}
-                </TableCell>
-                <TableCell className="text-right">{order.total}</TableCell>
-                 <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                        
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Lihat Bukti Bayar
-                                </button>
-                            </DialogTrigger>
-                             <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Bukti Pembayaran #{order.id}</DialogTitle>
-                                    <DialogDescription>
-                                        Pelanggan: {order.customer}
-                                    </DialogDescription>
-                                </DialogHeader>
-                                {order.paymentProofUrl ? (
-                                    <Link href={order.paymentProofUrl} target="_blank" rel="noopener noreferrer">
-                                        <Image src={order.paymentProofUrl} alt={`Payment proof for ${order.id}`} width={500} height={500} className="rounded-md object-contain border" />
-                                    </Link>
-                                ) : (
-                                    <p className="text-center text-muted-foreground py-8">Belum ada bukti pembayaran yang diunggah.</p>
-                                )}
-                            </DialogContent>
-                        </Dialog>
+            </TableHeader>
+            <TableBody>
+                {loading ? (
+                    <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center">Memuat pesanan...</TableCell>
+                    </TableRow>
+                ) : orders.map((order) => (
+                <TableRow key={order.id}>
+                    <TableCell>
+                    <Checkbox />
+                    </TableCell>
+                    <TableCell className="font-medium">{order.id.substring(0, 7)}...</TableCell>
+                    <TableCell>{order.customer}</TableCell>
+                    <TableCell>
+                    <Badge variant="outline" className={
+                        order.status === 'Delivered' ? 'text-green-600 border-green-600' :
+                        order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
+                        order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 'text-gray-600 border-gray-600'
+                    }>{order.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                    <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>
+                            {order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}
+                        </Badge>
+                    </TableCell>
+                    <TableCell>
+                        {order.date && order.date.toDate ? format(order.date.toDate(), 'dd MMM yyyy') : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">{order.total}</TableCell>
+                    <TableCell className="text-right">
+                        <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                            
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        Lihat Bukti Bayar
+                                    </button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Bukti Pembayaran #{order.id}</DialogTitle>
+                                        <DialogDescription>
+                                            Pelanggan: {order.customer}
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    {order.paymentProofUrl ? (
+                                        <Link href={order.paymentProofUrl} target="_blank" rel="noopener noreferrer">
+                                            <Image src={order.paymentProofUrl} alt={`Payment proof for ${order.id}`} width={500} height={500} className="rounded-md object-contain border" />
+                                        </Link>
+                                    ) : (
+                                        <p className="text-center text-muted-foreground py-8">Belum ada bukti pembayaran yang diunggah.</p>
+                                    )}
+                                </DialogContent>
+                            </Dialog>
 
-                        <DropdownMenuItem onSelect={() => generatePdf(order)}>
-                          <Printer className="mr-2 h-4 w-4" />
-                          Download PDF
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel>Ubah Status Pembayaran</DropdownMenuLabel>
-                        <DropdownMenuItem 
-                            disabled={order.paymentStatus === 'Paid'}
-                            onClick={() => handleUpdatePaymentStatus(order.id, 'Paid')}>
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Tandai Sudah Lunas
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                            disabled={order.paymentStatus === 'Unpaid'}
-                            onClick={() => handleUpdatePaymentStatus(order.id, 'Unpaid')}>
-                            <CreditCard className="mr-2 h-4 w-4" />
-                            Tandai Belum Lunas
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                            <DropdownMenuItem onSelect={() => generatePdf(order)}>
+                            <Printer className="mr-2 h-4 w-4" />
+                            Download PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel>Ubah Status Pembayaran</DropdownMenuLabel>
+                            <DropdownMenuItem 
+                                disabled={order.paymentStatus === 'Paid'}
+                                onClick={() => handleUpdatePaymentStatus(order.id, 'Paid')}>
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Tandai Sudah Lunas
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                                disabled={order.paymentStatus === 'Unpaid'}
+                                onClick={() => handleUpdatePaymentStatus(order.id, 'Unpaid')}>
+                                <CreditCard className="mr-2 h-4 w-4" />
+                                Tandai Belum Lunas
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                </TableRow>
+                ))}
+            </TableBody>
+            </Table>
+        </div>
       </CardContent>
     </Card>
   )

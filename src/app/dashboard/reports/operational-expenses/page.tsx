@@ -268,73 +268,75 @@ export default function OperationalExpensesReportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>Kategori</TableHead>
-                <TableHead>Keterangan</TableHead>
-                <TableHead className="text-right">Jumlah</TableHead>
-                <TableHead className="text-center">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredExpenses.length > 0 ? (
-                filteredExpenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell>{format(new Date(expense.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
-                    <TableCell className="font-medium">{expense.category}</TableCell>
-                    <TableCell>{expense.description}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(expense.amount)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                       <Dialog>
-                            <DialogTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <FileText className="h-4 w-4" />
-                                    <span className="sr-only">Lihat Detail Biaya</span>
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-lg">
-                                <DialogHeader>
-                                    <DialogTitle>Detail Biaya Operasional</DialogTitle>
-                                    <DialogDescription>
-                                        Transaksi ID: {expense.id}
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4 text-sm">
-                                   <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Tanggal</span>
-                                        <span>{format(new Date(expense.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
-                                   </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Kategori Biaya</span>
-                                        <span className="font-medium">{expense.category}</span>
-                                   </div>
-                                    <div className="flex flex-col space-y-2">
-                                        <span className="text-muted-foreground">Keterangan</span>
-                                        <p className="p-3 bg-muted rounded-md">{expense.description || 'Tidak ada keterangan.'}</p>
-                                   </div>
-                                    <div className="flex justify-between items-center border-t pt-4 mt-2">
-                                        <span className="text-muted-foreground font-bold">Total Biaya</span>
-                                        <span className="font-bold text-lg">{formatCurrency(expense.amount)}</span>
-                                   </div>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+          <div className="overflow-auto">
+            <Table>
+                <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24">
-                    Tidak ada data beban operasional untuk rentang tanggal ini.
-                  </TableCell>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Kategori</TableHead>
+                    <TableHead>Keterangan</TableHead>
+                    <TableHead className="text-right">Jumlah</TableHead>
+                    <TableHead className="text-center">Aksi</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {filteredExpenses.length > 0 ? (
+                    filteredExpenses.map((expense) => (
+                    <TableRow key={expense.id}>
+                        <TableCell>{format(new Date(expense.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
+                        <TableCell className="font-medium">{expense.category}</TableCell>
+                        <TableCell>{expense.description}</TableCell>
+                        <TableCell className="text-right">
+                        {formatCurrency(expense.amount)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                        <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                        <FileText className="h-4 w-4" />
+                                        <span className="sr-only">Lihat Detail Biaya</span>
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-lg">
+                                    <DialogHeader>
+                                        <DialogTitle>Detail Biaya Operasional</DialogTitle>
+                                        <DialogDescription>
+                                            Transaksi ID: {expense.id}
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4 text-sm">
+                                    <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Tanggal</span>
+                                            <span>{format(new Date(expense.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
+                                    </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Kategori Biaya</span>
+                                            <span className="font-medium">{expense.category}</span>
+                                    </div>
+                                        <div className="flex flex-col space-y-2">
+                                            <span className="text-muted-foreground">Keterangan</span>
+                                            <p className="p-3 bg-muted rounded-md">{expense.description || 'Tidak ada keterangan.'}</p>
+                                    </div>
+                                        <div className="flex justify-between items-center border-t pt-4 mt-2">
+                                            <span className="text-muted-foreground font-bold">Total Biaya</span>
+                                            <span className="font-bold text-lg">{formatCurrency(expense.amount)}</span>
+                                    </div>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                        </TableCell>
+                    </TableRow>
+                    ))
+                ) : (
+                    <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">
+                        Tidak ada data beban operasional untuk rentang tanggal ini.
+                    </TableCell>
+                    </TableRow>
+                )}
+                </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
