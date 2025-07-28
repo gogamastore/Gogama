@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useEffect, useState } from "react"
 
 function Logo() {
   return (
@@ -47,6 +48,11 @@ export default function ResellerHeader() {
     const { totalItems } = useCart();
     const { user, signOut } = useAuth();
     const router = useRouter();
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const handleSignOut = async () => {
         await signOut();
@@ -66,7 +72,7 @@ export default function ResellerHeader() {
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" asChild>
                 <Link href="/reseller/cart" className="relative">
-                    {totalItems > 0 && (
+                    {isMounted && totalItems > 0 && (
                          <Badge className="absolute -top-2 -right-2 h-5 w-5 justify-center p-0">{totalItems}</Badge>
                     )}
                     <ShoppingCart className="h-5 w-5" />
@@ -77,7 +83,7 @@ export default function ResellerHeader() {
                   <Archive className="h-5 w-5" />
                 </Link>
               </Button>
-              {user ? (
+              {isMounted && user ? (
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
