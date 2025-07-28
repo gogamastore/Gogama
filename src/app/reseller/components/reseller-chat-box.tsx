@@ -83,8 +83,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         setMessages(loadedMessages);
     }, (error) => {
         console.error("Error fetching messages:", error);
-        // If permission is denied on the specific chat, maybe the ID is stale.
-        if (error.code === 'PERMISSION_DENIED') {
+        if (error.message.includes('permission_denied')) {
             localStorage.removeItem('chatId');
             setChatId(null);
         }
@@ -118,7 +117,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             lastMessage: firstMessageText,
             timestamp: serverTimestamp(),
             unreadByAdmin: 1,
-            adminId: "not_assigned", // Placeholder for admin
+            adminId: "not_assigned",
         },
         messages: {
             [firstMessageId]: {
@@ -142,7 +141,6 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user) return;
-    
     setIsSending(true);
     
     try {
@@ -155,14 +153,16 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
                 setChatId(currentChatId);
             }
         } else {
+            const messageId = generatePushID();
             const updates: { [key: string]: any } = {};
-            const newMessageKey = generatePushID();
-            
-            updates[`/chats/${currentChatId}/messages/${newMessageKey}`] = {
-              senderId: user.uid,
-              text: newMessage,
-              timestamp: serverTimestamp(),
+
+            const messageData = {
+                senderId: user.uid,
+                text: newMessage,
+                timestamp: serverTimestamp(),
             };
+
+            updates[`/chats/${currentChatId}/messages/${messageId}`] = messageData;
             updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
             updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
@@ -171,7 +171,6 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
               const currentUnread = snapshot.val() || 0;
               updates[`/chats/${currentChatId}/metadata/unreadByAdmin`] = currentUnread + 1;
             }, { onlyOnce: true });
-
 
             await update(ref(rtdb), updates);
         }

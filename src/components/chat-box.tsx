@@ -8,8 +8,45 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, set } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
+
+// Helper to generate a unique ID, similar to Firebase's push keys
+function generatePushID() {
+    const PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+    let lastPushTime = 0;
+    const lastRandChars: number[] = [];
+    
+    return (function() {
+      let now = new Date().getTime();
+      let duplicateTime = (now === lastPushTime);
+      lastPushTime = now;
+  
+      let timeStampChars = new Array(8);
+      for (var i = 7; i >= 0; i--) {
+        timeStampChars[i] = PUSH_CHARS.charAt(now % 64);
+        now = Math.floor(now / 64);
+      }
+  
+      let id = timeStampChars.join('');
+  
+      if (!duplicateTime) {
+        for (i = 0; i < 12; i++) {
+          lastRandChars[i] = Math.floor(Math.random() * 64);
+        }
+      } else {
+        for (i = 11; i >= 0 && lastRandChars[i] === 63; i--) {
+          lastRandChars[i] = 0;
+        }
+        lastRandChars[i]++;
+      }
+      for (i = 0; i < 12; i++) {
+        id += PUSH_CHARS.charAt(lastRandChars[i]);
+      }
+      return id;
+    })();
+}
+
 
 interface ChatMetadata {
     buyerId: string;
@@ -30,7 +67,7 @@ interface Message {
 interface Chat {
     id: string;
     metadata: ChatMetadata;
-    messages: { [key: string]: Message };
+    messages?: { [key: string]: Message };
 }
 
 export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -54,7 +91,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         if (data) {
             const chatList: Chat[] = Object.keys(data).map(key => ({
                 id: key,
-                ...data[key]
+                metadata: data[key].metadata
             })).sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);
             setAllChats(chatList);
         } else {
@@ -82,13 +119,14 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
           setMessages([]);
         });
         
-        // Mark as read
+        // Mark as read by setting unreadByAdmin to 0
         const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata/unreadByAdmin`);
-        update(ref(rtdb), { [metadataRef.toString().substring(metadataRef.root.toString().length-1)]: 0 })
+        update(ref(rtdb), { [`/chats/${activeChatId}/metadata/unreadByAdmin`]: 0 })
           .catch(err => console.error("Could not mark as read:", err));
 
-
         return () => off(messagesRef, 'value', listener);
+    } else {
+        setMessages([]);
     }
   }, [activeChatId]);
 
@@ -98,27 +136,25 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChatId || !adminUser) return;
-
     setIsSending(true);
 
-    const messageData: Message = {
-      senderId: adminUser.uid,
-      text: newMessage,
-      timestamp: serverTimestamp(),
+    const messageId = generatePushID();
+    const updates: { [key: string]: any } = {};
+    
+    const messageData = {
+        senderId: adminUser.uid,
+        text: newMessage,
+        timestamp: serverTimestamp(),
     };
 
+    updates[`/chats/${activeChatId}/messages/${messageId}`] = messageData;
+    updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
+    updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
+    updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid;
+
     try {
-      const updates: { [key: string]: any } = {};
-      const newMessageKey = push(ref(rtdb, `chats/${activeChatId}/messages`)).key;
-      
-      updates[`/chats/${activeChatId}/messages/${newMessageKey}`] = messageData;
-      updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
-      updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
-      updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid;
-
-      await update(ref(rtdb), updates);
-
-      setNewMessage('');
+        await update(ref(rtdb), updates);
+        setNewMessage('');
     } catch (error) {
       console.error("Failed to send message: ", error);
     } finally {
