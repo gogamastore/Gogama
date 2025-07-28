@@ -8,9 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { db, rtdb } from '@/lib/firebase';
-import { ref, onValue, off, push, serverTimestamp, update } from "firebase/database";
+import { ref, onValue, off, push, serverTimestamp, update, increment } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
-import { sendChatMessage } from '@/ai/flows/send-chat-message';
 import { collection, getDocs } from 'firebase/firestore';
 
 interface Conversation {
@@ -108,10 +107,31 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     const messageData = {
       sender: 'admin',
       text: newMessage,
+      timestamp: serverTimestamp(),
+    };
+
+    const conversationData = {
+      lastMessage: newMessage,
+      timestamp: serverTimestamp(),
+      unreadByUser: increment(1)
     };
     
-    await sendChatMessage({ conversationId: activeChatUserId, message: messageData });
-    setNewMessage('');
+    // Create a new message reference
+    const chatRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
+    const newMessageRef = push(chatRef);
+    
+    // Create updates object for atomic operation
+    const updates: { [key: string]: any } = {};
+    updates[`/chats/${activeChatUserId}/messages/${newMessageRef.key}`] = messageData;
+    updates[`/conversations/${activeChatUserId}`] = conversationData;
+
+    try {
+        await update(ref(rtdb), updates);
+        setNewMessage('');
+    } catch(error) {
+        console.error("Failed to send message: ", error);
+        // Add toast notification here if you have one
+    }
   };
 
   const handleSelectChat = (userId: string) => {

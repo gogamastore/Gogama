@@ -8,9 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update } from "firebase/database";
+import { ref, onValue, off, update, push, serverTimestamp, increment } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
-import { sendChatMessage } from '@/ai/flows/send-chat-message';
 
 interface Message {
     sender: string; // 'admin' or 'user'
@@ -29,11 +28,13 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         const messagesRef = ref(rtdb, `chats/${user.uid}/messages`);
         const listener = onValue(messagesRef, (snapshot) => {
             const data = snapshot.val();
-            setMessages(data ? Object.values(data) : []);
+            const loadedMessages = data ? Object.values(data) as Message[] : [];
+            loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
+            setMessages(loadedMessages);
         });
 
-        // Mark messages as read
-        update(ref(rtdb, `conversations/${user.uid}`), {
+        const convoRef = ref(rtdb, `conversations/${user.uid}`);
+        update(convoRef, {
           unreadByUser: 0
         });
 
@@ -52,10 +53,36 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     const messageData = {
       sender: 'user',
       text: newMessage,
+      timestamp: serverTimestamp(),
     };
+
+    const userDocRef = doc(db, 'user', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
+
+
+    const conversationData = {
+        lastMessage: newMessage,
+        timestamp: serverTimestamp(),
+        unreadByAdmin: increment(1),
+        name: userName,
+        avatar: user.photoURL || `https://placehold.co/40x40.png`,
+    };
+
+    const chatRef = ref(rtdb, `chats/${user.uid}/messages`);
+    const newMessageRef = push(chatRef);
     
-    await sendChatMessage({ conversationId: user.uid, message: messageData });
-    setNewMessage('');
+    const updates: { [key: string]: any } = {};
+    updates[`/chats/${user.uid}/messages/${newMessageRef.key}`] = messageData;
+    updates[`/conversations/${user.uid}`] = conversationData;
+
+    try {
+        await update(ref(rtdb), updates);
+        setNewMessage('');
+    } catch(error) {
+        console.error("Failed to send message: ", error);
+        // Add toast notification here
+    }
   };
 
   if (!isOpen) {
