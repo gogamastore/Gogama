@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { db, rtdb } from '@/lib/firebase';
-import { ref, onValue, off, push, serverTimestamp, update, increment } from "firebase/database";
+import { ref, onValue, off, push, serverTimestamp, update, increment, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc } from 'firebase/firestore';
 
 interface Conversation {
     id: string;
@@ -84,7 +84,11 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         const messagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
         const listener = onValue(messagesRef, (snapshot) => {
             const data = snapshot.val();
-            setMessages(data ? Object.values(data) : []);
+            const loadedMessages = data ? Object.values(data) : [];
+            // @ts-ignore
+            loadedMessages.sort((a,b) => a.timestamp - b.timestamp);
+            // @ts-ignore
+            setMessages(loadedMessages);
         });
         
         // Mark messages as read
@@ -109,24 +113,24 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
       text: newMessage,
       timestamp: serverTimestamp(),
     };
-
-    const conversationData = {
-      lastMessage: newMessage,
-      timestamp: serverTimestamp(),
-      unreadByUser: increment(1)
-    };
     
-    // Create a new message reference
-    const chatRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
-    const newMessageRef = push(chatRef);
-    
-    // Create updates object for atomic operation
-    const updates: { [key: string]: any } = {};
-    updates[`/chats/${activeChatUserId}/messages/${newMessageRef.key}`] = messageData;
-    updates[`/conversations/${activeChatUserId}`] = conversationData;
-
     try {
-        await update(ref(rtdb), updates);
+        // Step 1: Push the new message to the chat
+        const chatMessagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
+        await push(chatMessagesRef, messageData);
+        
+        // Step 2: Update the conversation metadata
+        const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
+        const currentConvoSnap = await get(conversationRef);
+        const currentConvoData = currentConvoSnap.val();
+
+        await update(conversationRef, {
+            ...currentConvoData, // preserve existing data like name, avatar
+            lastMessage: newMessage,
+            timestamp: serverTimestamp(),
+            unreadByUser: increment(1)
+        });
+
         setNewMessage('');
     } catch(error) {
         console.error("Failed to send message: ", error);

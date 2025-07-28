@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send } from 'lucide-react';
-import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp, increment } from "firebase/database";
+import { rtdb, db } from '@/lib/firebase';
+import { ref, onValue, off, update, push, serverTimestamp, increment, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 interface Message {
     sender: string; // 'admin' or 'user'
@@ -34,9 +35,14 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         });
 
         const convoRef = ref(rtdb, `conversations/${user.uid}`);
-        update(convoRef, {
-          unreadByUser: 0
+        get(convoRef).then(snapshot => {
+            if(snapshot.exists()) {
+                update(convoRef, {
+                    unreadByUser: 0
+                });
+            }
         });
+
 
         return () => off(messagesRef, 'value', listener);
     }
@@ -55,29 +61,33 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
       text: newMessage,
       timestamp: serverTimestamp(),
     };
-
-    const userDocRef = doc(db, 'user', user.uid);
-    const userDoc = await getDoc(userDocRef);
-    const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
-
-
-    const conversationData = {
-        lastMessage: newMessage,
-        timestamp: serverTimestamp(),
-        unreadByAdmin: increment(1),
-        name: userName,
-        avatar: user.photoURL || `https://placehold.co/40x40.png`,
-    };
-
-    const chatRef = ref(rtdb, `chats/${user.uid}/messages`);
-    const newMessageRef = push(chatRef);
     
-    const updates: { [key: string]: any } = {};
-    updates[`/chats/${user.uid}/messages/${newMessageRef.key}`] = messageData;
-    updates[`/conversations/${user.uid}`] = conversationData;
-
     try {
-        await update(ref(rtdb), updates);
+        // Step 1: Push the new message to the chat
+        const chatRef = ref(rtdb, `chats/${user.uid}/messages`);
+        await push(chatRef, messageData);
+
+        // Step 2: Update the conversation metadata
+        const conversationRef = ref(rtdb, `conversations/${user.uid}`);
+        
+        const userDocRef = doc(db, 'user', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
+
+        // Get current conversation data to preserve fields like name and avatar
+        const currentConvoSnap = await get(conversationRef);
+        const currentConvoData = currentConvoSnap.val() || {};
+        
+        const conversationData = {
+            ...currentConvoData,
+            lastMessage: newMessage,
+            timestamp: serverTimestamp(),
+            unreadByAdmin: increment(1),
+            name: userName,
+            avatar: user.photoURL || `https://placehold.co/40x40.png`,
+        };
+        await update(conversationRef, conversationData);
+
         setNewMessage('');
     } catch(error) {
         console.error("Failed to send message: ", error);
