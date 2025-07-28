@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, set } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, set, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 
 // Helper to generate a unique ID, similar to Firebase's push keys
@@ -86,24 +86,49 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
 
     setLoading(true);
     const chatsRef = ref(rtdb, 'chats');
-    const listener = onValue(chatsRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            const chatList: Chat[] = Object.keys(data).map(key => ({
-                id: key,
-                metadata: data[key].metadata
-            })).sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);
-            setAllChats(chatList);
-        } else {
-            setAllChats([]);
+
+    // Fetch chat metadata one by one as per security rules
+    const fetchChats = async () => {
+        try {
+            const snapshot = await get(chatsRef);
+            if (snapshot.exists()) {
+                const chatIds = Object.keys(snapshot.val());
+                const chatPromises = chatIds.map(id => get(ref(rtdb, `chats/${id}/metadata`)));
+                const chatSnapshots = await Promise.all(chatPromises);
+                
+                const chatList = chatSnapshots
+                    .map((snap, index) => ({
+                        id: chatIds[index],
+                        metadata: snap.val() as ChatMetadata
+                    }))
+                    .filter(chat => chat.metadata) // Filter out any null metadata
+                    .sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);
+
+                setAllChats(chatList);
+            } else {
+                setAllChats([]);
+            }
+        } catch (error) {
+            console.error("Error fetching chats:", error);
+            // This error is expected if the rules are correct and a non-admin tries to access
+            // We can handle this gracefully.
+             setAllChats([]);
+        } finally {
+             setLoading(false);
         }
-        setLoading(false);
-    }, (error) => {
-        console.error("Permission error fetching chats:", error);
-        setLoading(false);
+    };
+    
+    fetchChats();
+
+    // Set up a listener for new chats (optional, might require different rules)
+    const listener = onValue(chatsRef, (snapshot) => {
+        // Re-fetch all chats when a new one is added.
+        // This is simpler than listening to child_added with current rules.
+        fetchChats();
     });
 
     return () => off(chatsRef, 'value', listener);
+
   }, [adminUser, isOpen]);
 
   useEffect(() => {
@@ -119,16 +144,15 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
           setMessages([]);
         });
         
-        // Mark as read by setting unreadByAdmin to 0
-        const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata/unreadByAdmin`);
-        update(ref(rtdb), { [`/chats/${activeChatId}/metadata/unreadByAdmin`]: 0 })
+        const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
+        update(metadataRef, { unreadByAdmin: 0, adminId: adminUser?.uid })
           .catch(err => console.error("Could not mark as read:", err));
 
         return () => off(messagesRef, 'value', listener);
     } else {
         setMessages([]);
     }
-  }, [activeChatId]);
+  }, [activeChatId, adminUser?.uid]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
