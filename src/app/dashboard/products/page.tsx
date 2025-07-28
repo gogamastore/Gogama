@@ -398,7 +398,7 @@ export default function ProductsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-auto">
+                    <div className="relative w-full overflow-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -470,7 +470,7 @@ export default function ProductsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                     <div className="overflow-auto">
+                     <div className="relative w-full overflow-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>

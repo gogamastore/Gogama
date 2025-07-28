@@ -259,7 +259,7 @@ export default function PurchaseTransactionPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-auto">
+            <div className="relative w-full overflow-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
