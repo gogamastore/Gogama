@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { db, rtdb } from '@/lib/firebase';
-import { ref, onValue, off, push, serverTimestamp, update, increment, get } from "firebase/database";
+import { ref, onValue, off, update } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { collection, getDocs, doc } from 'firebase/firestore';
+import { sendChatMessage } from '@/ai/flows/send-chat-message';
 
 interface Conversation {
     id: string;
@@ -42,6 +43,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
 
@@ -55,6 +57,8 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
   }, []);
 
   useEffect(() => {
+    if (users.length === 0) return; // Wait for users to be fetched
+
     setLoading(true);
     const convosRef = ref(rtdb, 'conversations');
     const listener = onValue(convosRef, (snapshot) => {
@@ -64,11 +68,11 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
                 const user = users.find(u => u.id === key);
                 return {
                     id: key,
-                    name: user?.name || 'Unknown User',
+                    name: data[key].name || user?.name || 'Unknown User',
                     lastMessage: data[key].lastMessage,
                     timestamp: data[key].timestamp,
                     unread: data[key].unreadByAdmin || 0,
-                    avatar: user?.photoURL || `https://placehold.co/40x40.png`
+                    avatar: data[key].avatar || user?.photoURL || `https://placehold.co/40x40.png`
                 };
             }).sort((a, b) => b.timestamp - a.timestamp);
             setConversations(convosList);
@@ -106,35 +110,22 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
 
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !activeChatUserId) return;
-
-    const messageData = {
-      sender: 'admin',
-      text: newMessage,
-      timestamp: serverTimestamp(),
-    };
+    if (!newMessage.trim() || !activeChatUserId || !adminUser) return;
     
+    setIsSending(true);
     try {
-        // Step 1: Push the new message to the chat
-        const chatMessagesRef = ref(rtdb, `chats/${activeChatUserId}/messages`);
-        await push(chatMessagesRef, messageData);
-        
-        // Step 2: Update the conversation metadata
-        const conversationRef = ref(rtdb, `conversations/${activeChatUserId}`);
-        const currentConvoSnap = await get(conversationRef);
-        const currentConvoData = currentConvoSnap.val();
-
-        await update(conversationRef, {
-            ...currentConvoData, // preserve existing data like name, avatar
-            lastMessage: newMessage,
-            timestamp: serverTimestamp(),
-            unreadByUser: increment(1)
+        await sendChatMessage({
+            text: newMessage,
+            userId: activeChatUserId,
+            senderId: adminUser.uid,
+            senderType: 'admin'
         });
-
         setNewMessage('');
     } catch(error) {
-        console.error("Failed to send message: ", error);
-        // Add toast notification here if you have one
+        console.error("Failed to send message via flow: ", error);
+        // You might want a toast here
+    } finally {
+        setIsSending(false);
     }
   };
 
@@ -183,9 +174,9 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             </CardContent>
             <div className="border-t p-4">
               <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative">
-                <Input placeholder="Ketik pesan..." className="pr-12" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-                <Button type="submit" variant="ghost" size="icon" className="absolute top-1/2 right-1 -translate-y-1/2">
-                  <Send className="h-5 w-5" />
+                <Input placeholder="Ketik pesan..." className="pr-12" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} disabled={isSending} />
+                <Button type="submit" variant="ghost" size="icon" className="absolute top-1/2 right-1 -translate-y-1/2" disabled={isSending}>
+                  {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </Button>
               </form>
             </div>

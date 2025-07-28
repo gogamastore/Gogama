@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
 import { ref, onValue, off, update, push, serverTimestamp, increment, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
@@ -22,6 +22,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,6 +56,8 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user) return;
+    
+    setIsSending(true);
 
     const messageData = {
       sender: 'user',
@@ -63,18 +66,15 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     };
     
     try {
-        // Step 1: Push the new message to the chat
         const chatRef = ref(rtdb, `chats/${user.uid}/messages`);
         await push(chatRef, messageData);
 
-        // Step 2: Update the conversation metadata
         const conversationRef = ref(rtdb, `conversations/${user.uid}`);
         
         const userDocRef = doc(db, 'user', user.uid);
         const userDoc = await getDoc(userDocRef);
         const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
 
-        // Get current conversation data to preserve fields like name and avatar
         const currentConvoSnap = await get(conversationRef);
         const currentConvoData = currentConvoSnap.val() || {};
         
@@ -92,6 +92,8 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     } catch(error) {
         console.error("Failed to send message: ", error);
         // Add toast notification here
+    } finally {
+        setIsSending(false);
     }
   };
 
@@ -136,9 +138,9 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         </CardContent>
         <div className="border-t p-4">
             <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="relative">
-            <Input placeholder="Ketik pesan..." className="pr-12" value={newMessage} onChange={e => setNewMessage(e.target.value)} />
-            <Button type="submit" variant="ghost" size="icon" className="absolute top-1/2 right-1 -translate-y-1/2">
-                <Send className="h-5 w-5" />
+            <Input placeholder="Ketik pesan..." className="pr-12" value={newMessage} onChange={e => setNewMessage(e.target.value)} disabled={isSending} />
+            <Button type="submit" variant="ghost" size="icon" className="absolute top-1/2 right-1 -translate-y-1/2" disabled={isSending}>
+                {isSending ? <Loader2 className="h-5 w-5 animate-spin"/> : <Send className="h-5 w-5" />}
             </Button>
             </form>
         </div>
