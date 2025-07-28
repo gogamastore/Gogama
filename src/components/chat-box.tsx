@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -16,7 +17,7 @@ interface ChatMetadata {
     adminId?: string;
     lastMessage: string;
     timestamp: any;
-    unreadByAdmin: number;
+    unreadByAdmin?: number;
     avatar?: string;
 }
 
@@ -80,7 +81,6 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
           console.error("Permission error fetching messages:", error);
         });
         
-        // Mark as read
         const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
         update(metadataRef, {
           unreadByAdmin: 0
@@ -107,8 +107,9 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     };
 
     try {
-      const chatMessagesRef = ref(rtdb, `chats/${activeChatId}/messages`);
-      await push(chatMessagesRef, messageData);
+      const messagesListRef = ref(rtdb, `chats/${activeChatId}/messages`);
+      const newMessageRef = push(messagesListRef);
+      await set(newMessageRef, messageData);
       
       const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
       const metadataUpdate = {
@@ -209,7 +210,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
                         <p className="font-semibold truncate">{convo.metadata.buyerName}</p>
                         <p className="text-sm text-muted-foreground truncate">{convo.metadata.lastMessage}</p>
                       </div>
-                      {convo.metadata.unreadByAdmin > 0 && (
+                      {convo.metadata.unreadByAdmin && convo.metadata.unreadByAdmin > 0 && (
                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                           {convo.metadata.unreadByAdmin}
                         </div>

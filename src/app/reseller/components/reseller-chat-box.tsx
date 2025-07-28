@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, set, push, serverTimestamp, child } from "firebase/database";
+import { ref, onValue, off, set, push, serverTimestamp, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -17,8 +17,6 @@ interface Message {
     text: string;
     timestamp: any;
 }
-
-const CHAT_ID_KEY = 'orderflow_chat_id';
 
 // Helper to generate a unique ID, similar to Firebase's push keys
 function generatePushID() {
@@ -66,14 +64,25 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-        const storedChatId = localStorage.getItem(CHAT_ID_KEY);
-        if (storedChatId) {
-            setChatId(storedChatId);
+    if (!user) {
+        setIsInitialized(true);
+        return;
+    };
+    
+    const userChatRef = ref(rtdb, `userChats/${user.uid}`);
+    get(userChatRef).then((snapshot) => {
+        if (snapshot.exists()) {
+            const userChatData = snapshot.val();
+            const existingChatId = Object.keys(userChatData)[0];
+            setChatId(existingChatId);
         }
-    }
-    setIsInitialized(true);
-  }, []);
+        setIsInitialized(true);
+    }).catch(error => {
+        console.error("Error fetching user chat id:", error);
+        setIsInitialized(true);
+    });
+
+  }, [user]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -103,8 +112,8 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     const userAvatar = user.photoURL || `https://placehold.co/40x40.png`;
     
     const newChatId = generatePushID();
-    const newChatRef = ref(rtdb, `chats/${newChatId}`);
-
+    const chatRef = ref(rtdb, `chats/${newChatId}`);
+    
     const chatData = {
         metadata: {
             buyerId: user.uid,
@@ -112,15 +121,19 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             avatar: userAvatar,
             lastMessage: firstMessage.text,
             timestamp: serverTimestamp(),
-            adminId: "admin_placeholder" 
+            adminId: "admin_placeholder",
+            unreadByAdmin: 1,
         },
         messages: {
             [generatePushID()]: firstMessage
         }
     };
-
-    await set(newChatRef, chatData);
-    localStorage.setItem(CHAT_ID_KEY, newChatId);
+    await set(chatRef, chatData);
+    
+    // Also save the chat id under the user's private data
+    const userChatRef = ref(rtdb, `userChats/${user.uid}/${newChatId}`);
+    await set(userChatRef, true);
+    
     return newChatId;
   };
 
@@ -145,13 +158,22 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
                 setChatId(currentChatId);
             }
         } else {
+            const chatRef = ref(rtdb, `chats/${currentChatId}`);
+            
+            // Push new message
             const messagesListRef = ref(rtdb, `chats/${currentChatId}/messages`);
             const newMessageRef = push(messagesListRef);
             await set(newMessageRef, messageData);
             
+            // Update metadata
             const metadataRef = ref(rtdb, `chats/${currentChatId}/metadata`);
-            await set(child(metadataRef, 'lastMessage'), newMessage);
-            await set(child(metadataRef, 'timestamp'), serverTimestamp());
+            const currentUnread = (await get(ref(rtdb, `chats/${currentChatId}/metadata/unreadByAdmin`))).val() || 0;
+            
+            await set(metadataRef, {
+              lastMessage: newMessage,
+              timestamp: serverTimestamp(),
+              unreadByAdmin: currentUnread + 1,
+            });
         }
         setNewMessage('');
     } catch(error) {
