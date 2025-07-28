@@ -8,8 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, push, serverTimestamp, set } from "firebase/database";
+import { ref, onValue, off, update, push, serverTimestamp, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
+
+interface ChatMember {
+    [uid: string]: boolean;
+}
 
 interface ChatMetadata {
     buyerId: string;
@@ -19,9 +23,10 @@ interface ChatMetadata {
     timestamp: any;
     unreadByAdmin?: number;
     avatar?: string;
+    members: ChatMember;
 }
 
-interface Chat {
+interface Conversation {
     id: string;
     metadata: ChatMetadata;
 }
@@ -36,29 +41,28 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
   const { user: adminUser } = useAuth();
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [conversations, setConversations] = useState<Chat[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-
   useEffect(() => {
-    if (!adminUser) return; 
+    if (!adminUser || !isOpen) return;
 
     setLoading(true);
-    const chatsRef = ref(rtdb, 'chats');
-    const listener = onValue(chatsRef, (snapshot) => {
+    const conversationsRef = ref(rtdb, 'conversations');
+    const listener = onValue(conversationsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            const convosList: Chat[] = Object.keys(data).map(key => ({
+            const convosList: Conversation[] = Object.keys(data).map(key => ({
                 id: key,
-                metadata: data[key].metadata
+                metadata: data[key]
             })).sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);
             setConversations(convosList);
         } else {
-          setConversations([]);
+            setConversations([]);
         }
         setLoading(false);
     }, (error) => {
@@ -66,9 +70,9 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         setLoading(false);
     });
 
-    return () => off(chatsRef, 'value', listener);
-  }, [adminUser]);
-  
+    return () => off(conversationsRef, 'value', listener);
+  }, [adminUser, isOpen]);
+
   useEffect(() => {
     if (activeChatId) {
         const messagesRef = ref(rtdb, `chats/${activeChatId}/messages`);
@@ -79,12 +83,11 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
             setMessages(loadedMessages);
         }, (error) => {
           console.error("Permission error fetching messages:", error);
+          setMessages([]);
         });
-        
-        const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
-        update(metadataRef, {
-          unreadByAdmin: 0
-        }).catch(err => console.error("Could not mark as read:", err));
+
+        const conversationRef = ref(rtdb, `conversations/${activeChatId}`);
+        update(conversationRef, { unreadByAdmin: 0 }).catch(err => console.error("Could not mark as read:", err));
 
         return () => off(messagesRef, 'value', listener);
     }
@@ -93,7 +96,6 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChatId || !adminUser) return;
@@ -107,17 +109,16 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     };
 
     try {
-      const messagesListRef = ref(rtdb, `chats/${activeChatId}/messages`);
-      const newMessageRef = push(messagesListRef);
-      await set(newMessageRef, messageData);
+      const updates: { [key: string]: any } = {};
+      const newMessageKey = push(ref(rtdb, `chats/${activeChatId}/messages`)).key;
       
-      const metadataRef = ref(rtdb, `chats/${activeChatId}/metadata`);
-      const metadataUpdate = {
-        lastMessage: newMessage,
-        timestamp: serverTimestamp(),
-        adminId: adminUser.uid,
-      };
-      await update(metadataRef, metadataUpdate);
+      updates[`/chats/${activeChatId}/messages/${newMessageKey}`] = messageData;
+      updates[`/chats/${activeChatId}/members/${adminUser.uid}`] = true;
+      updates[`/conversations/${activeChatId}/lastMessage`] = newMessage;
+      updates[`/conversations/${activeChatId}/timestamp`] = serverTimestamp();
+      updates[`/conversations/${activeChatId}/adminId`] = adminUser.uid;
+
+      await update(ref(rtdb), updates);
 
       setNewMessage('');
     } catch (error) {
