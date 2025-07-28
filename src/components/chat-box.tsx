@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, push, get } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, push } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 
 interface ConversationMetadata {

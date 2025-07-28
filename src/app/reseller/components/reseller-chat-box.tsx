@@ -28,7 +28,6 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // This effect runs once to get the chatId from localStorage.
     if (typeof window !== 'undefined') {
         const savedChatId = localStorage.getItem('chatId');
         if (savedChatId) {
@@ -74,17 +73,15 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
 
     const updates: { [key: string]: any } = {};
 
-    // Chat metadata, including the crucial buyerId for security rules
     updates[`/chats/${newChatId}/metadata`] = {
         buyerId: user.uid,
-        adminId: null,
+        adminId: null, // Admin will fill this when they reply
         buyerName: userName,
         avatar: userAvatar,
         lastMessage: firstMessageText,
         timestamp: serverTimestamp(),
     };
 
-    // First message
     const firstMessageRef = push(ref(rtdb, `chats/${newChatId}/messages`));
     updates[`/chats/${newChatId}/messages/${firstMessageRef.key}`] = {
         senderId: user.uid,
@@ -92,7 +89,6 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         timestamp: serverTimestamp(),
     };
     
-    // Conversation list metadata for admin dashboard
     updates[`/conversations/${user.uid}`] = {
         chatId: newChatId,
         buyerName: userName,
@@ -130,13 +126,11 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             const messagesRef = ref(rtdb, `chats/${currentChatId}/messages`);
             const newMessageRef = push(messagesRef);
 
-            const messageData = {
+            updates[`/chats/${currentChatId}/messages/${newMessageRef.key}`] = {
                 senderId: user.uid,
                 text: newMessage,
                 timestamp: serverTimestamp(),
             };
-            
-            updates[`/chats/${currentChatId}/messages/${newMessageRef.key}`] = messageData;
             updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
             updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
