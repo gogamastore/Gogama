@@ -27,8 +27,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw } from "lucide-react"
-import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy } from "firebase/firestore";
+import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle } from "lucide-react"
+import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -90,27 +90,29 @@ function EditOrderDialog({ order }: { order: Order }) {
                 </DialogDescription>
             </DialogHeader>
             <div className="max-h-[60vh] overflow-y-auto">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Produk</TableHead>
-                            <TableHead>Jumlah</TableHead>
-                            <TableHead className="text-right">Aksi</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {order.products?.map(p => (
-                            <TableRow key={p.productId}>
-                                <TableCell>{p.name}</TableCell>
-                                <TableCell>{p.quantity}</TableCell>
-                                <TableCell className="text-right">
-                                    {/* Placeholder for future actions */}
-                                    <Button variant="outline" size="sm" disabled>Ubah</Button>
-                                </TableCell>
+                <div className="relative w-full overflow-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Produk</TableHead>
+                                <TableHead>Jumlah</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {order.products?.map(p => (
+                                <TableRow key={p.productId}>
+                                    <TableCell>{p.name}</TableCell>
+                                    <TableCell>{p.quantity}</TableCell>
+                                    <TableCell className="text-right">
+                                        {/* Placeholder for future actions */}
+                                        <Button variant="outline" size="sm" disabled>Ubah</Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
              <DialogFooter>
                 <Button variant="outline">Batal</Button>
@@ -218,6 +220,54 @@ export default function OrdersPage() {
       }
   };
 
+  const handleCancelOrder = async (order: Order) => {
+    if (!confirm('Apakah Anda yakin ingin membatalkan pesanan ini? Stok akan dikembalikan.')) {
+        return;
+    }
+    setIsProcessing(order.id);
+    const batch = writeBatch(db);
+
+    try {
+        // 1. Update order status to 'Cancelled'
+        const orderRef = doc(db, "orders", order.id);
+        batch.update(orderRef, { status: 'Cancelled' });
+
+        // 2. Restore stock for each product in the order
+        if (order.products) {
+            for (const item of order.products) {
+                const productRef = doc(db, "products", item.productId);
+                const productDoc = await getDoc(productRef);
+                if (productDoc.exists()) {
+                    const currentStock = productDoc.data().stock || 0;
+                    const newStock = currentStock + item.quantity;
+                    batch.update(productRef, { stock: newStock });
+                }
+            }
+        }
+        
+        // 3. Commit the batch
+        await batch.commit();
+
+        toast({
+            title: "Pesanan Dibatalkan",
+            description: "Pesanan telah dibatalkan dan stok produk telah dikembalikan.",
+        });
+
+        fetchOrders();
+
+    } catch (error) {
+        console.error("Error cancelling order:", error);
+        toast({
+            variant: "destructive",
+            title: "Gagal Membatalkan",
+            description: "Terjadi kesalahan saat membatalkan pesanan.",
+        });
+    } finally {
+        setIsProcessing(null);
+    }
+  };
+
+
   const filteredOrders = useMemo(() => {
     // unpaid: Bank transfer, not yet paid, status is still pending
     const unpaid = allOrders
@@ -264,7 +314,8 @@ export default function OrdersPage() {
                       <Badge variant="outline" className={
                           order.status === 'Delivered' ? 'text-green-600 border-green-600' :
                           order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
-                          order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 'text-gray-600 border-gray-600'
+                          order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
+                          order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
                       }>{order.status}</Badge>
                     </TableCell>
                     <TableCell>
@@ -289,7 +340,7 @@ export default function OrdersPage() {
                                   
                                   {/* --- DYNAMIC ACTIONS --- */}
                                   {order.paymentStatus === 'Unpaid' && (
-                                     <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { paymentStatus: 'Paid', status: 'Processing' })}>
+                                     <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { paymentStatus: 'Paid' })}>
                                         <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
                                      </DropdownMenuItem>
                                   )}
@@ -311,6 +362,13 @@ export default function OrdersPage() {
                                           <Check className="mr-2 h-4 w-4" /> Tandai Telah Sampai
                                       </DropdownMenuItem>
                                   )}
+
+                                  {order.status !== 'Cancelled' && order.status !== 'Delivered' && (
+                                    <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleCancelOrder(order)}>
+                                        <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
+                                    </DropdownMenuItem>
+                                  )}
+
                                   <DropdownMenuSeparator />
                                    <Dialog>
                                       <DialogTrigger asChild>
@@ -368,7 +426,7 @@ export default function OrdersPage() {
       </CardHeader>
       <CardContent>
           <Tabs defaultValue="toShip">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="unpaid">
                     Belum Bayar <Badge className="ml-2">{filteredOrders.unpaid.length}</Badge>
                 </TabsTrigger>
@@ -380,6 +438,9 @@ export default function OrdersPage() {
                 </TabsTrigger>
                 <TabsTrigger value="delivered">
                     Selesai <Badge className="ml-2">{filteredOrders.delivered.length}</Badge>
+                </TabsTrigger>
+                 <TabsTrigger value="cancelled">
+                    Dibatalkan <Badge className="ml-2">{filteredOrders.cancelled.length}</Badge>
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="unpaid" className="mt-4">
@@ -394,8 +455,13 @@ export default function OrdersPage() {
             <TabsContent value="delivered" className="mt-4">
                  {renderOrderTable(filteredOrders.delivered, 'delivered')}
             </TabsContent>
+            <TabsContent value="cancelled" className="mt-4">
+                 {renderOrderTable(filteredOrders.cancelled, 'cancelled')}
+            </TabsContent>
           </Tabs>
       </CardContent>
     </Card>
   )
 }
+
+    
