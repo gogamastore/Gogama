@@ -126,7 +126,7 @@ export default function Dashboard() {
                 // --- Fetch recent orders ---
                 const recentOrdersQuery = query(collection(db, "orders"), orderBy("date", "desc"), limit(5));
                 const recentOrdersSnapshot = await getDocs(recentOrdersQuery);
-                const recentOrdersData = recentOrdersSnapshot.docs.map(doc => doc.data() as Order);
+                const recentOrdersData = recentOrdersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
                 setRecentOrders(recentOrdersData);
 
             } catch (error) {
