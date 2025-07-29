@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -11,17 +12,18 @@ service cloud.firestore {
 
     // Rules for the 'user' collection
     match /user/{userId} {
-      // Admins can read and write any user's profile.
-      allow write: if isAdmin();
-      
-      // A user can read and update their own profile.
-      allow get, update: if request.auth.uid == userId;
+      // Admins can create new users (staff/resellers).
+      // Users can also create their own user document during registration.
+      allow create: if isAdmin() || request.auth.uid == userId;
 
-      // New users can create their own user document during registration.
-      allow create: if request.auth.uid == userId;
+      // Users can read/update their own profile. Admins can manage any user.
+      allow read, update: if request.auth.uid == userId || isAdmin();
       
-      // Admins can list and delete users.
-      allow list, delete: if isAdmin();
+      // Admins can delete users from the database.
+      allow delete: if isAdmin();
+      
+      // Admins can list all users.
+      allow list: if isAdmin();
     }
     
     match /user/{userId}/addresses/{addressId} {
@@ -34,31 +36,28 @@ service cloud.firestore {
     // Rules for the 'products' collection
     match /products/{productId} {
       // Admins can do anything with products.
-      allow write, create, delete: if isAdmin();
-      
-      // Authenticated users (resellers) can read products.
-      allow get, list: if request.auth != null;
-
-      // Allow users to update product stock (for checkout process)
-      allow update: if request.auth != null;
+      allow create, delete, read: if isAdmin();
+      // Authenticated users (resellers and admins) can read products and update them (for stock deduction).
+      allow list, get, update: if request.auth != null;
     }
 
     // Rules for the 'orders' collection
     match /orders/{orderId} {
         // Admins can manage all orders.
-        allow read, write: if isAdmin();
+        allow read, list, create, update: if isAdmin();
 
         // Resellers can create orders for themselves
         allow create: if request.auth.uid == request.resource.data.customerId;
 
-        // Resellers can only read their own specific order.
+        // Resellers can only get their own specific orders.
         allow get: if request.auth.uid == resource.data.customerId;
         
-        // Resellers can list orders where their customerId matches.
-        allow list: if request.auth.uid == request.query.filters.customerId;
+        // Resellers can list orders if they query by their own customerId.
+        allow list: if request.auth.uid == request.query.customerId;
         
         // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
-        allow update: if request.auth.uid == resource.data.customerId;
+        allow update: if request.auth.uid == resource.data.customerId &&
+                        (request.resource.data.keys().hasOnly(['status', 'paymentStatus', 'paymentProofUrl']));
     }
 
     // Rules for 'whatsapp_contacts'
