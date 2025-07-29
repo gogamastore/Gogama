@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useAuth } from './use-auth';
 
 interface Product {
   id: string;
@@ -34,30 +35,51 @@ const parseCurrency = (value: string): number => {
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
+  const { user } = useAuth();
 
-  // Load cart from localStorage on initial client-side render
-  useEffect(() => {
-    try {
-      const savedCart = window.localStorage.getItem('reseller-cart');
-      if (savedCart) {
-        setCart(JSON.parse(savedCart));
-      }
-    } catch (error) {
-      console.error('Failed to parse cart from localStorage', error);
-    }
-    setIsHydrated(true);
+  const getCartKey = useCallback((uid: string | null | undefined) => {
+      if (!uid) return null;
+      return `reseller-cart-${uid}`;
   }, []);
+  
+
+  // Load cart from localStorage when user state changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const cartKey = getCartKey(user?.uid);
+        if (cartKey) {
+            try {
+                const savedCart = window.localStorage.getItem(cartKey);
+                if (savedCart) {
+                    setCart(JSON.parse(savedCart));
+                } else {
+                    setCart([]); // Reset cart for new user login
+                }
+            } catch (error) {
+                console.error('Failed to parse cart from localStorage', error);
+                setCart([]);
+            }
+        } else {
+            // If no user, clear the cart
+            setCart([]);
+        }
+        setIsHydrated(true);
+    }
+  }, [user, getCartKey]);
 
   // Persist cart to localStorage whenever it changes
   useEffect(() => {
-    if (isHydrated) {
-        try {
-          window.localStorage.setItem('reseller-cart', JSON.stringify(cart));
-        } catch (error) {
-          console.error('Failed to save cart to localStorage', error);
+    if (isHydrated && typeof window !== 'undefined') {
+        const cartKey = getCartKey(user?.uid);
+        if (cartKey) {
+            try {
+                window.localStorage.setItem(cartKey, JSON.stringify(cart));
+            } catch (error) {
+                console.error('Failed to save cart to localStorage', error);
+            }
         }
     }
-  }, [cart, isHydrated]);
+  }, [cart, isHydrated, user, getCartKey]);
 
   const addToCart = (product: Product) => {
     setCart(prevCart => {
@@ -101,8 +123,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       removeFromCart, 
       updateQuantity, 
       clearCart, 
-      totalItems: isHydrated ? totalItems : 0, // Return 0 on server / before hydration
-      totalAmount: isHydrated ? totalAmount : 0,
+      totalItems: isHydrated && user ? totalItems : 0, // Return 0 on server / before hydration or if no user
+      totalAmount: isHydrated && user ? totalAmount : 0,
   };
 
   return (
