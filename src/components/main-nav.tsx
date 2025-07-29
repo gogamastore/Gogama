@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from "@/components/ui/tooltip"
-import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive, ClipboardList, Settings, ChevronDown, Banknote, Users } from "lucide-react"
+import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive, ClipboardList, Settings, ChevronDown, Banknote, Users, Contact } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Button } from "./ui/button"
 
@@ -27,6 +27,7 @@ const navItems = [
 const settingsSubMenu = [
     { href: "/dashboard/settings/bank-accounts", label: "Rekening Bank", icon: Banknote },
     { href: "/dashboard/settings/staff", label: "Manajemen Staf", icon: Users },
+    { href: "/dashboard/settings/contacts", label: "Daftar Kontak", icon: Contact },
 ]
 
 

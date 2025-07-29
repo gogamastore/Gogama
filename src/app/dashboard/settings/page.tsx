@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Banknote, Users } from "lucide-react";
+import { Banknote, Users, Contact } from "lucide-react";
 import Link from "next/link";
 
 
@@ -23,6 +23,12 @@ const settingsCards = [
     description: "Tambah atau hapus akun staf dengan akses ke dasbor.",
     icon: Users,
     href: "/dashboard/settings/staff",
+  },
+  {
+    title: "Daftar Kontak",
+    description: "Kelola daftar kontak admin untuk dihubungi reseller.",
+    icon: Contact,
+    href: "/dashboard/settings/contacts",
   },
 ];
 
