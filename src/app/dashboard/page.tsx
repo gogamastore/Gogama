@@ -19,9 +19,9 @@ import { Badge } from "@/components/ui/badge"
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts"
 import { DollarSign, Package, ShoppingCart, Users } from "lucide-react"
 import { useEffect, useState } from "react"
-import { collection, getDocs, query, where, orderBy, limit, Timestamp, startOfMonth, endOfMonth, subMonths } from "firebase/firestore"
+import { collection, getDocs, query, where, orderBy, limit, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { format } from "date-fns"
+import { format, subMonths, startOfMonth, endOfMonth } from "date-fns"
 import { id as dateFnsLocaleId } from "date-fns/locale";
 
 interface Order {
