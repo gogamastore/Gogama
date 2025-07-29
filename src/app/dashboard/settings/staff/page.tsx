@@ -71,8 +71,8 @@ function EditStaffDialog({ staff, onStaffUpdated }: { staff: Staff, onStaffUpdat
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSendingReset, setIsSendingReset] = useState(false);
     const [formData, setFormData] = useState({
-        name: staff.name,
-        position: staff.position,
+        name: staff.name ?? '',
+        position: staff.position ?? '',
     });
     const { toast } = useToast();
     const { sendPasswordReset } = useAuth();
