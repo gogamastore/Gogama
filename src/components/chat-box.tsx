@@ -111,23 +111,30 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     
     try {
         const updates: { [key: string]: any } = {};
-        const newMessageKey = push(ref(rtdb, `chats/${activeChatId}/messages`)).key;
-
-        const messageData = {
+        
+        // 1. Add the new message
+        const newMessageRef = push(ref(rtdb, `chats/${activeChatId}/messages`));
+        updates[newMessageRef.key] = {
             senderId: adminUser.uid,
             text: newMessage,
             timestamp: serverTimestamp(),
         };
-        
-        updates[`/chats/${activeChatId}/messages/${newMessageKey}`] = messageData;
-        updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
-        updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
-        updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid; 
 
-        updates[`/conversations/${activeConversation.buyerId}/lastMessage`] = newMessage;
-        updates[`/conversations/${activeConversation.buyerId}/timestamp`] = serverTimestamp();
-        
-        await update(ref(rtdb), updates);
+        const chatRef = ref(rtdb, `chats/${activeChatId}`);
+        await update(chatRef, {
+            messages: updates,
+            [`metadata/lastMessage`]: newMessage,
+            [`metadata/timestamp`]: serverTimestamp(),
+            [`metadata/adminId`]: adminUser.uid
+        });
+
+        // 2. Update the conversation list for sorting
+        const conversationRef = ref(rtdb, `conversations/${activeConversation.buyerId}`);
+        await update(conversationRef, {
+            lastMessage: newMessage,
+            timestamp: serverTimestamp(),
+        });
+
 
         setNewMessage('');
     } catch (error) {

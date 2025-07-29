@@ -73,22 +73,24 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
 
     const updates: { [key: string]: any } = {};
 
+    const firstMessageRef = push(ref(rtdb, `chats/${newChatId}/messages`));
+    
+    // Path for the new chat data
     updates[`/chats/${newChatId}/metadata`] = {
         buyerId: user.uid,
-        adminId: "not_assigned", // Placeholder for admin
+        adminId: "not_assigned",
         buyerName: userName,
         avatar: userAvatar,
         lastMessage: firstMessageText,
         timestamp: serverTimestamp(),
     };
-
-    const firstMessageRef = push(ref(rtdb, `chats/${newChatId}/messages`));
     updates[`/chats/${newChatId}/messages/${firstMessageRef.key}`] = {
         senderId: user.uid,
         text: firstMessageText,
         timestamp: serverTimestamp(),
     };
     
+    // Path for the conversation list entry
     updates[`/conversations/${user.uid}`] = {
         chatId: newChatId,
         buyerName: userName,
@@ -123,10 +125,9 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             }
         } else {
             const updates: { [key: string]: any } = {};
-            const messagesRef = ref(rtdb, `chats/${currentChatId}/messages`);
-            const newMessageRef = push(messagesRef);
-
-            updates[`/chats/${currentChatId}/messages/${newMessageRef.key}`] = {
+            const messageKey = push(ref(rtdb, `chats/${currentChatId}/messages`)).key;
+            
+            updates[`/chats/${currentChatId}/messages/${messageKey}`] = {
                 senderId: user.uid,
                 text: newMessage,
                 timestamp: serverTimestamp(),
