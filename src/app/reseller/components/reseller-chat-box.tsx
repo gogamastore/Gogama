@@ -71,26 +71,25 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     const newChatId = newChatRef.key;
     if (!newChatId) return null;
 
+    const firstMessageRef = push(ref(rtdb, `chats/${newChatId}/messages`));
+    const firstMessageKey = firstMessageRef.key;
+
     const updates: { [key: string]: any } = {};
 
-    const firstMessageRef = push(ref(rtdb, `chats/${newChatId}/messages`));
-    
-    // Path for the new chat data
     updates[`/chats/${newChatId}/metadata`] = {
         buyerId: user.uid,
-        adminId: "not_assigned",
+        adminId: "not_assigned", 
         buyerName: userName,
         avatar: userAvatar,
         lastMessage: firstMessageText,
         timestamp: serverTimestamp(),
     };
-    updates[`/chats/${newChatId}/messages/${firstMessageRef.key}`] = {
+    updates[`/chats/${newChatId}/messages/${firstMessageKey}`] = {
         senderId: user.uid,
         text: firstMessageText,
         timestamp: serverTimestamp(),
     };
     
-    // Path for the conversation list entry
     updates[`/conversations/${user.uid}`] = {
         chatId: newChatId,
         buyerName: userName,
