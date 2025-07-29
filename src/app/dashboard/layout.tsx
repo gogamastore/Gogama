@@ -10,9 +10,7 @@ import { Search, Menu } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-// ChatTrigger tidak lagi digunakan di dashboard admin
-// import ChatTrigger from "@/components/chat-trigger";
+import { useEffect } from "react";
 
 function Logo() {
   return (
@@ -115,8 +113,6 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
-      {/* ChatTrigger tidak lagi digunakan di dashboard admin */}
-      {/* <ChatTrigger /> */}
     </div>
   );
 }

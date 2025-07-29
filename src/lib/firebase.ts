@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getDatabase } from 'firebase/database';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAQevbEKAkQfOSPF0VvdO6sSaCZynGGE1s",
@@ -18,7 +18,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
-// Hapus rtdb dari ekspor karena tidak lagi digunakan
-// const rtdb = getDatabase(app);
+const storage = getStorage(app);
 
-export { app, auth, db };
+
+export { app, auth, db, storage };
