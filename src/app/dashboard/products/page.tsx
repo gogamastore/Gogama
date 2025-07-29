@@ -476,8 +476,7 @@ export default function ProductsPage() {
         const querySnapshot = await getDocs(collection(db, "products"));
         const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(productsData);
-        setFilteredProducts(productsData);
-
+        
         const lowStockQuery = query(collection(db, "products"), where("stock", "<=", 5));
         const lowStockSnapshot = await getDocs(lowStockQuery);
         const lowStockData = lowStockSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
@@ -707,7 +706,5 @@ export default function ProductsPage() {
     </>
   )
 }
-
-    
 
     
