@@ -1,0 +1,75 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Fungsi untuk memeriksa apakah pengguna adalah admin melalui Custom Claims.
+    // Ini adalah cara yang benar dan efisien.
+    function isAdmin() {
+      return request.auth.token.admin == true;
+    }
+
+    // Aturan untuk Koleksi 'user'
+    match /user/{userId} {
+      // Admin dapat membaca dan menulis data pengguna mana pun.
+      allow read, write: if isAdmin();
+      
+      // Pengguna hanya dapat membaca dan memperbarui data profil mereka sendiri.
+      allow get, update: if request.auth.uid == userId;
+    }
+    
+    match /user/{userId}/addresses/{addressId} {
+        // Pengguna hanya dapat mengelola alamat mereka sendiri.
+      allow read, write, delete: if request.auth.uid == userId;
+    }
+
+    // Aturan untuk Koleksi 'products'
+    match /products/{productId} {
+      // Admin dapat mengelola produk.
+      allow read, write: if isAdmin();
+      
+      // Reseller (pengguna terautentikasi) hanya dapat membaca produk.
+      allow get, list: if request.auth != null;
+    }
+
+    // Aturan untuk Koleksi 'orders'
+    match /orders/{orderId} {
+      // Admin dapat mengelola semua pesanan.
+      allow read, write: if isAdmin();
+      
+      // Pengguna hanya dapat membuat pesanan untuk diri mereka sendiri
+      // dan membaca/memperbarui pesanan mereka sendiri.
+      allow create: if request.auth.uid == request.resource.data.customerId;
+      allow get, update: if request.auth.uid == resource.data.customerId;
+      allow list: if request.auth.uid == request.query.customerId;
+    }
+
+    // Aturan untuk Koleksi 'purchase_transactions'
+    match /purchase_transactions/{transactionId} {
+      // Hanya admin yang bisa mengelola transaksi pembelian.
+      allow read, write: if isAdmin();
+    }
+    
+    // Aturan untuk Koleksi 'operational_expenses'
+    match /operational_expenses/{expenseId} {
+       // Hanya admin yang bisa mengelola biaya operasional.
+       allow read, write: if isAdmin();
+    }
+
+    // Aturan untuk Koleksi 'stock_adjustments'
+    match /stock_adjustments/{adjustmentId} {
+      // Hanya admin yang bisa mengelola penyesuaian stok.
+      allow read, write: if isAdmin();
+    }
+    
+    // Aturan untuk Koleksi 'whatsapp_contacts'
+    match /whatsapp_contacts/{contactId} {
+        // Admin dapat mengelola kontak.
+        allow write, delete: if isAdmin();
+        
+        // Semua pengguna yang terautentikasi dapat membaca daftar kontak.
+        allow get, list: if request.auth != null;
+    }
+  }
+}
