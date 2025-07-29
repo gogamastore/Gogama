@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -8,7 +9,6 @@ import {
   deleteDoc,
   query,
   where,
-  addDoc,
   setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -58,7 +58,7 @@ interface Staff {
 export default function StaffManagementPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { createUser } = useAuth(); // Import the createUser function
+  const { createUser } = useAuth(); // Import the createUser function from hook
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -74,6 +74,7 @@ export default function StaffManagementPage() {
   const fetchStaff = async () => {
     setLoading(true);
     try {
+      // Query to get all users that have the role 'admin'
       const q = query(collection(db, 'user'), where('role', '==', 'admin'));
       const querySnapshot = await getDocs(q);
       const staffData = querySnapshot.docs.map(
@@ -127,7 +128,7 @@ export default function StaffManagementPage() {
           email: newStaff.email,
           phone: newStaff.phone,
           position: newStaff.position,
-          role: 'admin'
+          role: 'admin' // Explicitly set role to 'admin'
       });
 
       toast({
@@ -139,10 +140,17 @@ export default function StaffManagementPage() {
       fetchStaff(); // Refresh list
     } catch (error: any) {
       console.error('Error adding staff: ', error);
+      // Check for specific auth errors
+      let errorMessage = 'Pastikan email belum terdaftar dan password valid.';
+      if (error.code === 'auth/email-already-in-use') {
+          errorMessage = 'Alamat email ini sudah digunakan oleh akun lain.';
+      } else if (error.code === 'auth/weak-password') {
+          errorMessage = 'Password terlalu lemah. Harap gunakan minimal 6 karakter.';
+      }
       toast({
         variant: 'destructive',
         title: 'Gagal Menambahkan Staf',
-        description: error.message || 'Pastikan email belum terdaftar.',
+        description: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
@@ -150,17 +158,16 @@ export default function StaffManagementPage() {
   };
 
   const handleDeleteStaff = async (id: string, name: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus staf "${name}"? Tindakan ini tidak bisa dibatalkan.`)) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus staf "${name}"? Tindakan ini hanya akan menghapus data staf dari daftar, bukan akun login mereka.`)) {
       return;
     }
-    // Deleting a user from Auth requires a backend function for security.
-    // For now, we will only delete their record from Firestore.
-    // The user will no longer appear in the list but their Auth account will remain.
+    // Deleting a user from Auth should be done in a secure backend environment.
+    // Here, we only delete their record from Firestore.
     try {
       await deleteDoc(doc(db, "user", id));
       toast({
         title: 'Staf Berhasil Dihapus',
-        description: `Data staf ${name} telah dihapus dari Firestore. Akun login mereka masih ada.`
+        description: `Data staf ${name} telah dihapus dari daftar.`
       });
       fetchStaff(); // Refresh list
     } catch (error: any) {
@@ -274,7 +281,7 @@ export default function StaffManagementPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDeleteStaff(staff.id, staff.name)}
-                            title="Menghapus staf hanya akan menghapus data dari daftar ini, bukan akun login mereka."
+                            title="Hapus Staf"
                             >
                             <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>

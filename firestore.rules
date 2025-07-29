@@ -5,74 +5,55 @@ service cloud.firestore {
 
     // Helper function to check for admin role
     function isAdmin() {
-      return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+      return exists(/databases/$(database)/documents/user/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Rules for the 'user' collection
+    // Users Collection
     match /user/{userId} {
-      // Admins can read any user document
-      // Regular users can only read their own document
-      allow read: if request.auth != null && (isAdmin() || request.auth.uid == userId);
-      
-      // Admins can create/update any user document
-      // Regular users can only update their own document
-      allow write: if request.auth != null && (isAdmin() || request.auth.uid == userId);
+      // Allow admin to read/write any user document.
+      // Allow a user to read/update their own document.
+      allow read, update: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      // Allow admin to create/delete any user document.
+      allow create, delete: if request.auth != null && isAdmin();
+
+      // Subcollection for user addresses
+      match /addresses/{addressId} {
+        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
-    
-    // Rules for 'products' collection
+
+    // Products Collection
     match /products/{productId} {
-      // Anyone authenticated can read products (for reseller portal)
+      // Allow any authenticated user to read products (for reseller dashboard).
+      // Only allow admins to create, update, or delete products.
       allow read: if request.auth != null;
-      // Only admins can create, update, or delete products
       allow write: if request.auth != null && isAdmin();
     }
-    
-    // Rules for 'orders' collection
+
+    // Orders Collection
     match /orders/{orderId} {
-       // Admins can read any order
-       // Authenticated users can read their own orders
-       allow read: if request.auth != null && (isAdmin() || request.resource.data.customerId == request.auth.uid);
-       
-       // Admins can update/delete any order
-       // Authenticated users can create orders and update their own (e.g. upload payment proof)
-       allow write: if request.auth != null && (isAdmin() || request.auth.uid == resource.data.customerId || request.auth.uid == request.resource.data.customerId);
+      // Admins can read/write any order.
+      // A user can read/create/update their own orders.
+      allow read, update: if request.auth != null && (isAdmin() || request.resource.data.customerId == request.auth.uid);
+      allow create: if request.auth != null;
+      // Generally, don't allow users to delete orders.
+      allow delete: if request.auth != null && isAdmin();
     }
 
-    // Rules for 'stock_adjustments'
-    match /stock_adjustments/{adjustmentId} {
-        // Only admins can read or write stock adjustments
-        allow read, write: if request.auth != null && isAdmin();
-    }
-
-    // Rules for 'purchase_transactions'
-    match /purchase_transactions/{transactionId} {
-       // Only admins can read or write purchase transactions
-       allow read, write: if request.auth != null && isAdmin();
-    }
-    
-    // Rules for 'operational_expenses'
-    match /operational_expenses/{expenseId} {
-        // Only admins can read or write operational expenses
-        allow read, write: if request.auth != null && isAdmin();
-    }
-
-    // Rules for 'bank_accounts'
+    // Bank Accounts, Stock Adjustments, Purchases, Expenses
+    // These should only be managed by admins.
     match /bank_accounts/{accountId} {
-      // Any authenticated user can read (for reseller checkout)
-      allow read: if request.auth != null;
-      // Only admins can write
-      allow write: if request.auth != null && isAdmin();
+      allow read, write, delete: if request.auth != null && isAdmin();
     }
-
-    // Rules for user-specific subcollections like addresses
-    match /user/{userId}/addresses/{addressId} {
-      // A user can manage their own addresses
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /stock_adjustments/{adjustmentId} {
+      allow read, write, delete: if request.auth != null && isAdmin();
     }
-
-    // Default deny all other access
-    match /{document=**} {
-      allow read, write: if false;
+    match /purchase_transactions/{transactionId} {
+      allow read, write, delete: if request.auth != null && isAdmin();
+    }
+    match /operational_expenses/{expenseId} {
+      allow read, write, delete: if request.auth != null && isAdmin();
     }
   }
 }
