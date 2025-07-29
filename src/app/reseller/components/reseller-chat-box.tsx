@@ -68,6 +68,10 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
         const userAvatar = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
 
+        const unreadRef = ref(rtdb, `/conversations/${chatId}/unreadByAdmin`);
+        const unreadSnapshot = await get(unreadRef);
+        const currentUnreadCount = unreadSnapshot.exists() ? unreadSnapshot.val() : 0;
+        
         const updates: { [key: string]: any } = {};
 
         // 1. Prepare the new message
@@ -90,7 +94,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         updates[`/conversations/${chatId}/avatar`] = userAvatar;
         updates[`/conversations/${chatId}/lastMessage`] = newMessage;
         updates[`/conversations/${chatId}/timestamp`] = serverTimestamp();
-        updates[`/conversations/${chatId}/unreadByAdmin`] = increment(1);
+        updates[`/conversations/${chatId}/unreadByAdmin`] = currentUnreadCount + 1;
         
         // Atomically write all updates
         await update(ref(rtdb), updates);
