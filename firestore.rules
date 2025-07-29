@@ -1,71 +1,48 @@
-rules_version = '2';
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user has the 'admin' role
     function isAdmin() {
-      return exists(/databases/$(database)/documents/user/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+      // Return false if the user is not authenticated.
+      if (request.auth == null) {
+        return false;
+      }
+      // Check the user's role from their document in the 'user' collection.
+      return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Rules for the 'user' collection
-    match /user/{userId} {
-      // Admins can read and write any user's profile.
-      allow read, write: if isAdmin();
-      
-      // A user can read and update their own profile.
-      allow get, update: if request.auth.uid == userId;
-
-      // New users can create their own user document during registration.
-      allow create: if request.auth.uid == userId;
-    }
-    
-    match /user/{userId}/addresses/{addressId} {
-        // A user can manage their own addresses.
-        allow read, write, delete, create: if request.auth.uid == userId;
-        // Admins can manage any user's addresses.
-        allow read, write, delete, create: if isAdmin();
-    }
-
-    // Rules for the 'products' collection
     match /products/{productId} {
-      // Admins can do anything with products.
-      allow read, write, create, delete: if isAdmin();
-      // Authenticated users (resellers) can read products.
-      allow get, list: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
 
-    // Rules for the 'orders' collection
     match /orders/{orderId} {
-        // Admins can manage all orders.
-        allow read, list, create, update: if isAdmin();
-
-        // Resellers can create orders for themselves
-        allow create: if request.auth.uid == request.resource.data.customerId;
-
-        // Resellers can only read their own orders.
-        allow get, list: if request.auth.uid == resource.data.customerId;
-        
-        // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
-        allow update: if request.auth.uid == resource.data.customerId &&
-                        (request.resource.data.keys().hasOnly(['status', 'paymentStatus', 'paymentProofUrl']));
+      allow read, update, delete: if isAdmin();
+      // Allow authenticated users to create orders.
+      allow create: if request.auth != null;
+      allow list: if isAdmin();
+      // Allow a user to get their own order, or admin to get any order.
+      allow get: if request.auth.uid == resource.data.customerId || isAdmin();
     }
 
-    // Rules for 'whatsapp_contacts'
-    match /whatsapp_contacts/{contactId} {
-        // Any authenticated user can read the contacts.
-        allow get, list: if request.auth != null;
-        // Only admins can create, update, or delete contacts.
-        allow write, create, delete: if isAdmin();
+    match /user/{userId} {
+      // Allow users to read/update their own profile, or admin to read/update any profile.
+      allow read, update: if request.auth.uid == userId || isAdmin();
+      // Only allow admins to create new user documents. This is crucial for adding staff.
+      allow create: if isAdmin();
+      // Only allow admins to delete user documents.
+      allow delete: if isAdmin();
+      // Only admins can list all users.
+      allow list: if isAdmin();
     }
 
-    // Rules for stock, purchases, and expenses (Admin-only)
-    match /stock_adjustments/{adjustmentId} {
-      allow read, write: if isAdmin();
+    match /user/{userId}/addresses/{addressId} {
+      // A user can manage their own addresses.
+      allow read, write: if request.auth.uid == userId;
     }
 
-    match /purchase_transactions/{transactionId} {
+    match /purchase_transactions/{purchaseId} {
       allow read, write: if isAdmin();
     }
 
@@ -73,9 +50,15 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
     
-    match /bank_accounts/{accountId} {
-        allow read: if request.auth != null;
-        allow write, create, delete: if isAdmin();
+    match /stock_adjustments/{adjustmentId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /whatsapp_contacts/{contactId} {
+      // Any authenticated user can read the contacts.
+      allow read: if request.auth != null;
+      // Only admins can manage the contacts.
+      allow write: if isAdmin();
     }
   }
 }
