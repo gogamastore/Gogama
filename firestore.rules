@@ -1,48 +1,62 @@
-{
-  "rules": {
-    "databases": [{
-      "database": "(default)"
-    }],
-    "match": "/{database}/documents" {
-      // Aturan untuk koleksi 'user'
-      "match": "/user/{userId}" {
-        // Izin baca: Pengguna bisa membaca data sendiri, admin bisa membaca semua data pengguna.
-        "allow read": "if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin');"
-        
-        // Izin tulis (buat, perbarui):
-        // - Admin bisa membuat pengguna baru.
-        // - Pengguna bisa memperbarui data mereka sendiri.
-        // - Admin bisa memperbarui data pengguna lain.
-        "allow write": "if request.auth != null && ((get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin') || request.auth.uid == userId);"
 
-        // Izin hapus: Hanya admin yang bisa menghapus data pengguna.
-        "allow delete": "if request.auth != null && get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';"
-        
-        // Aturan untuk sub-koleksi 'addresses'
-        "match": "/addresses/{addressId}" {
-           "allow read, write, delete": "if request.auth != null && request.auth.uid == userId;"
-        }
-      }
+rules_version = '2';
 
-      // Aturan untuk koleksi 'products'
-      "match": "/products/{productId}" {
-        "allow read": "if request.auth != null;"
-        "allow write": "if request.auth != null && get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';"
-      }
+service cloud.firestore {
+  match /databases/{database}/documents {
 
-      // Aturan untuk koleksi 'orders'
-      "match": "/orders/{orderId}" {
-        // Izin baca: Admin ATAU pemilik pesanan.
-        "allow read": "if request.auth != null && (get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin' || resource.data.customerId == request.auth.uid);"
-        // Izin tulis: Admin ATAU pemilik pesanan.
-        "allow write": "if request.auth != null && (get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin' || resource.data.customerId == request.auth.uid);"
-         // Izin buat: Semua pengguna terautentikasi bisa membuat pesanan.
-        "allow create": "if request.auth != null;"
-      }
+    // Helper function to check for admin role
+    function isAdmin() {
+      return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Aturan untuk Koleksi 'user'
+    match /user/{userId} {
+      // Admin dapat melakukan apa saja pada koleksi user
+      allow read, write, delete: if isAdmin();
       
-      "match": "/{collection}/{docId}" {
-        "allow read, write": "if request.auth != null && get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';"
-      }
+      // Pengguna biasa hanya dapat membaca dan memperbarui data mereka sendiri, tetapi tidak bisa menghapus
+      allow get, update: if request.auth.uid == userId;
+    }
+
+    // Aturan untuk Koleksi 'products'
+    match /products/{productId} {
+      allow read: if request.auth != null; // Semua pengguna terotentikasi bisa membaca produk
+      allow write: if isAdmin(); // Hanya admin yang bisa membuat/mengubah produk
+    }
+
+    // Aturan untuk Koleksi 'orders'
+    match /orders/{orderId} {
+      // Admin bisa membaca semua pesanan
+      // Reseller bisa membuat pesanan baru dan membaca pesanan mereka sendiri
+      allow read, create: if request.auth != null;
+      allow update: if isAdmin(); // Hanya admin yang bisa mengubah status pesanan
+    }
+
+    // Aturan untuk Koleksi 'purchase_transactions'
+    match /purchase_transactions/{transactionId} {
+      allow read, write: if isAdmin(); // Hanya admin yang bisa mengelola transaksi pembelian
+    }
+    
+    // Aturan untuk Koleksi 'operational_expenses'
+    match /operational_expenses/{expenseId} {
+        allow read, write: if isAdmin(); // Hanya admin yang bisa mengelola biaya operasional
+    }
+
+    // Aturan untuk Koleksi 'stock_adjustments'
+    match /stock_adjustments/{adjustmentId} {
+        allow read, write: if isAdmin(); // Hanya admin yang bisa mengelola penyesuaian stok
+    }
+
+    // Aturan untuk Koleksi 'bank_accounts'
+    match /bank_accounts/{accountId} {
+        allow read: if request.auth != null; // Semua pengguna terotentikasi bisa membaca rekening
+        allow write, delete: if isAdmin(); // Hanya admin yang bisa menambah/menghapus rekening
+    }
+
+     // Aturan untuk subkoleksi alamat pengguna
+    match /user/{userId}/addresses/{addressId} {
+      // Pengguna hanya bisa mengelola alamat mereka sendiri
+      allow read, write, delete: if request.auth.uid == userId;
     }
   }
 }
