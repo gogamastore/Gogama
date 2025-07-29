@@ -150,7 +150,10 @@ export default function StaffManagementPage() {
           errorMessage = 'Alamat email ini sudah digunakan oleh akun lain.';
       } else if (error.code === 'auth/weak-password') {
           errorMessage = 'Password terlalu lemah. Harap gunakan minimal 6 karakter.';
+      } else if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
+          errorMessage = 'Izin ditolak. Pastikan aturan keamanan Firestore & RTDB sudah benar.'
       }
+
       toast({
         variant: 'destructive',
         title: 'Gagal Menambahkan Staf',
