@@ -11,7 +11,8 @@ import {
   where,
   setDoc,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, rtdb } from '@/lib/firebase';
+import { ref, set as setRTDB } from 'firebase/database';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -58,7 +59,7 @@ interface Staff {
 export default function StaffManagementPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { createUser } = useAuth(); // Import the createUser function from hook
+  const { createUser } = useAuth();
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -74,7 +75,6 @@ export default function StaffManagementPage() {
   const fetchStaff = async () => {
     setLoading(true);
     try {
-      // Query to get all users that have the role 'admin'
       const q = query(collection(db, 'user'), where('role', '==', 'admin'));
       const querySnapshot = await getDocs(q);
       const staffData = querySnapshot.docs.map(
@@ -86,7 +86,7 @@ export default function StaffManagementPage() {
       toast({
         variant: 'destructive',
         title: 'Gagal Memuat Staf',
-        description: 'Terjadi kesalahan saat mengambil data dari server. Pastikan Anda memiliki izin yang benar.',
+        description: 'Terjadi kesalahan saat mengambil data. Pastikan aturan keamanan Firestore sudah benar.',
       });
     } finally {
       setLoading(false);
@@ -122,13 +122,18 @@ export default function StaffManagementPage() {
       const userCredential = await createUser(newStaff.email, newStaff.password);
       const user = userCredential.user;
 
-      // 2. Add staff details to Firestore, including the UID and role
+      // 2. Add staff details to Firestore
       await setDoc(doc(db, "user", user.uid), {
           name: newStaff.name,
           email: newStaff.email,
           phone: newStaff.phone,
           position: newStaff.position,
           role: 'admin' // Explicitly set role to 'admin'
+      });
+
+      // 3. Add staff role to Realtime Database for security rules
+      await setRTDB(ref(rtdb, 'users/' + user.uid), {
+          role: 'admin'
       });
 
       toast({
@@ -140,7 +145,6 @@ export default function StaffManagementPage() {
       fetchStaff(); // Refresh list
     } catch (error: any) {
       console.error('Error adding staff: ', error);
-      // Check for specific auth errors
       let errorMessage = 'Pastikan email belum terdaftar dan password valid.';
       if (error.code === 'auth/email-already-in-use') {
           errorMessage = 'Alamat email ini sudah digunakan oleh akun lain.';
@@ -162,9 +166,13 @@ export default function StaffManagementPage() {
       return;
     }
     // Deleting a user from Auth should be done in a secure backend environment.
-    // Here, we only delete their record from Firestore.
+    // Here, we only delete their record from Firestore and RTDB.
     try {
+      // Delete from Firestore
       await deleteDoc(doc(db, "user", id));
+      // Delete from Realtime Database
+      await setRTDB(ref(rtdb, 'users/' + id), null);
+
       toast({
         title: 'Staf Berhasil Dihapus',
         description: `Data staf ${name} telah dihapus dari daftar.`
