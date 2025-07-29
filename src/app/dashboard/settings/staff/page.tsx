@@ -8,6 +8,8 @@ import {
   deleteDoc,
   query,
   where,
+  addDoc,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -41,7 +43,8 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Loader2, User, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
-import { getStockSuggestion } from '../../stock-suggestions/actions';
+import { useAuth } from '@/hooks/use-auth';
+
 
 interface Staff {
   id: string;
@@ -55,6 +58,7 @@ interface Staff {
 export default function StaffManagementPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const { createUser } = useAuth(); // Import the createUser function
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -81,7 +85,7 @@ export default function StaffManagementPage() {
       toast({
         variant: 'destructive',
         title: 'Gagal Memuat Staf',
-        description: 'Terjadi kesalahan saat mengambil data dari server.',
+        description: 'Terjadi kesalahan saat mengambil data dari server. Pastikan Anda memiliki izin yang benar.',
       });
     } finally {
       setLoading(false);
@@ -113,21 +117,18 @@ export default function StaffManagementPage() {
     }
     setIsSubmitting(true);
     try {
-      // We need a server-side action (or Cloud Function) to create a user
-      // with email and password, as this can't be done securely from the client.
-      // This is a placeholder for that logic.
-      // For now, we will simulate this by calling a placeholder function.
-      
-      const response = await fetch('/api/create-staff', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newStaff)
-      })
+      // 1. Create user in Firebase Authentication
+      const userCredential = await createUser(newStaff.email, newStaff.password);
+      const user = userCredential.user;
 
-      if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Gagal menambahkan staf');
-      }
+      // 2. Add staff details to Firestore, including the UID and role
+      await setDoc(doc(db, "user", user.uid), {
+          name: newStaff.name,
+          email: newStaff.email,
+          phone: newStaff.phone,
+          position: newStaff.position,
+          role: 'admin'
+      });
 
       toast({
         title: 'Staf Berhasil Ditambahkan',
@@ -141,7 +142,7 @@ export default function StaffManagementPage() {
       toast({
         variant: 'destructive',
         title: 'Gagal Menambahkan Staf',
-        description: error.message || 'Terjadi kesalahan di server.',
+        description: error.message || 'Pastikan email belum terdaftar.',
       });
     } finally {
       setIsSubmitting(false);
@@ -152,30 +153,22 @@ export default function StaffManagementPage() {
     if (!confirm(`Apakah Anda yakin ingin menghapus staf "${name}"? Tindakan ini tidak bisa dibatalkan.`)) {
       return;
     }
+    // Deleting a user from Auth requires a backend function for security.
+    // For now, we will only delete their record from Firestore.
+    // The user will no longer appear in the list but their Auth account will remain.
     try {
-      // Similar to adding, deleting a user account should be a secure server-side operation.
-      // This is a placeholder for that logic.
-      const response = await fetch('/api/delete-staff', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: id })
-      })
-
-      if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Gagal menghapus staf');
-      }
-      
+      await deleteDoc(doc(db, "user", id));
       toast({
         title: 'Staf Berhasil Dihapus',
+        description: `Data staf ${name} telah dihapus dari Firestore. Akun login mereka masih ada.`
       });
       fetchStaff(); // Refresh list
     } catch (error: any) {
-      console.error('Error deleting staff: ', error);
+      console.error('Error deleting staff document: ', error);
       toast({
         variant: 'destructive',
         title: 'Gagal Menghapus Staf',
-        description: error.message || "Terjadi kesalahan di server.",
+        description: error.message || "Terjadi kesalahan saat menghapus data.",
       });
     }
   };
@@ -281,6 +274,7 @@ export default function StaffManagementPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDeleteStaff(staff.id, staff.name)}
+                            title="Menghapus staf hanya akan menghapus data dari daftar ini, bukan akun login mereka."
                             >
                             <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
