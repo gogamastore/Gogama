@@ -9,7 +9,7 @@ import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
 import { ref, onValue, off, update, serverTimestamp, push, get, set } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import type { ChatMessage } from '@/types/chat';
 
 interface ChatParticipant {
@@ -76,14 +76,11 @@ export default function ChatBox({ isOpen }: { isOpen: boolean; }) {
         setMessages([]);
       });
       
-      // Mark as read by admin (optional, can be implemented later)
-      // update(ref(rtdb), { [`/userChats/${adminUser?.uid}/${activeChat.participant.id}/unread`]: 0 });
-
       return () => off(messagesRef, 'value', listener);
     } else {
         setMessages([]);
     }
-  }, [activeChat, adminUser]);
+  }, [activeChat]);
 
 
   // Scroll to the last message
@@ -99,8 +96,12 @@ export default function ChatBox({ isOpen }: { isOpen: boolean; }) {
     const { participant, chatId } = activeChat;
 
     try {
+        const adminDocRef = doc(db, 'user', adminUser.uid);
+        const adminDoc = await getDoc(adminDocRef);
+        const adminName = adminDoc.exists() ? adminDoc.data().name : adminUser.displayName || "Admin";
+
         const updates: { [key: string]: any } = {};
-        const messageKey = push(ref(rtdb)).key;
+        const messageKey = push(ref(rtdb, `chats/${chatId}/messages`)).key;
         
         const messageData = {
             id: messageKey,
@@ -109,17 +110,17 @@ export default function ChatBox({ isOpen }: { isOpen: boolean; }) {
             timestamp: serverTimestamp(),
         };
 
-        // 1. Add the new message to the chat
-        updates[`/chats/${chatId}/messages/${messageKey}`] = messageData;
-        
-        // 2. Update last message metadata for both users in their chat lists
         const lastMessageUpdate = {
              lastMessage: newMessage,
              timestamp: serverTimestamp(),
-             // you can add unread counts here
         };
+
+        // 1. Add the new message to the chat
+        updates[`/chats/${chatId}/messages/${messageKey}`] = messageData;
+        
+        // 2. Update chat metadata for both users in their respective chat lists
         updates[`/userChats/${adminUser.uid}/${participant.id}`] = { ...lastMessageUpdate, withUser: participant };
-        updates[`/userChats/${participant.id}/${adminUser.uid}`] = { ...lastMessageUpdate, withUser: { id: adminUser.uid, name: adminUser.displayName || "Admin", email: adminUser.email } };
+        updates[`/userChats/${participant.id}/${adminUser.uid}`] = { ...lastMessageUpdate, withUser: { id: adminUser.uid, name: adminName, email: adminUser.email } };
 
         await update(ref(rtdb), updates);
 
@@ -158,7 +159,7 @@ export default function ChatBox({ isOpen }: { isOpen: boolean; }) {
           )}
           <div className="flex-1">
             <CardTitle>{activeChat ? activeChat.participant.name : 'Pesan'}</CardTitle>
-            <CardDescription>{activeChat ? 'Online' : `${allUsers.length} pengguna reseller`}</CardDescription>
+            <CardDescription>{activeChat ? activeChat.participant.email : `${allUsers.length} pengguna reseller`}</CardDescription>
           </div>
         </CardHeader>
 

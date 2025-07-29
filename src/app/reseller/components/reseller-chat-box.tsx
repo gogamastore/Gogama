@@ -89,7 +89,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
         
         const updates: { [key: string]: any } = {};
-        const messageKey = push(ref(rtdb)).key;
+        const messageKey = push(ref(rtdb, `chats/${chatId}/messages`)).key;
 
         const messageData = {
             id: messageKey,
@@ -98,15 +98,15 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             timestamp: serverTimestamp(),
         };
 
-        // 1. Add new message
-        updates[`/chats/${chatId}/messages/${messageKey}`] = messageData;
-
-        // 2. Update last message metadata for both users
         const lastMessageUpdate = {
              lastMessage: newMessage,
              timestamp: serverTimestamp(),
         };
 
+        // 1. Add new message
+        updates[`/chats/${chatId}/messages/${messageKey}`] = messageData;
+
+        // 2. Update last message metadata for both users
         updates[`/userChats/${user.uid}/${admin.id}`] = { ...lastMessageUpdate, withUser: { id: admin.id, name: admin.name, email: admin.email } };
         updates[`/userChats/${admin.id}/${user.uid}`] = { ...lastMessageUpdate, withUser: { id: user.uid, name: userName, email: user.email } };
 
