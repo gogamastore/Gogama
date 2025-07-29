@@ -10,6 +10,7 @@ import {
   query,
   where,
   setDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { db, rtdb } from '@/lib/firebase';
 import { ref, set as setRTDB } from 'firebase/database';
@@ -41,10 +42,19 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, User, ArrowLeft } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, User, ArrowLeft, Edit, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 
 
 interface Staff {
@@ -54,6 +64,106 @@ interface Staff {
   phone: string;
   position: string;
   role: string;
+}
+
+function EditStaffDialog({ staff, onStaffUpdated }: { staff: Staff, onStaffUpdated: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSendingReset, setIsSendingReset] = useState(false);
+    const [formData, setFormData] = useState({
+        name: staff.name,
+        position: staff.position,
+    });
+    const { toast } = useToast();
+    const { sendPasswordReset } = useAuth();
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { id, value } = e.target;
+        setFormData((prev) => ({ ...prev, [id]: value }));
+    };
+
+    const handleUpdateDetails = async () => {
+        if (!formData.name || !formData.position) {
+            toast({ variant: 'destructive', title: 'Data tidak lengkap', description: 'Nama dan jabatan harus diisi.' });
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const staffDocRef = doc(db, 'user', staff.id);
+            await updateDoc(staffDocRef, {
+                name: formData.name,
+                position: formData.position,
+            });
+            toast({ title: 'Data Staf Berhasil Diperbarui' });
+            onStaffUpdated();
+            setIsOpen(false);
+        } catch (error) {
+            console.error('Error updating staff details:', error);
+            toast({ variant: 'destructive', title: 'Gagal Memperbarui Data' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handlePasswordReset = async () => {
+        setIsSendingReset(true);
+        try {
+            await sendPasswordReset(staff.email);
+            toast({
+                title: 'Email Reset Password Terkirim',
+                description: `Email telah dikirim ke ${staff.email}.`,
+            });
+        } catch (error) {
+            console.error('Error sending password reset:', error);
+            toast({ variant: 'destructive', title: 'Gagal Mengirim Email' });
+        } finally {
+            setIsSendingReset(false);
+        }
+    };
+
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                    <Edit className="mr-2 h-4 w-4"/>
+                    <span>Edit Staf</span>
+                </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Edit Staf: {staff.name}</DialogTitle>
+                    <DialogDescription>
+                        Perbarui detail informasi atau kirim email reset password untuk staf ini.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Nama Lengkap</Label>
+                        <Input id="name" value={formData.name} onChange={handleInputChange} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="email">Alamat Email</Label>
+                        <Input id="email" type="email" value={staff.email} disabled />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="position">Jabatan</Label>
+                        <Input id="position" value={formData.position} onChange={handleInputChange} />
+                    </div>
+                </div>
+                <DialogFooter className="sm:justify-between flex-col-reverse sm:flex-row gap-2">
+                    <Button onClick={handlePasswordReset} variant="secondary" disabled={isSendingReset}>
+                        {isSendingReset ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <KeyRound className="mr-2 h-4 w-4"/>}
+                        Reset Password
+                    </Button>
+                    <Button onClick={handleUpdateDetails} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Simpan Perubahan
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
 }
 
 export default function StaffManagementPage() {
@@ -288,14 +398,28 @@ export default function StaffManagementPage() {
                             <Badge variant="secondary">{staff.role}</Badge>
                          </TableCell>
                         <TableCell className="text-right">
-                            <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteStaff(staff.id, staff.name)}
-                            title="Hapus Staf"
-                            >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Buka menu</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                    <DropdownMenuSeparator/>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                        <EditStaffDialog staff={staff} onStaffUpdated={fetchStaff} />
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="text-red-600 focus:text-red-600"
+                                        onSelect={() => handleDeleteStaff(staff.id, staff.name)}
+                                    >
+                                        <Trash2 className="mr-2 h-4 w-4"/>
+                                        <span>Hapus</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </TableCell>
                         </TableRow>
                     ))
