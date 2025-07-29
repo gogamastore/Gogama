@@ -495,9 +495,10 @@ export default function ProductsPage() {
   useEffect(() => {
     const lowercasedFilter = searchTerm.toLowerCase();
     const results = products.filter(product => {
-        const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
-        const skuMatch = typeof product.sku === 'string' && product.sku.toLowerCase().includes(lowercasedFilter);
-        return nameMatch || skuMatch;
+      const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
+      // Ensure SKU is treated as a string for searching
+      const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
+      return nameMatch || skuMatch;
     });
     setFilteredProducts(results);
   }, [searchTerm, products]);
@@ -706,5 +707,7 @@ export default function ProductsPage() {
     </>
   )
 }
+
+    
 
     
