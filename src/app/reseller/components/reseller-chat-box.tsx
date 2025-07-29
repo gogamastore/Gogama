@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, push, get } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, push, transaction } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 import type { ChatMessage } from '@/types/chat';
@@ -60,19 +60,21 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     setIsSending(true);
 
     try {
-        const messageKey = push(ref(rtdb, `chats/${chatId}/messages`)).key;
-        if (!messageKey) throw new Error("Could not generate message key.");
-        
         const userDocRef = doc(db, 'user', user.uid);
         const userDoc = await getDoc(userDocRef);
         const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
         const userAvatar = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
 
         const unreadRef = ref(rtdb, `/conversations/${chatId}/unreadByAdmin`);
-        const unreadSnapshot = await get(unreadRef);
-        const currentUnreadCount = unreadSnapshot.exists() ? unreadSnapshot.val() : 0;
+        
+        // This transaction will safely increment the unread count without needing read permission.
+        transaction(unreadRef, (currentCount) => {
+            return (currentCount || 0) + 1;
+        });
         
         const updates: { [key: string]: any } = {};
+        const messageKey = push(ref(rtdb, `chats/${chatId}/messages`)).key;
+        if (!messageKey) throw new Error("Could not generate message key.");
 
         // 1. Prepare the new message
         updates[`/chats/${chatId}/messages/${messageKey}`] = {
@@ -94,7 +96,6 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         updates[`/conversations/${chatId}/avatar`] = userAvatar;
         updates[`/conversations/${chatId}/lastMessage`] = newMessage;
         updates[`/conversations/${chatId}/timestamp`] = serverTimestamp();
-        updates[`/conversations/${chatId}/unreadByAdmin`] = currentUnreadCount + 1;
         
         // Atomically write all updates
         await update(ref(rtdb), updates);
