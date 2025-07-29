@@ -8,6 +8,7 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -27,10 +28,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+  } from "@/components/ui/dropdown-menu";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Contact, PlusCircle, Trash2, Loader2, ArrowLeft, MessageSquare } from 'lucide-react';
+import { Contact, PlusCircle, Trash2, Loader2, ArrowLeft, MessageSquare, Edit, MoreHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface AdminContact {
@@ -38,6 +47,79 @@ interface AdminContact {
   name: string;
   whatsapp: string;
 }
+
+
+function EditContactDialog({ contact, onContactUpdated }: { contact: AdminContact, onContactUpdated: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formData, setFormData] = useState({
+        name: contact.name,
+        whatsapp: contact.whatsapp,
+    });
+    const { toast } = useToast();
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { id, value } = e.target;
+        setFormData((prev) => ({ ...prev, [id]: value }));
+    };
+
+    const handleUpdate = async () => {
+        if (!formData.name || !formData.whatsapp) {
+            toast({ variant: 'destructive', title: 'Data tidak lengkap' });
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const contactDocRef = doc(db, 'whatsapp_contacts', contact.id);
+            await updateDoc(contactDocRef, {
+                name: formData.name,
+                whatsapp: formData.whatsapp,
+            });
+            toast({ title: 'Kontak Berhasil Diperbarui' });
+            onContactUpdated();
+            setIsOpen(false);
+        } catch (error) {
+            console.error('Error updating contact:', error);
+            toast({ variant: 'destructive', title: 'Gagal Memperbarui Kontak' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                 <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                    <Edit className="mr-2 h-4 w-4"/>
+                    <span>Edit Kontak</span>
+                </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Edit Kontak: {contact.name}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name-edit">Nama/Label</Label>
+                        <Input id="name-edit" value={formData.name} onChange={handleInputChange} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="whatsapp-edit">Nomor WhatsApp</Label>
+                        <Input id="whatsapp-edit" value={formData.whatsapp} onChange={handleInputChange} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
+                    <Button onClick={handleUpdate} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Simpan Perubahan
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 export default function ContactsPage() {
   const { toast } = useToast();
@@ -146,7 +228,7 @@ export default function ContactsPage() {
           <div>
             <CardTitle>Daftar Kontak Admin</CardTitle>
             <CardDescription>
-              Tambah atau hapus daftar kontak WhatsApp yang akan ditampilkan untuk reseller.
+              Tambah, edit, atau hapus daftar kontak WhatsApp yang akan ditampilkan untuk reseller.
             </CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -217,13 +299,28 @@ export default function ContactsPage() {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteContact(contact.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Buka menu</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                        <DropdownMenuSeparator/>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <EditContactDialog contact={contact} onContactUpdated={fetchContacts} />
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onSelect={() => handleDeleteContact(contact.id)}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4"/>
+                            <span>Hapus</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
                 </div>
               ))}
             </div>
