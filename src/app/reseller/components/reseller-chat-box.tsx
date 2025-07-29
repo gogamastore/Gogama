@@ -25,10 +25,10 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   // Initialize: Check if a chatId already exists in localStorage
   useEffect(() => {
     if (typeof window !== 'undefined' && user) {
-        const savedChatId = localStorage.getItem(`chatId_${user.uid}`);
-        if (savedChatId) {
-            setChatId(savedChatId);
-        }
+        // For a reseller, their chat ID is always their own UID.
+        const userChatId = user.uid;
+        setChatId(userChatId);
+        localStorage.setItem(`chatId_${user.uid}`, userChatId);
     }
     setIsInitialized(true);
   }, [user]);
@@ -56,91 +56,61 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Function to create a new chat if one doesn't exist
-  const createNewChat = async (firstMessageText: string) => {
-    if (!user) return null;
-
-    const userDocRef = doc(db, 'user', user.uid);
-    const userDoc = await getDoc(userDocRef);
-    const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
-    const userAvatar = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
-    
-    // The Chat ID is now the buyer's own UID for simplicity
-    const newChatId = user.uid;
-    const updates: { [key: string]: any } = {};
-    const firstMessageKey = push(ref(rtdb, `chats/${newChatId}/messages`)).key;
-
-    // 1. Create the new chat node with metadata and the first message
-    updates[`/chats/${newChatId}/metadata`] = {
-        buyerId: user.uid,
-        adminId: "not_assigned", // No admin has replied yet
-        buyerName: userName,
-        avatar: userAvatar,
-        lastMessage: firstMessageText,
-        timestamp: serverTimestamp(),
-    };
-    updates[`/chats/${newChatId}/messages/${firstMessageKey}`] = {
-        senderId: user.uid,
-        text: firstMessageText,
-        timestamp: serverTimestamp(),
-    };
-    
-    // 2. Create an entry in the conversations list for the admin
-    updates[`/conversations/${newChatId}`] = {
-        chatId: newChatId,
-        buyerName: userName,
-        avatar: userAvatar,
-        lastMessage: firstMessageText,
-        timestamp: serverTimestamp(),
-        unreadByAdmin: 1,
-    };
-
-    try {
-      await update(ref(rtdb), updates);
-      return newChatId;
-    } catch(error) {
-      console.error("Failed to create new chat:", error);
-      return null;
-    }
-  };
-
-
   // Main function to send a message
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !user) return;
+    if (!newMessage.trim() || !user || !chatId) return;
     setIsSending(true);
     
     try {
-        let currentChatId = chatId;
+        const updates: { [key: string]: any } = {};
+        const messageKey = push(ref(rtdb, `chats/${chatId}/messages`)).key;
         
-        // If no chat exists, create one first
-        if (!currentChatId) {
-            currentChatId = await createNewChat(newMessage);
-            if(currentChatId) {
-                localStorage.setItem(`chatId_${user.uid}`, currentChatId);
-                setChatId(currentChatId);
-            }
-        } else { // If a chat exists, just send the message
-            const updates: { [key: string]: any } = {};
-            const messageKey = push(ref(rtdb, `chats/${currentChatId}/messages`)).key;
-            
-            // 1. Add the new message
-            updates[`/chats/${currentChatId}/messages/${messageKey}`] = {
-                senderId: user.uid,
-                text: newMessage,
+        // Check if this is the very first message to create metadata
+        const chatMetadataRef = ref(rtdb, `chats/${chatId}/metadata`);
+        const chatSnapshot = await new Promise(resolve => onValue(chatMetadataRef, resolve, { onlyOnce: true }));
+
+        if (!chatSnapshot.exists()) {
+             const userDocRef = doc(db, 'user', user.uid);
+             const userDoc = await getDoc(userDocRef);
+             const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
+             const userAvatar = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
+
+            // 1. Create chat metadata
+            updates[`/chats/${chatId}/metadata`] = {
+                buyerId: user.uid,
+                adminId: "not_assigned",
+                buyerName: userName,
+                avatar: userAvatar,
+                lastMessage: newMessage,
                 timestamp: serverTimestamp(),
             };
-            // 2. Update metadata
-            updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
-            updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
-            
-            // 3. Update conversations list and notification for admin
-            updates[`/conversations/${currentChatId}/lastMessage`] = newMessage;
-            updates[`/conversations/${currentChatId}/timestamp`] = serverTimestamp();
-            updates[`/conversations/${currentChatId}/unreadByAdmin`] = increment(1);
-
-            await update(ref(rtdb), updates);
+            // 2. Create conversation entry for admin dashboard
+            updates[`/conversations/${chatId}`] = {
+                chatId: chatId,
+                buyerName: userName,
+                avatar: userAvatar,
+                lastMessage: newMessage,
+                timestamp: serverTimestamp(),
+                unreadByAdmin: 1,
+            };
+        } else {
+            // Update existing metadata and conversation
+            updates[`/chats/${chatId}/metadata/lastMessage`] = newMessage;
+            updates[`/chats/${chatId}/metadata/timestamp`] = serverTimestamp();
+            updates[`/conversations/${chatId}/lastMessage`] = newMessage;
+            updates[`/conversations/${chatId}/timestamp`] = serverTimestamp();
+            updates[`/conversations/${chatId}/unreadByAdmin`] = increment(1);
         }
+
+        // 3. Add the new message itself
+        updates[`/chats/${chatId}/messages/${messageKey}`] = {
+            senderId: user.uid,
+            text: newMessage,
+            timestamp: serverTimestamp(),
+        };
+
+        await update(ref(rtdb), updates);
+
         setNewMessage('');
     } catch(error) {
         console.error("Failed to send message: ", error);
