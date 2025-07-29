@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, push, transaction } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, push, runTransaction } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 import type { ChatMessage } from '@/types/chat';
@@ -67,8 +66,8 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
 
         const unreadRef = ref(rtdb, `/conversations/${chatId}/unreadByAdmin`);
         
-        // This transaction will safely increment the unread count without needing read permission.
-        transaction(unreadRef, (currentCount) => {
+        // This transaction will safely increment the unread count.
+        runTransaction(unreadRef, (currentCount) => {
             return (currentCount || 0) + 1;
         });
         
