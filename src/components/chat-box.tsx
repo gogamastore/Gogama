@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -22,7 +23,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Efek untuk memuat daftar percakapan untuk admin
+  // Effect to load the list of conversations for the admin
   useEffect(() => {
     if (!adminUser || !isOpen) return;
 
@@ -53,7 +54,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     return () => off(conversationsRef, 'value', listener);
   }, [adminUser, isOpen]);
   
-  // Efek untuk memuat pesan dari chat yang aktif
+  // Effect to load messages from the active chat
    useEffect(() => {
     if (activeChat?.chatId) {
       const messagesRef = ref(rtdb, `chats/${activeChat.chatId}/messages`);
@@ -67,8 +68,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         setMessages([]);
       });
       
-      // Tandai sudah dibaca oleh admin
-      const unreadCountRef = ref(rtdb, `conversations/${activeChat.chatId}/unreadByAdmin`);
+      // Mark as read by admin
       update(ref(rtdb), { [`conversations/${activeChat.chatId}/unreadByAdmin`]: 0 });
 
       return () => off(messagesRef, 'value', listener);
@@ -78,12 +78,12 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
   }, [activeChat]);
 
 
-  // Scroll ke pesan terakhir
+  // Scroll to the last message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Fungsi kirim pesan oleh admin
+  // Function to send a message as an admin
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !activeChat?.chatId || !adminUser) return;
     setIsSending(true);
@@ -92,18 +92,18 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
         const updates: { [key: string]: any } = {};
         const messageKey = push(ref(rtdb, `chats/${activeChat.chatId}/messages`)).key;
         
-        // 1. Tambah pesan baru
+        // 1. Add the new message
         updates[`/chats/${activeChat.chatId}/messages/${messageKey}`] = {
             senderId: adminUser.uid,
             text: newMessage,
             timestamp: serverTimestamp(),
         };
-        // 2. Update metadata di node 'chats'
+        // 2. Update metadata in the 'chats' node
         updates[`/chats/${activeChat.chatId}/metadata/lastMessage`] = newMessage;
         updates[`/chats/${activeChat.chatId}/metadata/timestamp`] = serverTimestamp();
-        updates[`/chats/${activeChat.chatId}/metadata/adminId`] = adminUser.uid; // Catat admin yang membalas
+        updates[`/chats/${activeChat.chatId}/metadata/adminId`] = adminUser.uid; // Record which admin replied
 
-        // 3. Update metadata di node 'conversations' (untuk list)
+        // 3. Update metadata in the 'conversations' node (for the list)
         updates[`/conversations/${activeChat.chatId}/lastMessage`] = newMessage;
         updates[`/conversations/${activeChat.chatId}/timestamp`] = serverTimestamp();
 

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, set, push, get, increment, child } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, push, increment } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 import type { ChatMessage } from '@/types/chat';
@@ -22,21 +22,18 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Inisialisasi: Cek apakah sudah ada chatId di localStorage
+  // Initialize: Check if a chatId already exists in localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-        // Cek localStorage hanya jika user sudah terautentikasi
-        if(user) {
-            const savedChatId = localStorage.getItem(`chatId_${user.uid}`);
-            if (savedChatId) {
-                setChatId(savedChatId);
-            }
+    if (typeof window !== 'undefined' && user) {
+        const savedChatId = localStorage.getItem(`chatId_${user.uid}`);
+        if (savedChatId) {
+            setChatId(savedChatId);
         }
     }
     setIsInitialized(true);
   }, [user]);
 
-  // Efek untuk mendengarkan pesan baru dari chat yang aktif
+  // Effect to listen for new messages from the active chat
   useEffect(() => {
     if (!chatId || !isOpen || !isInitialized) return;
 
@@ -54,12 +51,12 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   }, [chatId, isOpen, isInitialized]);
 
 
-  // Scroll otomatis ke pesan terakhir
+  // Automatically scroll to the last message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Fungsi untuk membuat chat baru jika belum ada
+  // Function to create a new chat if one doesn't exist
   const createNewChat = async (firstMessageText: string) => {
     if (!user) return null;
 
@@ -68,29 +65,27 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
     const userAvatar = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
     
-    // Chat ID sekarang adalah UID pembeli itu sendiri untuk kemudahan
+    // The Chat ID is now the buyer's own UID for simplicity
     const newChatId = user.uid;
     const updates: { [key: string]: any } = {};
+    const firstMessageKey = push(ref(rtdb, `chats/${newChatId}/messages`)).key;
 
-    // 1. Buat node chat baru dengan metadata
+    // 1. Create the new chat node with metadata and the first message
     updates[`/chats/${newChatId}/metadata`] = {
         buyerId: user.uid,
-        adminId: "not_assigned", // Admin belum ada yang membalas
+        adminId: "not_assigned", // No admin has replied yet
         buyerName: userName,
         avatar: userAvatar,
         lastMessage: firstMessageText,
         timestamp: serverTimestamp(),
     };
-
-    // 2. Tambahkan pesan pertama
-    const firstMessageKey = push(child(ref(rtdb), `chats/${newChatId}/messages`)).key;
     updates[`/chats/${newChatId}/messages/${firstMessageKey}`] = {
         senderId: user.uid,
         text: firstMessageText,
         timestamp: serverTimestamp(),
     };
     
-    // 3. Buat entri di list percakapan untuk admin
+    // 2. Create an entry in the conversations list for the admin
     updates[`/conversations/${newChatId}`] = {
         chatId: newChatId,
         buyerName: userName,
@@ -110,7 +105,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   };
 
 
-  // Fungsi utama untuk mengirim pesan
+  // Main function to send a message
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user) return;
     setIsSending(true);
@@ -118,18 +113,18 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     try {
         let currentChatId = chatId;
         
-        // Jika belum ada chat, buat dulu
+        // If no chat exists, create one first
         if (!currentChatId) {
             currentChatId = await createNewChat(newMessage);
             if(currentChatId) {
                 localStorage.setItem(`chatId_${user.uid}`, currentChatId);
                 setChatId(currentChatId);
             }
-        } else { // Jika sudah ada, langsung kirim pesan
+        } else { // If a chat exists, just send the message
             const updates: { [key: string]: any } = {};
             const messageKey = push(ref(rtdb, `chats/${currentChatId}/messages`)).key;
             
-            // 1. Tambah pesan baru
+            // 1. Add the new message
             updates[`/chats/${currentChatId}/messages/${messageKey}`] = {
                 senderId: user.uid,
                 text: newMessage,
@@ -139,7 +134,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
             updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
             updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
-            // 3. Update list percakapan dan notifikasi untuk admin
+            // 3. Update conversations list and notification for admin
             updates[`/conversations/${currentChatId}/lastMessage`] = newMessage;
             updates[`/conversations/${currentChatId}/timestamp`] = serverTimestamp();
             updates[`/conversations/${currentChatId}/unreadByAdmin`] = increment(1);
