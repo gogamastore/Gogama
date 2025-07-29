@@ -69,7 +69,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
       });
       
       // Mark as read by admin
-      update(ref(rtdb), { [`conversations/${activeChat.chatId}/unreadByAdmin`]: 0 });
+      update(ref(rtdb), { [`/conversations/${activeChat.chatId}/unreadByAdmin`]: 0 });
 
       return () => off(messagesRef, 'value', listener);
     } else {

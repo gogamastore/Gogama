@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, push, increment } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, push, increment, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 import type { ChatMessage } from '@/types/chat';
@@ -22,13 +22,11 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize: Check if a chatId already exists in localStorage
+  // Initialize: Check if a chatId already exists. For a reseller, it's always their UID.
   useEffect(() => {
-    if (typeof window !== 'undefined' && user) {
-        // For a reseller, their chat ID is always their own UID.
+    if (user) {
         const userChatId = user.uid;
         setChatId(userChatId);
-        localStorage.setItem(`chatId_${user.uid}`, userChatId);
     }
     setIsInitialized(true);
   }, [user]);
@@ -65,9 +63,8 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         const updates: { [key: string]: any } = {};
         const messageKey = push(ref(rtdb, `chats/${chatId}/messages`)).key;
         
-        // Check if this is the very first message to create metadata
         const chatMetadataRef = ref(rtdb, `chats/${chatId}/metadata`);
-        const chatSnapshot = await new Promise(resolve => onValue(chatMetadataRef, resolve, { onlyOnce: true }));
+        const chatSnapshot = await get(chatMetadataRef);
 
         if (!chatSnapshot.exists()) {
              const userDocRef = doc(db, 'user', user.uid);
