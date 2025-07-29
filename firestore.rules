@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -10,7 +9,7 @@ service cloud.firestore {
              get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Rules for the 'user' collection
+    // Rules for user data (profiles)
     match /user/{userId} {
       // Admins can create new users (staff/resellers).
       // Users can also create their own user document during registration.
@@ -37,28 +36,25 @@ service cloud.firestore {
     match /products/{productId} {
       // Admins can do anything with products.
       allow read, write, create, delete: if isAdmin();
-      // Authenticated users (resellers) can read products.
-      allow get, list: if request.auth != null;
-      // Allow authenticated users to update products (specifically for stock reduction)
-      allow update: if request.auth != null;
+      // Authenticated users (resellers) can read products and update for stock changes.
+      allow get, list, update: if request.auth != null;
     }
 
     // Rules for the 'orders' collection
     match /orders/{orderId} {
         // Admins can manage all orders.
-        allow read, update, create: if isAdmin();
+        allow read, list, create, update: if isAdmin();
 
         // Resellers can create orders for themselves
         allow create: if request.auth.uid == request.resource.data.customerId;
 
-        // Resellers can only read their own specific order.
+        // Resellers can only read their own orders.
         allow get: if request.auth.uid == resource.data.customerId;
-
-        // Resellers can list their own orders by querying on customerId
-        allow list: if request.auth.uid != null && request.query.where.get('customerId') == request.auth.uid;
+        allow list: if request.auth.uid == request.query.get("where").constraints[0].value;
         
         // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
-        allow update: if request.auth.uid == resource.data.customerId;
+        allow update: if request.auth.uid == resource.data.customerId &&
+                        request.resource.data.keys().hasAll(['status', 'paymentStatus', 'paymentProofUrl']);
     }
 
     // Rules for 'whatsapp_contacts'
@@ -88,5 +84,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
