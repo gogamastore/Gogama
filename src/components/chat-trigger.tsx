@@ -20,7 +20,7 @@ export default function ChatTrigger() {
           {isOpen ? <X className="h-7 w-7" /> : <MessageSquare className="h-7 w-7" />}
         </Button>
       </div>
-      <ChatBox isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <ChatBox isOpen={isOpen} />
     </>
   );
 }
