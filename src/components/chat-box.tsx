@@ -90,7 +90,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
 
     try {
         const updates: { [key: string]: any } = {};
-        const messageKey = push(ref(rtdb)).key;
+        const messageKey = push(ref(rtdb, `chats/${activeChat.chatId}/messages`)).key;
         
         // 1. Tambah pesan baru
         updates[`/chats/${activeChat.chatId}/messages/${messageKey}`] = {
