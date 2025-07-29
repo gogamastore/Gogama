@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -10,35 +9,20 @@ import { ArrowLeft, Search, Send, Loader2 } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
 import { ref, onValue, off, update, serverTimestamp, push } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
-
-interface ConversationMetadata {
-    chatId: string;
-    buyerId: string;
-    buyerName: string;
-    lastMessage: string;
-    timestamp: any;
-    avatar?: string;
-    unreadByAdmin?: number;
-    adminId?: string;
-}
-
-interface Message {
-    senderId: string;
-    text: string;
-    timestamp: any;
-}
+import type { ChatMessage, ChatListItem } from '@/types/chat';
 
 export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { user: adminUser } = useAuth();
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeChat, setActiveChat] = useState<ChatListItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [allConversations, setAllConversations] = useState<ConversationMetadata[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [allConversations, setAllConversations] = useState<ChatListItem[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Efek untuk memuat daftar percakapan untuk admin
   useEffect(() => {
     if (!adminUser || !isOpen) return;
 
@@ -48,10 +32,10 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     const listener = onValue(conversationsRef, (snapshot) => {
         if (snapshot.exists()) {
             const conversationsData = snapshot.val();
-            const conversationList: ConversationMetadata[] = Object.keys(conversationsData).map(buyerId => {
-                const convo = conversationsData[buyerId];
+            const conversationList: ChatListItem[] = Object.keys(conversationsData).map(chatId => {
+                const convo = conversationsData[chatId];
                 return {
-                    buyerId: buyerId,
+                    chatId: chatId,
                     ...convo
                 };
             }).sort((a, b) => b.timestamp - a.timestamp);
@@ -69,63 +53,59 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     return () => off(conversationsRef, 'value', listener);
   }, [adminUser, isOpen]);
   
+  // Efek untuk memuat pesan dari chat yang aktif
    useEffect(() => {
-    if (activeChatId) {
-      const messagesRef = ref(rtdb, `chats/${activeChatId}/messages`);
+    if (activeChat?.chatId) {
+      const messagesRef = ref(rtdb, `chats/${activeChat.chatId}/messages`);
       const listener = onValue(messagesRef, (snapshot) => {
         const data = snapshot.val();
-        const loadedMessages = data ? Object.values(data) as Message[] : [];
-        loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
+        const loadedMessages: ChatMessage[] = data ? Object.values(data) : [];
+        loadedMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         setMessages(loadedMessages);
       }, (error) => {
         console.error("Failed to fetch messages for active chat:", error);
         setMessages([]);
       });
       
-      const activeConversation = allConversations.find(c => c.chatId === activeChatId);
-      if (activeConversation?.unreadByAdmin && activeConversation.unreadByAdmin > 0) {
-        const conversationRef = ref(rtdb, `conversations/${activeConversation.buyerId}`);
-        update(conversationRef, { unreadByAdmin: 0 });
-      }
+      // Tandai sudah dibaca oleh admin
+      const unreadCountRef = ref(rtdb, `conversations/${activeChat.chatId}/unreadByAdmin`);
+      update(ref(rtdb), { [`conversations/${activeChat.chatId}/unreadByAdmin`]: 0 });
 
       return () => off(messagesRef, 'value', listener);
     } else {
         setMessages([]);
     }
-  }, [activeChatId, allConversations]);
+  }, [activeChat]);
 
 
+  // Scroll ke pesan terakhir
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Fungsi kirim pesan oleh admin
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !activeChatId || !adminUser) return;
+    if (!newMessage.trim() || !activeChat?.chatId || !adminUser) return;
     setIsSending(true);
 
-    const activeConversation = allConversations.find(c => c.chatId === activeChatId);
-    if (!activeConversation) {
-        setIsSending(false);
-        return;
-    }
-    
     try {
         const updates: { [key: string]: any } = {};
-        
         const messageKey = push(ref(rtdb)).key;
         
-        updates[`/chats/${activeChatId}/messages/${messageKey}`] = {
+        // 1. Tambah pesan baru
+        updates[`/chats/${activeChat.chatId}/messages/${messageKey}`] = {
             senderId: adminUser.uid,
             text: newMessage,
             timestamp: serverTimestamp(),
         };
+        // 2. Update metadata di node 'chats'
+        updates[`/chats/${activeChat.chatId}/metadata/lastMessage`] = newMessage;
+        updates[`/chats/${activeChat.chatId}/metadata/timestamp`] = serverTimestamp();
+        updates[`/chats/${activeChat.chatId}/metadata/adminId`] = adminUser.uid; // Catat admin yang membalas
 
-        updates[`/chats/${activeChatId}/metadata/lastMessage`] = newMessage;
-        updates[`/chats/${activeChatId}/metadata/timestamp`] = serverTimestamp();
-        updates[`/chats/${activeChatId}/metadata/adminId`] = adminUser.uid;
-
-        updates[`/conversations/${activeConversation.buyerId}/lastMessage`] = newMessage;
-        updates[`/conversations/${activeConversation.buyerId}/timestamp`] = serverTimestamp();
+        // 3. Update metadata di node 'conversations' (untuk list)
+        updates[`/conversations/${activeChat.chatId}/lastMessage`] = newMessage;
+        updates[`/conversations/${activeChat.chatId}/timestamp`] = serverTimestamp();
 
         await update(ref(rtdb), updates);
 
@@ -137,10 +117,6 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     }
   };
 
-  const handleSelectChat = (chatId: string) => {
-      setActiveChatId(chatId);
-  }
-
   if (!isOpen) {
     return null;
   }
@@ -149,24 +125,22 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
     c.buyerName.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const activeChat = allConversations.find(c => c.chatId === activeChatId);
-
   return (
     <div className="fixed bottom-24 right-6 z-40 w-full max-w-sm">
       <Card className="flex h-[60vh] flex-col shadow-2xl">
         <CardHeader className="flex flex-row items-center border-b p-4">
-          {activeChatId && (
-            <Button variant="ghost" size="icon" className="mr-2" onClick={() => setActiveChatId(null)}>
+          {activeChat && (
+            <Button variant="ghost" size="icon" className="mr-2" onClick={() => setActiveChat(null)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
           )}
           <div className="flex-1">
-            <CardTitle>{activeChatId ? activeChat?.buyerName : 'Pesan'}</CardTitle>
-            <CardDescription>{activeChatId ? 'Online' : `${allConversations.length} percakapan`}</CardDescription>
+            <CardTitle>{activeChat ? activeChat.buyerName : 'Pesan'}</CardTitle>
+            <CardDescription>{activeChat ? 'Online' : `${allConversations.length} percakapan`}</CardDescription>
           </div>
         </CardHeader>
 
-        {activeChatId ? (
+        {activeChat ? (
           <>
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((chat, index) => (
@@ -210,7 +184,7 @@ export default function ChatBox({ isOpen, onClose }: { isOpen: boolean; onClose:
                     <div
                       key={convo.chatId}
                       className="flex items-center gap-4 p-4 hover:bg-muted cursor-pointer"
-                      onClick={() => handleSelectChat(convo.chatId)}
+                      onClick={() => setActiveChat(convo)}
                     >
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={convo.avatar} alt={convo.buyerName} />

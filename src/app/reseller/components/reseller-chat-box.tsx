@@ -8,43 +8,43 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, set, push, get, increment } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, set, push, get, increment, child } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
-
-interface Message {
-    senderId: string;
-    text: string;
-    timestamp: any;
-}
+import type { ChatMessage } from '@/types/chat';
 
 export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const { user } = useAuth();
   const [chatId, setChatId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Inisialisasi: Cek apakah sudah ada chatId di localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-        const savedChatId = localStorage.getItem('chatId');
-        if (savedChatId) {
-            setChatId(savedChatId);
+        // Cek localStorage hanya jika user sudah terautentikasi
+        if(user) {
+            const savedChatId = localStorage.getItem(`chatId_${user.uid}`);
+            if (savedChatId) {
+                setChatId(savedChatId);
+            }
         }
     }
     setIsInitialized(true);
-  }, []);
+  }, [user]);
 
+  // Efek untuk mendengarkan pesan baru dari chat yang aktif
   useEffect(() => {
     if (!chatId || !isOpen || !isInitialized) return;
 
     const messagesRef = ref(rtdb, `chats/${chatId}/messages`);
     const listener = onValue(messagesRef, (snapshot) => {
         const data = snapshot.val();
-        const loadedMessages = data ? Object.values(data) as Message[] : [];
-        loadedMessages.sort((a, b) => a.timestamp - b.timestamp);
+        const loadedMessages: ChatMessage[] = data ? Object.values(data) : [];
+        loadedMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         setMessages(loadedMessages);
     }, (error) => {
         console.error("Error fetching messages:", error);
@@ -54,50 +54,51 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   }, [chatId, isOpen, isInitialized]);
 
 
+  // Scroll otomatis ke pesan terakhir
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-
+  // Fungsi untuk membuat chat baru jika belum ada
   const createNewChat = async (firstMessageText: string) => {
     if (!user) return null;
 
     const userDocRef = doc(db, 'user', user.uid);
     const userDoc = await getDoc(userDocRef);
     const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
-    const userAvatar = user.photoURL || `https://placehold.co/40x40.png`;
+    const userAvatar = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
     
-    const newChatRef = push(ref(rtdb, 'chats'));
-    const newChatId = newChatRef.key;
-    if (!newChatId) return null;
-
-    const firstMessageRef = push(ref(rtdb, `chats/${newChatId}/messages`));
-    const firstMessageKey = firstMessageRef.key;
-
+    // Chat ID sekarang adalah UID pembeli itu sendiri untuk kemudahan
+    const newChatId = user.uid;
     const updates: { [key: string]: any } = {};
 
+    // 1. Buat node chat baru dengan metadata
     updates[`/chats/${newChatId}/metadata`] = {
         buyerId: user.uid,
-        adminId: "not_assigned", 
+        adminId: "not_assigned", // Admin belum ada yang membalas
         buyerName: userName,
         avatar: userAvatar,
         lastMessage: firstMessageText,
         timestamp: serverTimestamp(),
     };
+
+    // 2. Tambahkan pesan pertama
+    const firstMessageKey = push(child(ref(rtdb), `chats/${newChatId}/messages`)).key;
     updates[`/chats/${newChatId}/messages/${firstMessageKey}`] = {
         senderId: user.uid,
         text: firstMessageText,
         timestamp: serverTimestamp(),
     };
     
-    updates[`/conversations/${user.uid}`] = {
+    // 3. Buat entri di list percakapan untuk admin
+    updates[`/conversations/${newChatId}`] = {
         chatId: newChatId,
         buyerName: userName,
         avatar: userAvatar,
         lastMessage: firstMessageText,
         timestamp: serverTimestamp(),
         unreadByAdmin: 1,
-    }
+    };
 
     try {
       await update(ref(rtdb), updates);
@@ -109,6 +110,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   };
 
 
+  // Fungsi utama untuk mengirim pesan
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user) return;
     setIsSending(true);
@@ -116,27 +118,31 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
     try {
         let currentChatId = chatId;
         
+        // Jika belum ada chat, buat dulu
         if (!currentChatId) {
             currentChatId = await createNewChat(newMessage);
             if(currentChatId) {
-                localStorage.setItem('chatId', currentChatId);
+                localStorage.setItem(`chatId_${user.uid}`, currentChatId);
                 setChatId(currentChatId);
             }
-        } else {
+        } else { // Jika sudah ada, langsung kirim pesan
             const updates: { [key: string]: any } = {};
             const messageKey = push(ref(rtdb, `chats/${currentChatId}/messages`)).key;
             
+            // 1. Tambah pesan baru
             updates[`/chats/${currentChatId}/messages/${messageKey}`] = {
                 senderId: user.uid,
                 text: newMessage,
                 timestamp: serverTimestamp(),
             };
+            // 2. Update metadata
             updates[`/chats/${currentChatId}/metadata/lastMessage`] = newMessage;
             updates[`/chats/${currentChatId}/metadata/timestamp`] = serverTimestamp();
             
-            updates[`/conversations/${user.uid}/lastMessage`] = newMessage;
-            updates[`/conversations/${user.uid}/timestamp`] = serverTimestamp();
-            updates[`/conversations/${user.uid}/unreadByAdmin`] = increment(1);
+            // 3. Update list percakapan dan notifikasi untuk admin
+            updates[`/conversations/${currentChatId}/lastMessage`] = newMessage;
+            updates[`/conversations/${currentChatId}/timestamp`] = serverTimestamp();
+            updates[`/conversations/${currentChatId}/unreadByAdmin`] = increment(1);
 
             await update(ref(rtdb), updates);
         }
