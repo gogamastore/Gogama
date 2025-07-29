@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -49,7 +50,7 @@ import {
     DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload, FileDown, Loader2, Search } from "lucide-react"
+import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload, FileDown, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -58,9 +59,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 
 interface Product {
@@ -469,6 +471,9 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -496,12 +501,20 @@ export default function ProductsPage() {
     const lowercasedFilter = searchTerm.toLowerCase();
     const results = products.filter(product => {
       const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
-      // Ensure SKU is treated as a string for searching
       const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
       return nameMatch || skuMatch;
     });
     setFilteredProducts(results);
+    setCurrentPage(1); // Reset to first page on new search
   }, [searchTerm, products]);
+  
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [currentPage, itemsPerPage, filteredProducts]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
 
   const handleEditClick = (product: Product) => {
@@ -568,7 +581,7 @@ export default function ProductsPage() {
                                     <TableRow>
                                         <TableCell colSpan={7} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
-                                ) : filteredProducts.map((product) => (
+                                ) : paginatedProducts.map((product) => (
                                 <TableRow key={product.id}>
                                     <TableCell className="hidden sm:table-cell">
                                     <Image
@@ -609,6 +622,57 @@ export default function ProductsPage() {
                         </Table>
                     </div>
                 </CardContent>
+                 <CardFooter>
+                    <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+                       <div className="flex-1">
+                           Menampilkan {paginatedProducts.length} dari {filteredProducts.length} produk.
+                       </div>
+                       <div className="flex items-center gap-4">
+                           <div className="flex items-center gap-2">
+                               <p>Baris per halaman</p>
+                               <Select
+                                   value={`${itemsPerPage}`}
+                                   onValueChange={(value) => {
+                                       setItemsPerPage(Number(value));
+                                       setCurrentPage(1);
+                                   }}
+                               >
+                                   <SelectTrigger className="h-8 w-[70px]">
+                                       <SelectValue placeholder={itemsPerPage} />
+                                   </SelectTrigger>
+                                   <SelectContent side="top">
+                                       {[20, 50, 100].map((pageSize) => (
+                                           <SelectItem key={pageSize} value={`${pageSize}`}>
+                                               {pageSize}
+                                           </SelectItem>
+                                       ))}
+                                   </SelectContent>
+                               </Select>
+                           </div>
+                           <div>Halaman {currentPage} dari {totalPages}</div>
+                           <div className="flex items-center gap-2">
+                                <Button
+                                   variant="outline"
+                                   size="icon"
+                                   className="h-8 w-8"
+                                   onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                   disabled={currentPage === 1}
+                               >
+                                   <ChevronLeft className="h-4 w-4" />
+                               </Button>
+                                <Button
+                                   variant="outline"
+                                   size="icon"
+                                   className="h-8 w-8"
+                                   onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                   disabled={currentPage === totalPages}
+                               >
+                                   <ChevronRight className="h-4 w-4" />
+                               </Button>
+                           </div>
+                       </div>
+                   </div>
+                </CardFooter>
             </Card>
         </TabsContent>
         <TabsContent value="low-stock">
@@ -707,7 +771,3 @@ export default function ProductsPage() {
     </>
   )
 }
-
-    
-
-    
