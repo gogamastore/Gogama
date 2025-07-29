@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Image from "next/image"
@@ -50,7 +49,7 @@ import {
     DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload, FileDown, Loader2 } from "lucide-react"
+import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload, FileDown, Loader2, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -464,10 +463,12 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -475,6 +476,7 @@ export default function ProductsPage() {
         const querySnapshot = await getDocs(collection(db, "products"));
         const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(productsData);
+        setFilteredProducts(productsData);
 
         const lowStockQuery = query(collection(db, "products"), where("stock", "<=", 5));
         const lowStockSnapshot = await getDocs(lowStockQuery);
@@ -490,6 +492,15 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    const results = products.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredProducts(results);
+  }, [searchTerm, products]);
+
 
   const handleEditClick = (product: Product) => {
     setEditingProduct(product);
@@ -524,6 +535,15 @@ export default function ProductsPage() {
                     <CardDescription>
                         Kelola produk Anda dan lihat performa penjualannya.
                     </CardDescription>
+                     <div className="relative pt-2">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Cari produk berdasarkan nama atau SKU..."
+                            className="w-full pl-8 sm:w-1/2 md:w-1/3"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div className="relative w-full overflow-auto">
@@ -546,7 +566,7 @@ export default function ProductsPage() {
                                     <TableRow>
                                         <TableCell colSpan={7} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
-                                ) : products.map((product) => (
+                                ) : filteredProducts.map((product) => (
                                 <TableRow key={product.id}>
                                     <TableCell className="hidden sm:table-cell">
                                     <Image
@@ -685,3 +705,5 @@ export default function ProductsPage() {
     </>
   )
 }
+
+    
