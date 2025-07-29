@@ -30,6 +30,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -205,9 +216,6 @@ export default function ContactsPage() {
   };
 
   const handleDeleteContact = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus kontak ini?')) {
-      return;
-    }
     try {
       await deleteDoc(doc(db, 'whatsapp_contacts', id));
       toast({
@@ -322,13 +330,28 @@ export default function ContactsPage() {
                         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                             <EditContactDialog contact={contact} onContactUpdated={fetchContacts} />
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                            onSelect={() => handleDeleteContact(contact.id)}
-                        >
-                            <Trash2 className="mr-2 h-4 w-4"/>
-                            <span>Hapus</span>
-                        </DropdownMenuItem>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                             <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-destructive hover:text-destructive-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4"/>
+                                <span>Hapus</span>
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tindakan ini akan menghapus kontak <span className='font-bold'>{contact.name}</span> secara permanen.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Batal</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteContact(contact.id)} className="bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
                     </DropdownMenuContent>
                 </DropdownMenu>
                 </div>
@@ -344,5 +367,3 @@ export default function ContactsPage() {
     </div>
   );
 }
-
-    

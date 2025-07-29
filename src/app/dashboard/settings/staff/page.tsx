@@ -38,6 +38,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -281,9 +292,6 @@ export default function StaffManagementPage() {
   };
 
   const handleDeleteStaff = async (id: string, name: string) => {
-    if (!confirm(`Anda yakin ingin menghapus staf "${name}"? Tindakan ini hanya akan menghapus data staf dari daftar. Anda harus menghapus login mereka secara manual dari Firebase Console.`)) {
-      return;
-    }
     try {
       // Delete from Firestore only. Auth deletion requires Admin SDK on a backend.
       await deleteDoc(doc(db, "user", id));
@@ -414,13 +422,28 @@ export default function StaffManagementPage() {
                                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                                         <EditStaffDialog staff={staff} onStaffUpdated={fetchStaff} />
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                                        onSelect={() => handleDeleteStaff(staff.id, staff.name)}
-                                    >
-                                        <Trash2 className="mr-2 h-4 w-4"/>
-                                        <span>Hapus</span>
-                                    </DropdownMenuItem>
+                                    
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-destructive hover:text-destructive-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-destructive">
+                                                <Trash2 className="mr-2 h-4 w-4"/>
+                                                <span>Hapus</span>
+                                            </button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Tindakan ini akan menghapus data staf <span className='font-bold'>{staff.name}</span> dari daftar, tapi tidak akan menghapus akun login mereka. Anda harus menghapusnya secara manual dari Firebase Console.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteStaff(staff.id, staff.name)} className="bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>
@@ -441,5 +464,3 @@ export default function StaffManagementPage() {
     </div>
   );
 }
-
-    
