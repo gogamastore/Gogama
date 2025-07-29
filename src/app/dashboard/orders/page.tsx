@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus } from "lucide-react"
+import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search } from "lucide-react"
 import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +42,17 @@ declare module 'jspdf' {
   interface jsPDF {
     autoTable: (options: any) => jsPDF;
   }
+}
+
+interface Product {
+    id: string;
+    name: string;
+    sku: string;
+    price: string;
+    stock: number;
+    image: string;
+    'data-ai-hint'?: string;
+    purchasePrice?: number;
 }
 
 interface OrderProduct {
@@ -78,6 +89,99 @@ const formatCurrency = (amount: number) => {
 };
 
 
+function AddProductToOrderDialog({ currentProducts, onAddProduct }: { currentProducts: OrderProduct[], onAddProduct: (product: Product, quantity: number) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [quantity, setQuantity] = useState(1);
+
+    const fetchProducts = async () => {
+        setLoading(true);
+        const querySnapshot = await getDocs(collection(db, "products"));
+        const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setAllProducts(productsData);
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchProducts();
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        const currentProductIds = currentProducts.map(p => p.productId);
+        const availableProducts = allProducts.filter(p => !currentProductIds.includes(p.id));
+        const results = availableProducts.filter(p => 
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setFilteredProducts(results);
+    }, [searchTerm, allProducts, currentProducts]);
+    
+    const handleAddClick = (product: Product) => {
+        onAddProduct(product, quantity);
+        setIsOpen(false);
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Tambah Produk</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>Tambah Produk ke Pesanan</DialogTitle>
+                    <DialogDescription>Cari dan pilih produk yang ingin ditambahkan.</DialogDescription>
+                </DialogHeader>
+                 <div className="relative pt-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Cari produk berdasarkan nama atau SKU..."
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="max-h-[50vh] overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Produk</TableHead>
+                                <TableHead>Stok</TableHead>
+                                <TableHead>Harga</TableHead>
+                                <TableHead className="w-[180px]">Jumlah</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow><TableCell colSpan={5} className="text-center">Memuat produk...</TableCell></TableRow>
+                            ) : filteredProducts.length > 0 ? filteredProducts.map(p => (
+                                <TableRow key={p.id}>
+                                    <TableCell className="font-medium">{p.name}</TableCell>
+                                    <TableCell>{p.stock}</TableCell>
+                                    <TableCell>{p.price}</TableCell>
+                                    <TableCell>
+                                        <Input type="number" defaultValue={1} min={1} max={p.stock} onChange={(e) => setQuantity(Number(e.target.value))} />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button onClick={() => handleAddClick(p)}>Tambah</Button>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow><TableCell colSpan={5} className="text-center">Produk tidak ditemukan atau sudah ada di pesanan.</TableCell></TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdated: () => void }) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editableProducts, setEditableProducts] = useState<OrderProduct[]>([]);
@@ -101,6 +205,16 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
         setEditableProducts(products => products.filter(p => p.productId !== productId));
     };
 
+    const handleAddProduct = (product: Product, quantity: number) => {
+        const newProduct: OrderProduct = {
+            productId: product.id,
+            name: product.name,
+            quantity: quantity,
+            price: parseFloat(product.price.replace(/[^0-9]/g, ''))
+        };
+        setEditableProducts(prev => [...prev, newProduct]);
+    };
+
     const newTotal = useMemo(() => {
         return editableProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
     }, [editableProducts]);
@@ -111,19 +225,26 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
 
         try {
             const originalProducts = order.products || [];
-            
-            // Calculate stock differences
             const stockAdjustments = new Map<string, number>();
 
+            // Calculate differences for existing products
             originalProducts.forEach(origP => {
                 const newP = editableProducts.find(p => p.productId === origP.productId);
                 if (newP) {
-                    const diff = origP.quantity - newP.quantity; // positive if stock should be returned
+                    const diff = origP.quantity - newP.quantity; // +ve if stock returns
                     if (diff !== 0) {
-                        stockAdjustments.set(origP.productId, diff);
+                        stockAdjustments.set(origP.productId, (stockAdjustments.get(origP.productId) || 0) + diff);
                     }
                 } else { // Item was removed
-                    stockAdjustments.set(origP.productId, origP.quantity);
+                    stockAdjustments.set(origP.productId, (stockAdjustments.get(origP.productId) || 0) + origP.quantity);
+                }
+            });
+
+            // Calculate differences for newly added products
+            editableProducts.forEach(newP => {
+                if (!originalProducts.some(origP => origP.productId === newP.productId)) {
+                     const diff = -newP.quantity; // -ve as stock is taken
+                     stockAdjustments.set(newP.productId, (stockAdjustments.get(newP.productId) || 0) + diff);
                 }
             });
 
@@ -166,12 +287,15 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                     <Edit className="mr-2 h-4 w-4" /> Edit Pesanan
                 </button>
              </DialogTrigger>
-             <DialogContent className="sm:max-w-3xl">
-                <DialogHeader>
-                    <DialogTitle>Edit Pesanan #{order.id.substring(0, 7)}...</DialogTitle>
-                    <DialogDescription>
-                        Ubah jumlah atau hapus item dari pesanan. Stok akan disesuaikan secara otomatis.
-                    </DialogDescription>
+             <DialogContent className="sm:max-w-4xl">
+                <DialogHeader className="flex-row justify-between items-center">
+                    <div>
+                        <DialogTitle>Edit Pesanan #{order.id.substring(0, 7)}...</DialogTitle>
+                        <DialogDescription>
+                            Ubah jumlah, hapus item, atau tambah produk baru ke pesanan.
+                        </DialogDescription>
+                    </div>
+                    <AddProductToOrderDialog currentProducts={editableProducts} onAddProduct={handleAddProduct} />
                 </DialogHeader>
                 <div className="max-h-[60vh] overflow-y-auto p-1">
                     <div className="relative w-full overflow-auto">
@@ -215,6 +339,13 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                                         </TableCell>
                                     </TableRow>
                                 ))}
+                                {editableProducts.length === 0 && (
+                                     <TableRow>
+                                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                            Tidak ada produk dalam pesanan. Tambahkan produk baru untuk melanjutkan.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </div>
@@ -225,7 +356,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Batal</Button>
-                        <Button onClick={handleSaveChanges} disabled={isSaving}>
+                        <Button onClick={handleSaveChanges} disabled={isSaving || editableProducts.length === 0}>
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                             Simpan Perubahan
                         </Button>
@@ -585,4 +716,3 @@ export default function OrdersPage() {
   )
 }
 
-    
