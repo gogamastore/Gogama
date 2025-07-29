@@ -494,10 +494,12 @@ export default function ProductsPage() {
   }, [fetchProducts]);
 
   useEffect(() => {
-    const results = products.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const lowercasedFilter = searchTerm.toLowerCase();
+    const results = products.filter(product => {
+        const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
+        const skuMatch = typeof product.sku === 'string' && product.sku.toLowerCase().includes(lowercasedFilter);
+        return nameMatch || skuMatch;
+    });
     setFilteredProducts(results);
   }, [searchTerm, products]);
 
@@ -705,5 +707,7 @@ export default function ProductsPage() {
     </>
   )
 }
+
+    
 
     
