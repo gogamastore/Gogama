@@ -60,13 +60,13 @@ function EditContactDialog({ contact, onContactUpdated }: { contact: AdminContac
     const { toast } = useToast();
 
     useEffect(() => {
-        if (isOpen) {
+        if (contact) {
             setFormData({
                 name: contact.name,
                 whatsapp: contact.whatsapp,
             });
         }
-    }, [isOpen, contact]);
+    }, [contact]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, value } = e.target;
@@ -205,7 +205,7 @@ export default function ContactsPage() {
   };
 
   const handleDeleteContact = async (id: string) => {
-     if (!confirm('Apakah Anda yakin ingin menghapus kontak ini?')) {
+    if (!confirm('Apakah Anda yakin ingin menghapus kontak ini?')) {
       return;
     }
     try {
@@ -323,7 +323,7 @@ export default function ContactsPage() {
                             <EditContactDialog contact={contact} onContactUpdated={fetchContacts} />
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                            className="text-red-600 focus:text-red-600"
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
                             onSelect={() => handleDeleteContact(contact.id)}
                         >
                             <Trash2 className="mr-2 h-4 w-4"/>
@@ -344,3 +344,5 @@ export default function ContactsPage() {
     </div>
   );
 }
+
+    
