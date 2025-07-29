@@ -41,7 +41,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, User, ArrowLeft, Edit, KeyRound } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, User, ArrowLeft, Edit, KeyRound, MoreHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
@@ -53,7 +53,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
 
 
 interface Staff {
@@ -70,11 +69,21 @@ function EditStaffDialog({ staff, onStaffUpdated }: { staff: Staff, onStaffUpdat
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSendingReset, setIsSendingReset] = useState(false);
     const [formData, setFormData] = useState({
-        name: staff.name ?? '',
-        position: staff.position ?? '',
+        name: '',
+        position: '',
     });
     const { toast } = useToast();
     const { sendPasswordReset } = useAuth();
+
+    useEffect(() => {
+        if (isOpen) {
+            setFormData({
+                name: staff.name ?? '',
+                position: staff.position ?? '',
+            });
+        }
+    }, [isOpen, staff]);
+
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, value } = e.target;
@@ -190,12 +199,12 @@ export default function StaffManagementPage() {
         (doc) => ({ id: doc.id, ...doc.data() } as Staff)
       );
       setStaffList(staffData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching staff: ', error);
       toast({
         variant: 'destructive',
         title: 'Gagal Memuat Staf',
-        description: 'Terjadi kesalahan saat mengambil data. Pastikan aturan keamanan Firestore sudah benar.',
+        description: 'Anda tidak memiliki izin untuk melihat daftar ini. Pastikan aturan keamanan Firestore sudah benar.',
       });
     } finally {
       setLoading(false);
@@ -204,6 +213,7 @@ export default function StaffManagementPage() {
 
   useEffect(() => {
     fetchStaff();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -54,18 +54,19 @@ function EditContactDialog({ contact, onContactUpdated }: { contact: AdminContac
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
-        name: contact.name,
-        whatsapp: contact.whatsapp,
+        name: '',
+        whatsapp: '',
     });
     const { toast } = useToast();
 
     useEffect(() => {
-        // Ensure form data is in sync if the contact prop changes
-        setFormData({
-            name: contact.name,
-            whatsapp: contact.whatsapp,
-        });
-    }, [contact]);
+        if (isOpen) {
+            setFormData({
+                name: contact.name,
+                whatsapp: contact.whatsapp,
+            });
+        }
+    }, [isOpen, contact]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, value } = e.target;
@@ -343,5 +344,3 @@ export default function ContactsPage() {
     </div>
   );
 }
-
-    
