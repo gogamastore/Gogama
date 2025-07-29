@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -37,6 +38,7 @@ import { format } from 'date-fns';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -372,8 +374,10 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const { toast } = useToast();
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
-  const fetchOrders = async () => {
+
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
         const q = query(collection(db, "orders"), orderBy("date", "desc"));
@@ -401,13 +405,13 @@ export default function OrdersPage() {
     } finally {
         setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [fetchOrders]);
 
-  const generatePdf = async (orderId: string) => {
+  const generateSinglePdf = async (orderId: string) => {
     const orderDoc = await getDoc(doc(db, "orders", orderId));
     if (!orderDoc.exists()) {
         toast({ variant: "destructive", title: "Pesanan tidak ditemukan" });
@@ -451,12 +455,53 @@ export default function OrdersPage() {
     pdfDoc.output("dataurlnewwindow");
   };
 
+  const generateBulkPdf = async () => {
+    const doc = new jsPDF();
+    let isFirstPage = true;
+
+    for (const orderId of selectedOrders) {
+      if (!isFirstPage) {
+        doc.addPage();
+      }
+      const orderRef = doc.getDoc(db, "orders", orderId);
+      const orderDoc = await getDoc(orderRef);
+      
+      if (orderDoc.exists()) {
+        const order = { id: orderDoc.id, ...orderDoc.data() } as Order;
+        doc.setFontSize(16);
+        doc.text(`Detail Pesanan: ${order.id}`, 14, 20);
+        doc.setFontSize(12);
+        doc.text(`Pelanggan: ${order.customerDetails?.name || order.customer}`, 14, 30);
+        doc.text(`Alamat: ${order.customerDetails?.address || 'N/A'}`, 14, 36);
+        doc.text(`WhatsApp: ${order.customerDetails?.whatsapp || 'N/A'}`, 14, 42);
+
+        const tableColumn = ["Produk", "Jumlah", "Harga", "Subtotal"];
+        const tableRows = order.products.map(p => [
+            p.name,
+            p.quantity,
+            formatCurrency(p.price),
+            formatCurrency(p.price * p.quantity)
+        ]);
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: 50
+        });
+        const finalY = (doc as any).lastAutoTable.finalY;
+        doc.setFontSize(12);
+        doc.text(`Total: ${order.total}`, 14, finalY + 10);
+      }
+      isFirstPage = false;
+    }
+    doc.save(`pesanan-terpilih-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const updateOrderStatus = async (orderId: string, updates: Partial<Order>) => {
       setIsProcessing(orderId);
       const orderRef = doc(db, "orders", orderId);
       try {
           await updateDoc(orderRef, updates);
-          // Instead of local update, fetch all orders again to ensure consistency
           await fetchOrders();
           toast({
               title: "Status Pesanan Diperbarui",
@@ -481,11 +526,9 @@ export default function OrdersPage() {
     const batch = writeBatch(db);
 
     try {
-        // 1. Update order status to 'Cancelled'
         const orderRef = doc(db, "orders", order.id);
         batch.update(orderRef, { status: 'Cancelled' });
 
-        // 2. Restore stock for each product in the order
         if (order.products) {
             for (const item of order.products) {
                 const productRef = doc(db, "products", item.productId);
@@ -498,7 +541,6 @@ export default function OrdersPage() {
             }
         }
         
-        // 3. Commit the batch
         await batch.commit();
 
         toast({
@@ -542,13 +584,36 @@ export default function OrdersPage() {
 
     return { unpaid, toShip, shipped, delivered, cancelled };
   }, [allOrders]);
+  
+  const handleSelectOrder = (orderId: string, isSelected: boolean) => {
+      setSelectedOrders(prev => isSelected ? [...prev, orderId] : prev.filter(id => id !== orderId));
+  };
+  
+  const handleSelectAll = (orders: Order[], isSelected: boolean) => {
+      if (isSelected) {
+          setSelectedOrders(orders.map(o => o.id));
+      } else {
+          setSelectedOrders([]);
+      }
+  };
 
 
-  const renderOrderTable = (orders: Order[], tabName: string) => (
+  const renderOrderTable = (orders: Order[], tabName: string) => {
+    const currentSelectedInTab = orders.filter(o => selectedOrders.includes(o.id)).map(o => o.id);
+    const isAllSelectedInTab = orders.length > 0 && currentSelectedInTab.length === orders.length;
+
+    return (
     <div className="relative w-full overflow-auto">
         <Table>
             <TableHeader>
                 <TableRow>
+                    <TableHead className="w-[50px]">
+                         <Checkbox
+                           checked={isAllSelectedInTab}
+                           onCheckedChange={(checked) => handleSelectAll(orders, !!checked)}
+                           aria-label="Pilih semua"
+                         />
+                    </TableHead>
                     <TableHead>Order ID</TableHead>
                     <TableHead>Pelanggan</TableHead>
                     <TableHead>Status</TableHead>
@@ -561,10 +626,17 @@ export default function OrdersPage() {
             <TableBody>
                 {loading ? (
                     <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">Memuat pesanan...</TableCell>
+                        <TableCell colSpan={8} className="h-24 text-center">Memuat pesanan...</TableCell>
                     </TableRow>
                 ) : orders.length > 0 ? orders.map((order) => (
-                <TableRow key={order.id}>
+                <TableRow key={order.id} data-state={selectedOrders.includes(order.id) && "selected"}>
+                    <TableCell>
+                         <Checkbox
+                           checked={selectedOrders.includes(order.id)}
+                           onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                           aria-label={`Pilih pesanan ${order.id}`}
+                         />
+                    </TableCell>
                     <TableCell className="font-medium">{order.id.substring(0, 7)}...</TableCell>
                     <TableCell>{order.customer}</TableCell>
                     <TableCell>
@@ -595,7 +667,6 @@ export default function OrdersPage() {
                                   <DropdownMenuLabel>Aksi Cepat</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
                                   
-                                  {/* --- DYNAMIC ACTIONS --- */}
                                   {order.paymentStatus === 'Unpaid' && order.paymentMethod === 'bank_transfer' && (
                                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { paymentStatus: 'Paid', status: 'Processing' })}>
                                         <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
@@ -649,7 +720,7 @@ export default function OrdersPage() {
                                           ) : (<p className="text-center text-muted-foreground py-8">Belum ada bukti pembayaran.</p>)}
                                       </DialogContent>
                                   </Dialog>
-                                  <DropdownMenuItem onClick={() => generatePdf(order.id)}>
+                                  <DropdownMenuItem onClick={() => generateSinglePdf(order.id)}>
                                       <Printer className="mr-2 h-4 w-4" /> Download PDF
                                   </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -659,7 +730,7 @@ export default function OrdersPage() {
                 </TableRow>
                 )) : (
                     <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">
+                        <TableCell colSpan={8} className="h-24 text-center">
                             Tidak ada pesanan di kategori ini.
                         </TableCell>
                     </TableRow>
@@ -667,14 +738,22 @@ export default function OrdersPage() {
             </TableBody>
         </Table>
     </div>
-  );
+  )};
 
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pesanan</CardTitle>
-        <CardDescription>Lihat dan kelola semua pesanan yang masuk berdasarkan statusnya.</CardDescription>
+        <div className="flex justify-between items-start">
+            <div>
+                 <CardTitle>Pesanan</CardTitle>
+                 <CardDescription>Lihat dan kelola semua pesanan yang masuk berdasarkan statusnya.</CardDescription>
+            </div>
+             <Button onClick={generateBulkPdf} disabled={selectedOrders.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Download PDF Terpilih ({selectedOrders.length})
+            </Button>
+        </div>
       </CardHeader>
       <CardContent>
           <Tabs defaultValue="toShip">
@@ -715,4 +794,3 @@ export default function OrdersPage() {
     </Card>
   )
 }
-

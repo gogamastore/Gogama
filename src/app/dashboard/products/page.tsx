@@ -50,7 +50,7 @@ import {
     DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown } from "lucide-react"
+import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload, FileDown, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -59,8 +59,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import * as XLSX from "xlsx";
+
 
 interface Product {
   id: string;
@@ -341,6 +343,124 @@ function AdjustStockDialog({ product, onStockAdjusted }: { product: Product, onS
     );
 }
 
+function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [file, setFile] = useState<File | null>(null);
+    const { toast } = useToast();
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setFile(e.target.files[0]);
+        }
+    };
+
+    const handleDownloadTemplate = () => {
+        const worksheet = XLSX.utils.aoa_to_sheet([
+            ["name", "sku", "price", "purchasePrice", "stock", "category", "description"],
+        ]);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Produk");
+        XLSX.writeFile(workbook, "template_produk.xlsx");
+    };
+
+    const handleProcessImport = async () => {
+        if (!file) {
+            toast({ variant: 'destructive', title: 'File tidak ditemukan', description: 'Silakan pilih file Excel terlebih dahulu.' });
+            return;
+        }
+
+        setIsProcessing(true);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+                
+                if (json.length === 0) throw new Error("File Excel kosong atau format salah.");
+
+                const batch = writeBatch(db);
+                json.forEach((row) => {
+                    if (!row.name || !row.sku || !row.price) {
+                        // Skip rows with missing required fields
+                        return;
+                    }
+                    const productRef = doc(collection(db, "products"));
+                    batch.set(productRef, {
+                        name: row.name,
+                        sku: row.sku,
+                        price: new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(row.price || 0),
+                        purchasePrice: Number(row.purchasePrice) || 0,
+                        stock: Number(row.stock) || 0,
+                        category: row.category || "Umum",
+                        description: row.description || "",
+                        image: 'https://placehold.co/400x400.png',
+                        'data-ai-hint': 'product item',
+                        createdAt: serverTimestamp(),
+                    });
+                });
+                
+                await batch.commit();
+
+                toast({ title: 'Impor Berhasil', description: `${json.length} produk telah berhasil ditambahkan.` });
+                onImportSuccess();
+                setIsOpen(false);
+                setFile(null);
+
+            } catch (error) {
+                console.error("Error importing products:", error);
+                toast({ variant: 'destructive', title: 'Gagal Mengimpor', description: "Terjadi kesalahan saat memproses file. Pastikan format sudah benar." });
+            } finally {
+                setIsProcessing(false);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1">
+                    <Upload className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Impor Massal</span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Impor Produk Massal</DialogTitle>
+                    <DialogDescription>
+                        Tambah banyak produk sekaligus menggunakan file Excel. Ikuti langkah-langkah di bawah ini.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                    <div>
+                        <Label>Langkah 1: Download Template</Label>
+                        <p className="text-sm text-muted-foreground mb-2">Gunakan template ini untuk memastikan format data Anda benar.</p>
+                        <Button variant="secondary" onClick={handleDownloadTemplate}>
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Download Template
+                        </Button>
+                    </div>
+                    <div>
+                        <Label htmlFor="excel-file">Langkah 2: Upload File</Label>
+                        <p className="text-sm text-muted-foreground mb-2">Pilih file Excel (.xlsx) yang sudah Anda isi.</p>
+                        <Input id="excel-file" type="file" accept=".xlsx" onChange={handleFileChange} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
+                    <Button onClick={handleProcessImport} disabled={isProcessing || !file}>
+                        {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Proses Impor
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -349,7 +469,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
         const querySnapshot = await getDocs(collection(db, "products"));
@@ -365,11 +485,11 @@ export default function ProductsPage() {
     } finally {
         setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
   const handleEditClick = (product: Product) => {
     setEditingProduct(product);
@@ -393,6 +513,7 @@ export default function ProductsPage() {
                 <TabsTrigger value="stock-management">Manajemen Stok</TabsTrigger>
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
+                <BulkImportDialog onImportSuccess={fetchProducts} />
                 <ProductSheet onProductAdded={fetchProducts} />
             </div>
         </div>
