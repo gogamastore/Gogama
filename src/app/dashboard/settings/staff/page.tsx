@@ -177,7 +177,7 @@ function EditStaffDialog({ staff, onStaffUpdated }: { staff: Staff, onStaffUpdat
 export default function StaffManagementPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { createUser } = useAuth();
+  const { user: currentUser, createUser } = useAuth();
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -197,7 +197,7 @@ export default function StaffManagementPage() {
       const querySnapshot = await getDocs(q);
       const staffData = querySnapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as Staff)
-      );
+      ).filter(staff => staff.id !== currentUser?.uid); // Filter out current user
       setStaffList(staffData);
     } catch (error: any) {
       console.error('Error fetching staff: ', error);
@@ -212,9 +212,11 @@ export default function StaffManagementPage() {
   };
 
   useEffect(() => {
-    fetchStaff();
+    if (currentUser) {
+        fetchStaff();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUser]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -279,18 +281,17 @@ export default function StaffManagementPage() {
   };
 
   const handleDeleteStaff = async (id: string, name: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus staf "${name}"? Tindakan ini hanya akan menghapus data staf dari daftar, bukan akun login mereka.`)) {
+    if (!confirm(`Anda yakin ingin menghapus staf "${name}"? Tindakan ini hanya akan menghapus data staf dari daftar. Anda harus menghapus login mereka secara manual dari Firebase Console.`)) {
       return;
     }
-    // Deleting a user from Auth should be done in a secure backend environment.
-    // Here, we only delete their record from Firestore.
     try {
-      // Delete from Firestore
+      // Delete from Firestore only. Auth deletion requires Admin SDK on a backend.
       await deleteDoc(doc(db, "user", id));
       
       toast({
-        title: 'Staf Berhasil Dihapus',
-        description: `Data staf ${name} telah dihapus dari daftar.`
+        title: 'Staf Berhasil Dihapus dari Daftar',
+        description: `Data staf ${name} telah dihapus. Jangan lupa untuk menonaktifkan login mereka dari Firebase Console.`,
+        duration: 10000
       });
       fetchStaff(); // Refresh list
     } catch (error: any) {
@@ -428,7 +429,7 @@ export default function StaffManagementPage() {
                     ) : (
                     <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center">
-                        Belum ada staf yang ditambahkan.
+                        Belum ada staf lain yang ditambahkan.
                         </TableCell>
                     </TableRow>
                     )}
@@ -440,3 +441,5 @@ export default function StaffManagementPage() {
     </div>
   );
 }
+
+    
