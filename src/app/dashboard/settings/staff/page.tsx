@@ -414,13 +414,15 @@ export default function StaffManagementPage() {
                                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                                         <EditStaffDialog staff={staff} onStaffUpdated={fetchStaff} />
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-red-600 focus:text-red-600"
-                                        onSelect={() => handleDeleteStaff(staff.id, staff.name)}
-                                    >
-                                        <Trash2 className="mr-2 h-4 w-4"/>
-                                        <span>Hapus</span>
-                                    </DropdownMenuItem>
+                                    <div onClick={(e) => { e.preventDefault(); handleDeleteStaff(staff.id, staff.name); }}>
+                                        <DropdownMenuItem
+                                            className="text-red-600 focus:text-red-600"
+                                            
+                                        >
+                                            <Trash2 className="mr-2 h-4 w-4"/>
+                                            <span>Hapus</span>
+                                        </DropdownMenuItem>
+                                    </div>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>
@@ -441,5 +443,3 @@ export default function StaffManagementPage() {
     </div>
   );
 }
-
-    
