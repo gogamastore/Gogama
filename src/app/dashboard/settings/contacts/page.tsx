@@ -72,7 +72,7 @@ function EditContactDialog({ contact, onContactUpdated }: { contact: AdminContac
         setFormData((prev) => ({ ...prev, [id]: value }));
     };
 
-    const handleUpdate = async () => {
+    const handleUpdateDetails = async () => {
         if (!formData.name || !formData.whatsapp) {
             toast({ variant: 'destructive', title: 'Data tidak lengkap' });
             return;
@@ -119,7 +119,7 @@ function EditContactDialog({ contact, onContactUpdated }: { contact: AdminContac
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
-                    <Button onClick={handleUpdate} disabled={isSubmitting}>
+                    <Button onClick={handleUpdateDetails} disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Simpan Perubahan
                     </Button>
@@ -344,3 +344,4 @@ export default function ContactsPage() {
   );
 }
 
+    
