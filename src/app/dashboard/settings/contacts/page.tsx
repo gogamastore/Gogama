@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -58,6 +59,14 @@ function EditContactDialog({ contact, onContactUpdated }: { contact: AdminContac
     });
     const { toast } = useToast();
 
+    useEffect(() => {
+        // Ensure form data is in sync if the contact prop changes
+        setFormData({
+            name: contact.name,
+            whatsapp: contact.whatsapp,
+        });
+    }, [contact]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, value } = e.target;
         setFormData((prev) => ({ ...prev, [id]: value }));
@@ -100,12 +109,12 @@ function EditContactDialog({ contact, onContactUpdated }: { contact: AdminContac
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="name-edit">Nama/Label</Label>
-                        <Input id="name-edit" value={formData.name} onChange={handleInputChange} />
+                        <Label htmlFor="name">Nama/Label</Label>
+                        <Input id="name" value={formData.name} onChange={handleInputChange} />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="whatsapp-edit">Nomor WhatsApp</Label>
-                        <Input id="whatsapp-edit" value={formData.whatsapp} onChange={handleInputChange} />
+                        <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
+                        <Input id="whatsapp" value={formData.whatsapp} onChange={handleInputChange} />
                     </div>
                 </div>
                 <DialogFooter>
@@ -334,3 +343,4 @@ export default function ContactsPage() {
     </div>
   );
 }
+
