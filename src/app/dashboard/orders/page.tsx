@@ -412,7 +412,8 @@ export default function OrdersPage() {
   }, [fetchOrders]);
 
   const generateSinglePdf = async (orderId: string) => {
-    const orderDoc = await getDoc(doc(db, "orders", orderId));
+    const orderDocRef = doc(db, "orders", orderId);
+    const orderDoc = await getDoc(orderDocRef);
     if (!orderDoc.exists()) {
         toast({ variant: "destructive", title: "Pesanan tidak ditemukan" });
         return;
@@ -456,24 +457,25 @@ export default function OrdersPage() {
   };
 
   const generateBulkPdf = async () => {
-    const doc = new jsPDF();
+    const pdf = new jsPDF();
     let isFirstPage = true;
 
     for (const orderId of selectedOrders) {
       if (!isFirstPage) {
-        doc.addPage();
+        pdf.addPage();
       }
-      const orderRef = doc.getDoc(db, "orders", orderId);
+      
+      const orderRef = doc(db, "orders", orderId);
       const orderDoc = await getDoc(orderRef);
       
       if (orderDoc.exists()) {
         const order = { id: orderDoc.id, ...orderDoc.data() } as Order;
-        doc.setFontSize(16);
-        doc.text(`Detail Pesanan: ${order.id}`, 14, 20);
-        doc.setFontSize(12);
-        doc.text(`Pelanggan: ${order.customerDetails?.name || order.customer}`, 14, 30);
-        doc.text(`Alamat: ${order.customerDetails?.address || 'N/A'}`, 14, 36);
-        doc.text(`WhatsApp: ${order.customerDetails?.whatsapp || 'N/A'}`, 14, 42);
+        pdf.setFontSize(16);
+        pdf.text(`Detail Pesanan: ${order.id}`, 14, 20);
+        pdf.setFontSize(12);
+        pdf.text(`Pelanggan: ${order.customerDetails?.name || order.customer}`, 14, 30);
+        pdf.text(`Alamat: ${order.customerDetails?.address || 'N/A'}`, 14, 36);
+        pdf.text(`WhatsApp: ${order.customerDetails?.whatsapp || 'N/A'}`, 14, 42);
 
         const tableColumn = ["Produk", "Jumlah", "Harga", "Subtotal"];
         const tableRows = order.products.map(p => [
@@ -483,18 +485,18 @@ export default function OrdersPage() {
             formatCurrency(p.price * p.quantity)
         ]);
 
-        doc.autoTable({
+        pdf.autoTable({
             head: [tableColumn],
             body: tableRows,
             startY: 50
         });
-        const finalY = (doc as any).lastAutoTable.finalY;
-        doc.setFontSize(12);
-        doc.text(`Total: ${order.total}`, 14, finalY + 10);
+        const finalY = (pdf as any).lastAutoTable.finalY;
+        pdf.setFontSize(12);
+        pdf.text(`Total: ${order.total}`, 14, finalY + 10);
       }
       isFirstPage = false;
     }
-    doc.save(`pesanan-terpilih-${new Date().toISOString().split('T')[0]}.pdf`);
+    pdf.save(`pesanan-terpilih-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const updateOrderStatus = async (orderId: string, updates: Partial<Order>) => {
