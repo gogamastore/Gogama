@@ -64,7 +64,7 @@ interface Order {
   paymentMethod: 'bank_transfer' | 'cod';
   paymentStatus: 'Paid' | 'Unpaid';
   paymentProofUrl?: string;
-  total: number;
+  total: string;
   date: any;
   products: OrderProduct[];
 }
@@ -199,12 +199,14 @@ export default function OrderHistoryPage() {
           } as Order)
       );
       setOrders(ordersData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching orders: ', error);
       toast({
         variant: 'destructive',
         title: 'Gagal Memuat Pesanan',
-        description: 'Anda tidak memiliki izin untuk melihat data ini. Pastikan aturan keamanan sudah benar.',
+        description: error.code === 'permission-denied' 
+            ? 'Anda tidak memiliki izin untuk melihat data ini. Pastikan aturan keamanan sudah benar.'
+            : 'Terjadi kesalahan saat mengambil data.',
       });
     } finally {
       setLoading(false);
