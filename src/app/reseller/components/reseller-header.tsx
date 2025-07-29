@@ -1,3 +1,4 @@
+
 "use client"
 
 import { Input } from "@/components/ui/input"
@@ -112,8 +113,7 @@ export default function ResellerHeader() {
           <div className="flex h-16 items-center justify-between">
             <Logo />
             <div className="hidden md:flex flex-1 max-w-lg items-center relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Cari produk..." className="pl-9" />
+              
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" asChild>

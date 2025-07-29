@@ -11,24 +11,33 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { MessageSquare, ShoppingCart } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ChevronLeft, ChevronRight, MessageSquare, Search, ShoppingCart } from "lucide-react"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { useCart } from "@/hooks/use-cart"
 
 interface Product {
   id: string;
   name: string;
+  sku: string;
   price: string;
   image: string;
   'data-ai-hint': string;
 }
 
 export default function ResellerDashboard() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+
   const { toast } = useToast();
   const { addToCart } = useCart();
 
@@ -41,7 +50,8 @@ export default function ResellerDashboard() {
                 id: doc.id, 
                 ...doc.data() 
             } as Product));
-            setProducts(productsData);
+            setAllProducts(productsData);
+            setFilteredProducts(productsData);
         } catch(error) {
             console.error("Failed to fetch products:", error);
             toast({
@@ -55,6 +65,25 @@ export default function ResellerDashboard() {
     }
     getProducts();
   }, [toast]);
+
+  useEffect(() => {
+    const lowercasedFilter = searchTerm.toLowerCase();
+    const results = allProducts.filter(product => {
+      const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
+      const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
+      return nameMatch || skuMatch;
+    });
+    setFilteredProducts(results);
+    setCurrentPage(1); // Reset to first page on new search
+  }, [searchTerm, allProducts]);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [currentPage, itemsPerPage, filteredProducts]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
@@ -97,7 +126,19 @@ export default function ResellerDashboard() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold mb-4 font-headline">Galeri Produk</h2>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+             <h2 className="text-2xl font-bold font-headline">Galeri Produk</h2>
+             <div className="relative w-full sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Cari nama atau SKU produk..."
+                    className="pl-9"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+          </div>
+          
           {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {[...Array(8)].map((_, i) => (
@@ -112,34 +153,96 @@ export default function ResellerDashboard() {
                 ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {products.map((product) => (
-                <Card key={product.id} className="overflow-hidden group">
-                    <CardContent className="p-0">
-                    <div className="relative">
-                        <Image
-                        src={product.image}
-                        alt={product.name}
-                        width={400}
-                        height={400}
-                        className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
-                        data-ai-hint={product['data-ai-hint'] || 'product image'}
-                        />
-                    </div>
-                    <div className="p-4">
-                        <h3 className="font-semibold text-lg">{product.name}</h3>
-                        <p className="text-muted-foreground mt-1">{product.price}</p>
-                        <Button className="w-full mt-4" variant="secondary" onClick={() => handleAddToCart(product)}>
-                            <ShoppingCart className="mr-2 h-4 w-4" />
-                            Tambah ke Keranjang
-                        </Button>
-                    </div>
-                    </CardContent>
-                </Card>
-                ))}
-            </div>
+             paginatedProducts.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {paginatedProducts.map((product) => (
+                    <Card key={product.id} className="overflow-hidden group">
+                        <CardContent className="p-0">
+                        <div className="relative">
+                            <Image
+                            src={product.image}
+                            alt={product.name}
+                            width={400}
+                            height={400}
+                            className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
+                            data-ai-hint={product['data-ai-hint'] || 'product image'}
+                            />
+                        </div>
+                        <div className="p-4">
+                            <h3 className="font-semibold text-lg">{product.name}</h3>
+                            <p className="text-muted-foreground mt-1">{product.price}</p>
+                            <Button className="w-full mt-4" variant="secondary" onClick={() => handleAddToCart(product)}>
+                                <ShoppingCart className="mr-2 h-4 w-4" />
+                                Tambah ke Keranjang
+                            </Button>
+                        </div>
+                        </CardContent>
+                    </Card>
+                    ))}
+                </div>
+             ) : (
+                <div className="text-center py-20 bg-card rounded-lg border">
+                    <h2 className="mt-6 text-xl font-semibold">Produk Tidak Ditemukan</h2>
+                    <p className="mt-2 text-muted-foreground">
+                        Coba gunakan kata kunci pencarian yang berbeda.
+                    </p>
+                </div>
+             )
           )}
         </section>
+
+        {filteredProducts.length > itemsPerPage && (
+            <div className="flex items-center justify-between w-full text-sm text-muted-foreground mt-8">
+                <div className="flex-1">
+                    Menampilkan {paginatedProducts.length} dari {filteredProducts.length} produk.
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <p>Produk per halaman</p>
+                        <Select
+                            value={`${itemsPerPage}`}
+                            onValueChange={(value) => {
+                                setItemsPerPage(Number(value));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={itemsPerPage} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[12, 24, 48].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>Halaman {currentPage} dari {totalPages}</div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        >
+                        <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        >
+                        <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )}
+
       </div>
     </div>
   )
