@@ -64,40 +64,38 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
         const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
         const userAvatar = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
 
-        const unreadRef = ref(rtdb, `/conversations/${chatId}/unreadByAdmin`);
-        
-        // This transaction will safely increment the unread count.
-        runTransaction(unreadRef, (currentCount) => {
-            return (currentCount || 0) + 1;
-        });
-        
-        const updates: { [key: string]: any } = {};
         const messageKey = push(ref(rtdb, `chats/${chatId}/messages`)).key;
         if (!messageKey) throw new Error("Could not generate message key.");
 
-        // 1. Prepare the new message
+        const updates: { [key: string]: any } = {};
+        
+        // 1. Prepare message and chat metadata updates (writes to /chats/{id})
         updates[`/chats/${chatId}/messages/${messageKey}`] = {
             senderId: user.uid,
             text: newMessage,
             timestamp: serverTimestamp(),
         };
-        
-        // 2. Prepare metadata updates (this will create or update)
         updates[`/chats/${chatId}/metadata/buyerId`] = user.uid;
         updates[`/chats/${chatId}/metadata/buyerName`] = userName;
         updates[`/chats/${chatId}/metadata/avatar`] = userAvatar;
         updates[`/chats/${chatId}/metadata/lastMessage`] = newMessage;
         updates[`/chats/${chatId}/metadata/timestamp`] = serverTimestamp();
-
-        // 3. Prepare conversation list updates (for admin dashboard)
+        
+        // 2. Prepare conversation list updates (writes to /conversations/{id})
         updates[`/conversations/${chatId}/chatId`] = chatId;
         updates[`/conversations/${chatId}/buyerName`] = userName;
         updates[`/conversations/${chatId}/avatar`] = userAvatar;
         updates[`/conversations/${chatId}/lastMessage`] = newMessage;
         updates[`/conversations/${chatId}/timestamp`] = serverTimestamp();
-        
-        // Atomically write all updates
+
+        // 3. Atomically perform all writes
         await update(ref(rtdb), updates);
+
+        // 4. Safely increment unread count for admin using a transaction
+        const unreadRef = ref(rtdb, `/conversations/${chatId}/unreadByAdmin`);
+        runTransaction(unreadRef, (currentCount) => {
+            return (currentCount || 0) + 1;
+        });
 
         setNewMessage('');
     } catch(error) {
