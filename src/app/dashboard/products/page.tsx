@@ -605,12 +605,13 @@ export default function ProductsPage() {
                                     <TableHead>Nama Produk</TableHead>
                                     <TableHead>SKU</TableHead>
                                     <TableHead className="text-right">Stok Tersisa</TableHead>
+                                    <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center">Memuat produk...</TableCell>
+                                        <TableCell colSpan={4} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
                                 ) : lowStockProducts.length > 0 ? lowStockProducts.map((product) => (
                                     <TableRow key={product.id}>
@@ -619,10 +620,13 @@ export default function ProductsPage() {
                                         <TableCell className="text-right">
                                           <Badge variant="destructive">{product.stock}</Badge>
                                         </TableCell>
+                                        <TableCell className="text-right">
+                                            <AdjustStockDialog product={product} onStockAdjusted={fetchProducts} />
+                                        </TableCell>
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center">Tidak ada produk dengan stok menipis.</TableCell>
+                                        <TableCell colSpan={4} className="h-24 text-center">Tidak ada produk dengan stok menipis.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
