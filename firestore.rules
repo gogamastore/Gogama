@@ -1,64 +1,74 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper function to check for admin role
     function isAdmin() {
-      // Return false if the user is not authenticated.
-      if (request.auth == null) {
-        return false;
-      }
-      // Check the user's role from their document in the 'user' collection.
       return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // Rules for user data (profiles)
+    match /user/{userId} {
+      // Admins can create new users (staff/resellers).
+      // Users can also create their own user document during registration.
+      allow create: if isAdmin() || request.auth.uid == userId;
+
+      // Users can read/update their own profile. Admins can manage any user.
+      allow read, update: if request.auth.uid == userId || isAdmin();
+      
+      // Admins can delete users from the database.
+      allow delete: if isAdmin();
+      
+      // Admins can list all users.
+      allow list: if isAdmin();
+
+      // Rules for user subcollections (e.g., addresses)
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth.uid == userId;
+      }
+    }
+
+    // Products can be read by any authenticated user, but only managed by admins.
     match /products/{productId} {
       allow read: if request.auth != null;
       allow write: if isAdmin();
     }
+    
+    // Stock adjustments can only be managed by admins.
+    match /stock_adjustments/{adjustmentId} {
+        allow read, write: if isAdmin();
+    }
 
+    // Orders can be created by any authenticated user.
+    // Admins can manage all orders, while users can only access their own.
     match /orders/{orderId} {
-      allow read, update, delete: if isAdmin();
-      // Allow authenticated users to create orders.
       allow create: if request.auth != null;
+      allow read, update: if request.resource.data.customerId == request.auth.uid || isAdmin();
       allow list: if isAdmin();
-      // Allow a user to get their own order, or admin to get any order.
-      allow get: if request.auth.uid == resource.data.customerId || isAdmin();
-    }
-
-    match /user/{userId} {
-      // Allow users to read/update their own profile, or admin to read/update any profile.
-      allow read, update: if request.auth.uid == userId || isAdmin();
-      // Only allow admins to create new user documents. This is crucial for adding staff.
-      allow create: if isAdmin();
-      // Only allow admins to delete user documents.
-      allow delete: if isAdmin();
-      // Only admins can list all users.
-      allow list: if isAdmin();
-    }
-
-    match /user/{userId}/addresses/{addressId} {
-      // A user can manage their own addresses.
-      allow read, write: if request.auth.uid == userId;
-    }
-
-    match /purchase_transactions/{purchaseId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /operational_expenses/{expenseId} {
-      allow read, write: if isAdmin();
     }
     
-    match /stock_adjustments/{adjustmentId} {
-      allow read, write: if isAdmin();
+    // Purchase transactions can only be managed by admins.
+    match /purchase_transactions/{transactionId} {
+        allow read, write: if isAdmin();
     }
 
+    // Bank accounts can only be managed by admins.
+    match /bank_accounts/{accountId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
+    }
+    
+    // WhatsApp contacts can be read by any authenticated user, but only managed by admins.
     match /whatsapp_contacts/{contactId} {
-      // Any authenticated user can read the contacts.
       allow read: if request.auth != null;
-      // Only admins can manage the contacts.
       allow write: if isAdmin();
+    }
+
+    // Operational Expenses can only be managed by admins
+    match /operational_expenses/{expenseId} {
+      allow read, write: if isAdmin();
     }
   }
 }
