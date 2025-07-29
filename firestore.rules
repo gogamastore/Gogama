@@ -1,68 +1,41 @@
-
-rules_version = '2';
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    // Helper function to check user role
-    function isAdmin() {
-      return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // USER Collection
-    // Admins can manage all users.
-    // Authenticated users can update their own data.
-    match /user/{userId} {
-      allow read: if request.auth != null && (isAdmin() || request.auth.uid == userId);
-      allow create: if isAdmin();
-      allow update: if request.auth != null && (isAdmin() || request.auth.uid == userId);
-      allow delete: if isAdmin();
-
-      // Addresses subcollection
-      match /addresses/{addressId} {
-        allow read, create, delete: if request.auth != null && request.auth.uid == userId;
+{
+  "rules": {
+    "databases": [{
+      "database": "(default)",
+      "rules": {
+        "user/{userId}": {
+          "allow read": "request.auth != null && request.auth.uid == userId",
+          "allow create": "request.auth != null",
+          "allow write": "request.auth != null && request.auth.uid == userId || get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin'"
+        },
+        "user/{userId}/addresses/{addressId}": {
+          "allow read, write, delete, create": "request.auth != null && request.auth.uid == userId"
+        },
+        "products/{productId}": {
+          "allow read": "request.auth != null",
+          "allow create, update, delete": "get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin'"
+        },
+        "stock_adjustments/{adjustmentId}": {
+          "allow read, create, update, delete": "get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin'"
+        },
+        "orders/{orderId}": {
+          // Aturan untuk query (list): Izinkan jika query secara eksplisit memfilter berdasarkan customerId.
+          "allow list": "get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin' || request.query.resource.data.customerId == request.auth.uid",
+          // Aturan untuk get (baca satu dokumen): Izinkan jika admin atau pemilik pesanan.
+          "allow get": "get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin' || resource.data.customerId == request.auth.uid",
+          "allow create": "request.auth != null",
+          "allow update": "get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin' || resource.data.customerId == request.auth.uid"
+        },
+        "bank_accounts/{accountId}": {
+          "allow read, create, update, delete": "get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin'"
+        },
+        "purchase_transactions/{transactionId}": {
+          "allow read, create, update, delete": "get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin'"
+        },
+        "operational_expenses/{expenseId}": {
+          "allow read, create, update, delete": "get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin'"
+        }
       }
-    }
-
-    // PRODUCTS Collection
-    // Anyone authenticated can read products.
-    // Only admins can write/modify products.
-    match /products/{productId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    
-    // STOCK ADJUSTMENTS Collection
-    // Only admins can manage stock adjustment logs.
-    match /stock_adjustments/{logId} {
-        allow read, write: if isAdmin();
-    }
-
-    // ORDERS Collection
-    // Resellers can create orders and read their own orders.
-    // Admins can read and update all orders.
-    match /orders/{orderId} {
-      allow read: if request.auth != null && (isAdmin() || request.resource.data.customerId == request.auth.uid);
-      allow create: if request.auth != null; // Any authenticated user can create an order
-      allow update: if isAdmin();
-    }
-
-    // BANK ACCOUNTS Collection (Settings)
-    // Only admins can manage bank accounts.
-    match /bank_accounts/{accountId} {
-      allow read, write: if isAdmin();
-    }
-    
-    // PURCHASE TRANSACTIONS Collection
-    // Only admins can manage purchase transactions.
-    match /purchase_transactions/{transactionId} {
-        allow read, write: if isAdmin();
-    }
-    
-    // OPERATIONAL EXPENSES Collection
-    // Only admins can manage operational expenses.
-    match /operational_expenses/{expenseId} {
-        allow read, write: if isAdmin();
-    }
+    }]
   }
 }

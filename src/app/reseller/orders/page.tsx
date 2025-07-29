@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { collection, query, where, getDocs, orderBy, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -177,10 +177,9 @@ export default function OrderHistoryPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const fetchOrders = async () => {
-    if (authLoading) return;
+  const fetchOrders = useCallback(async () => {
     if (!user) {
-      setLoading(false);
+      if (!authLoading) setLoading(false);
       return;
     }
 
@@ -202,14 +201,20 @@ export default function OrderHistoryPage() {
       setOrders(ordersData);
     } catch (error) {
       console.error('Error fetching orders: ', error);
+      toast({
+        variant: 'destructive',
+        title: 'Gagal Memuat Pesanan',
+        description: 'Anda tidak memiliki izin untuk melihat data ini. Pastikan aturan keamanan sudah benar.',
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, authLoading, toast]);
+
 
   useEffect(() => {
     fetchOrders();
-  }, [user, authLoading]);
+  }, [fetchOrders]);
 
   const handleUploadSuccess = (orderId: string, url: string) => {
       setOrders(prevOrders => prevOrders.map(o => o.id === orderId ? { ...o, paymentProofUrl: url, status: 'Processing', paymentStatus: 'Paid' } : o));
@@ -434,5 +439,3 @@ export default function OrderHistoryPage() {
     </div>
   );
 }
-
-    
