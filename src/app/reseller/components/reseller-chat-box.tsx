@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Loader2 } from 'lucide-react';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onValue, off, update, serverTimestamp, push, increment, get } from "firebase/database";
+import { ref, onValue, off, update, serverTimestamp, push, get } from "firebase/database";
 import { useAuth } from '@/hooks/use-auth';
 import { doc, getDoc } from 'firebase/firestore';
 import type { ChatMessage } from '@/types/chat';
@@ -22,7 +22,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize: Check if a chatId already exists. For a reseller, it's always their UID.
+  // Initialize: For a reseller, the chatId is always their UID.
   useEffect(() => {
     if (user) {
         const userChatId = user.uid;
@@ -58,54 +58,41 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user || !chatId) return;
     setIsSending(true);
-    
+
     try {
-        const updates: { [key: string]: any } = {};
         const messageKey = push(ref(rtdb, `chats/${chatId}/messages`)).key;
+        if (!messageKey) throw new Error("Could not generate message key.");
         
-        const chatMetadataRef = ref(rtdb, `chats/${chatId}/metadata`);
-        const chatSnapshot = await get(chatMetadataRef);
+        const userDocRef = doc(db, 'user', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
+        const userAvatar = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
 
-        if (!chatSnapshot.exists()) {
-             const userDocRef = doc(db, 'user', user.uid);
-             const userDoc = await getDoc(userDocRef);
-             const userName = userDoc.exists() ? userDoc.data().name : user.displayName || "Reseller";
-             const userAvatar = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}`;
+        const updates: { [key: string]: any } = {};
 
-            // 1. Create chat metadata
-            updates[`/chats/${chatId}/metadata`] = {
-                buyerId: user.uid,
-                adminId: "not_assigned",
-                buyerName: userName,
-                avatar: userAvatar,
-                lastMessage: newMessage,
-                timestamp: serverTimestamp(),
-            };
-            // 2. Create conversation entry for admin dashboard
-            updates[`/conversations/${chatId}`] = {
-                chatId: chatId,
-                buyerName: userName,
-                avatar: userAvatar,
-                lastMessage: newMessage,
-                timestamp: serverTimestamp(),
-                unreadByAdmin: 1,
-            };
-        } else {
-            // Update existing metadata and conversation
-            updates[`/chats/${chatId}/metadata/lastMessage`] = newMessage;
-            updates[`/chats/${chatId}/metadata/timestamp`] = serverTimestamp();
-            updates[`/conversations/${chatId}/lastMessage`] = newMessage;
-            updates[`/conversations/${chatId}/timestamp`] = serverTimestamp();
-            updates[`/conversations/${chatId}/unreadByAdmin`] = increment(1);
-        }
-
-        // 3. Add the new message itself
+        // 1. Prepare the new message
         updates[`/chats/${chatId}/messages/${messageKey}`] = {
             senderId: user.uid,
             text: newMessage,
             timestamp: serverTimestamp(),
         };
+        
+        // 2. Prepare metadata updates (this will create or update)
+        updates[`/chats/${chatId}/metadata/buyerId`] = user.uid;
+        updates[`/chats/${chatId}/metadata/buyerName`] = userName;
+        updates[`/chats/${chatId}/metadata/avatar`] = userAvatar;
+        updates[`/chats/${chatId}/metadata/lastMessage`] = newMessage;
+        updates[`/chats/${chatId}/metadata/timestamp`] = serverTimestamp();
 
+        // 3. Prepare conversation list updates (for admin dashboard)
+        updates[`/conversations/${chatId}/chatId`] = chatId;
+        updates[`/conversations/${chatId}/buyerName`] = userName;
+        updates[`/conversations/${chatId}/avatar`] = userAvatar;
+        updates[`/conversations/${chatId}/lastMessage`] = newMessage;
+        updates[`/conversations/${chatId}/timestamp`] = serverTimestamp();
+        updates[`/conversations/${chatId}/unreadByAdmin`] = increment(1);
+        
+        // Atomically write all updates
         await update(ref(rtdb), updates);
 
         setNewMessage('');
