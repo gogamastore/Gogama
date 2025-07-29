@@ -6,15 +6,20 @@ export interface ChatMessage {
   timestamp: any;     // Timestamp dari Firebase (bisa berupa objek ServerValue)
 }
 
-// Definisikan tipe data untuk metadata sebuah sesi chat
-export interface ChatMetadata {
-  buyerId: string;    // UID pembeli
-  adminId: string;    // UID admin yang merespon (bisa 'not_assigned')
-  lastMessage: string;
-  timestamp: number;
+// Tipe data untuk daftar percakapan pengguna
+export interface UserChat {
+    lastMessage: string;
+    timestamp: number;
+    withUser: {
+        id: string;
+        name: string;
+        email: string;
+        avatar?: string;
+    }
+    unreadCount?: number;
 }
 
-// Definisikan tipe data untuk item di daftar percakapan admin
+// Definisikan tipe data untuk item di daftar percakapan admin (legacy, bisa dihapus nanti)
 export interface ChatListItem {
   chatId: string;     // ID unik chat
   buyerName: string;  // Nama pembeli
