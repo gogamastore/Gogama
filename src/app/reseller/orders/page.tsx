@@ -187,8 +187,7 @@ export default function OrderHistoryPage() {
     try {
       const q = query(
         collection(db, 'orders'),
-        where('customerId', '==', user.uid),
-        orderBy('date', 'desc')
+        where('customerId', '==', user.uid)
       );
       const querySnapshot = await getDocs(q);
       const ordersData = querySnapshot.docs.map(
@@ -198,6 +197,8 @@ export default function OrderHistoryPage() {
             ...doc.data(),
           } as Order)
       );
+      // Sort on the client-side after fetching
+      ordersData.sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime());
       setOrders(ordersData);
     } catch (error: any) {
       console.error('Error fetching orders: ', error);
@@ -441,3 +442,5 @@ export default function OrderHistoryPage() {
     </div>
   );
 }
+
+    

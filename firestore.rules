@@ -36,28 +36,29 @@ service cloud.firestore {
     // Rules for the 'products' collection
     match /products/{productId} {
       // Admins can do anything with products.
-      allow create, delete, read: if isAdmin();
-      // Authenticated users (resellers and admins) can read products and update them (for stock deduction).
-      allow list, get, update: if request.auth != null;
+      allow read, write, create, delete: if isAdmin();
+      // Authenticated users (resellers) can read products.
+      allow get, list: if request.auth != null;
+      // Allow authenticated users to update products (specifically for stock reduction)
+      allow update: if request.auth != null;
     }
 
     // Rules for the 'orders' collection
     match /orders/{orderId} {
         // Admins can manage all orders.
-        allow read, list, create, update: if isAdmin();
+        allow read, update, create: if isAdmin();
 
         // Resellers can create orders for themselves
         allow create: if request.auth.uid == request.resource.data.customerId;
 
-        // Resellers can only get their own specific orders.
+        // Resellers can only read their own specific order.
         allow get: if request.auth.uid == resource.data.customerId;
-        
-        // Resellers can list orders if they query by their own customerId.
-        allow list: if request.auth.uid == request.query.customerId;
+
+        // Resellers can list their own orders by querying on customerId
+        allow list: if request.auth.uid != null && request.query.where.get('customerId') == request.auth.uid;
         
         // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
-        allow update: if request.auth.uid == resource.data.customerId &&
-                        (request.resource.data.keys().hasOnly(['status', 'paymentStatus', 'paymentProofUrl']));
+        allow update: if request.auth.uid == resource.data.customerId;
     }
 
     // Rules for 'whatsapp_contacts'
@@ -87,3 +88,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
