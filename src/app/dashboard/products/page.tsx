@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Image from "next/image"
@@ -55,7 +56,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useEffect, useState } from "react";
@@ -343,6 +344,7 @@ function AdjustStockDialog({ product, onStockAdjusted }: { product: Product, onS
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -353,6 +355,11 @@ export default function ProductsPage() {
         const querySnapshot = await getDocs(collection(db, "products"));
         const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(productsData);
+
+        const lowStockQuery = query(collection(db, "products"), where("stock", "<=", 5));
+        const lowStockSnapshot = await getDocs(lowStockQuery);
+        const lowStockData = lowStockSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setLowStockProducts(lowStockData);
     } catch (error) {
         console.error("Error fetching products:", error);
     } finally {
@@ -382,10 +389,10 @@ export default function ProductsPage() {
         <div className="flex items-center">
             <TabsList>
                 <TabsTrigger value="all">Daftar Produk</TabsTrigger>
-                <TabsTrigger value="stock">Manajemen Stok</TabsTrigger>
+                <TabsTrigger value="low-stock">Stok Menipis</TabsTrigger>
+                <TabsTrigger value="stock-management">Manajemen Stok</TabsTrigger>
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
-                <Button variant="outline" size="sm">Impor Massal</Button>
                 <ProductSheet onProductAdded={fetchProducts} />
             </div>
         </div>
@@ -461,7 +468,49 @@ export default function ProductsPage() {
                 </CardContent>
             </Card>
         </TabsContent>
-        <TabsContent value="stock">
+        <TabsContent value="low-stock">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Produk Stok Menipis</CardTitle>
+                    <CardDescription>
+                        Produk dengan jumlah stok 5 atau kurang. Segera restock!
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <div className="relative w-full overflow-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Nama Produk</TableHead>
+                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="text-right">Stok Tersisa</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {loading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-24 text-center">Memuat produk...</TableCell>
+                                    </TableRow>
+                                ) : lowStockProducts.length > 0 ? lowStockProducts.map((product) => (
+                                    <TableRow key={product.id}>
+                                        <TableCell className="font-medium">{product.name}</TableCell>
+                                        <TableCell>{product.sku}</TableCell>
+                                        <TableCell className="text-right">
+                                          <Badge variant="destructive">{product.stock}</Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-24 text-center">Tidak ada produk dengan stok menipis.</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                     </div>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="stock-management">
             <Card>
                 <CardHeader>
                     <CardTitle>Manajemen Stok</CardTitle>
