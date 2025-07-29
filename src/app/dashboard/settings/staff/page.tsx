@@ -12,8 +12,7 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
-import { db, rtdb } from '@/lib/firebase';
-import { ref, set as setRTDB } from 'firebase/database';
+import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -241,11 +240,6 @@ export default function StaffManagementPage() {
           role: 'admin' // Explicitly set role to 'admin'
       });
 
-      // 3. Add staff role to Realtime Database for security rules
-      await setRTDB(ref(rtdb, 'users/' + user.uid), {
-          role: 'admin'
-      });
-
       toast({
         title: 'Staf Berhasil Ditambahkan',
         description: `${newStaff.name} telah ditambahkan sebagai admin.`,
@@ -261,7 +255,7 @@ export default function StaffManagementPage() {
       } else if (error.code === 'auth/weak-password') {
           errorMessage = 'Password terlalu lemah. Harap gunakan minimal 6 karakter.';
       } else if (error.code === 'permission-denied' || error.code === 'PERMISSION_DENIED') {
-          errorMessage = 'Izin ditolak. Pastikan aturan keamanan Firestore & RTDB sudah benar.'
+          errorMessage = 'Izin ditolak. Pastikan aturan keamanan Firestore sudah benar.'
       }
 
       toast({
@@ -279,13 +273,11 @@ export default function StaffManagementPage() {
       return;
     }
     // Deleting a user from Auth should be done in a secure backend environment.
-    // Here, we only delete their record from Firestore and RTDB.
+    // Here, we only delete their record from Firestore.
     try {
       // Delete from Firestore
       await deleteDoc(doc(db, "user", id));
-      // Delete from Realtime Database
-      await setRTDB(ref(rtdb, 'users/' + id), null);
-
+      
       toast({
         title: 'Staf Berhasil Dihapus',
         description: `Data staf ${name} telah dihapus dari daftar.`

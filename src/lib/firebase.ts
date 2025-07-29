@@ -18,6 +18,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
-const rtdb = getDatabase(app);
+// Hapus rtdb dari ekspor karena tidak lagi digunakan
+// const rtdb = getDatabase(app);
 
-export { app, auth, db, rtdb };
+export { app, auth, db };

@@ -17,8 +17,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { doc, setDoc } from "firebase/firestore";
-import { ref, set as setRTDB } from 'firebase/database';
-import { db, rtdb } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
 function Logo() {
@@ -90,17 +89,12 @@ export default function RegisterPage() {
       const userCredential = await createUser(formData.email, formData.password);
       const newUser = userCredential.user;
 
-      // 2. Save user profile to Firestore
+      // 2. Save user profile and role to Firestore
       await setDoc(doc(db, "user", newUser.uid), {
           name: formData.name,
           email: formData.email,
           whatsapp: formData.whatsapp,
-          role: 'reseller'
-      });
-
-      // 3. Save user role to Realtime Database for security rules
-      await setRTDB(ref(rtdb, 'users/' + newUser.uid), {
-          role: 'reseller'
+          role: 'reseller' // Set role in Firestore
       });
 
       toast({
