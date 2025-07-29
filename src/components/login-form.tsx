@@ -52,7 +52,7 @@ export default function LoginForm() {
 
   useEffect(() => {
     if (!authLoading && user) {
-        router.push('/dashboard');
+        // Redirect logic moved to handleLogin to check for roles
     }
   }, [user, authLoading, router]);
 
@@ -75,8 +75,7 @@ export default function LoginForm() {
           router.push('/dashboard');
         }
       } else {
-        // Default to dashboard if no role is found
-        console.warn("User document not found in Firestore, defaulting to dashboard.");
+        // Default to dashboard if no role is found (e.g. initial admin)
         router.push('/dashboard');
       }
 
@@ -137,14 +136,14 @@ export default function LoginForm() {
             <CardTitle className="text-3xl font-bold font-headline">OrderFlow</CardTitle>
           </div>
           <CardDescription>
-            Masukkan kredensial Anda untuk mengakses dasbor
+            Masukkan kredensial Anda untuk mengakses akun
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="admin@orderflow.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input id="email" type="email" placeholder="email@contoh.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="space-y-2">
               <div className="flex items-center">
@@ -166,9 +165,9 @@ export default function LoginForm() {
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
-            Apakah Anda seorang reseller?{" "}
-            <Link href="/reseller" className="underline">
-              Pergi ke Portal Reseller
+            Belum punya akun?{" "}
+            <Link href="/register" className="underline">
+              Daftar sebagai Reseller
             </Link>
           </div>
         </CardContent>
