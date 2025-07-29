@@ -75,7 +75,7 @@ export default function ResellerChatBox({ isOpen }: { isOpen: boolean; }) {
 
     updates[`/chats/${newChatId}/metadata`] = {
         buyerId: user.uid,
-        adminId: null, // Admin will fill this when they reply
+        adminId: "not_assigned", // Placeholder for admin
         buyerName: userName,
         avatar: userAvatar,
         lastMessage: firstMessageText,
