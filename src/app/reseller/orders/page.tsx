@@ -115,9 +115,13 @@ function PaymentUploader({ order, onUploadSuccess }: { order: Order, onUploadSuc
             const downloadUrl = await getDownloadURL(storageRef);
 
             const orderRef = doc(db, "orders", order.id);
-            await updateDoc(orderRef, { paymentProofUrl: downloadUrl, paymentStatus: 'Paid', status: 'Processing' });
+            // ONLY update the payment proof URL. Admin will verify and change status.
+            await updateDoc(orderRef, { paymentProofUrl: downloadUrl });
 
-            toast({ title: "Bukti pembayaran berhasil diunggah!" });
+            toast({ 
+                title: "Bukti pembayaran berhasil diunggah!",
+                description: "Pembayaran Anda akan segera dikonfirmasi oleh admin."
+            });
             onUploadSuccess(order.id, downloadUrl);
 
         } catch (error) {
@@ -137,7 +141,7 @@ function PaymentUploader({ order, onUploadSuccess }: { order: Order, onUploadSuc
             <CardContent className="space-y-4">
                 <div className="space-y-2">
                     {bankAccounts.map(acc => (
-                        <Alert key={acc.id}>
+                         <Alert key={acc.id}>
                             <Banknote className="h-4 w-4"/>
                             <AlertTitle>{acc.bankName.toUpperCase()}</AlertTitle>
                             <AlertDescription>
@@ -198,7 +202,11 @@ export default function OrderHistoryPage() {
           } as Order)
       );
       // Sort on the client-side after fetching
-      ordersData.sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime());
+      ordersData.sort((a, b) => {
+        const dateA = a.date?.toDate ? a.date.toDate().getTime() : 0;
+        const dateB = b.date?.toDate ? b.date.toDate().getTime() : 0;
+        return dateB - dateA;
+      });
       setOrders(ordersData);
     } catch (error: any) {
       console.error('Error fetching orders: ', error);
@@ -220,7 +228,7 @@ export default function OrderHistoryPage() {
   }, [fetchOrders]);
 
   const handleUploadSuccess = (orderId: string, url: string) => {
-      setOrders(prevOrders => prevOrders.map(o => o.id === orderId ? { ...o, paymentProofUrl: url, status: 'Processing', paymentStatus: 'Paid' } : o));
+      setOrders(prevOrders => prevOrders.map(o => o.id === orderId ? { ...o, paymentProofUrl: url } : o));
       fetchOrders();
   };
 
@@ -442,5 +450,3 @@ export default function OrderHistoryPage() {
     </div>
   );
 }
-
-    
