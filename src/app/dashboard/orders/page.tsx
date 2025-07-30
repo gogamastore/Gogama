@@ -495,17 +495,20 @@ export default function OrdersPage() {
         finalY = (pdfDoc as any).lastAutoTable.finalY + 10;
     }
     
+    const rightAlignX = 195;
+    const leftAlignX = 140;
+
     pdfDoc.setFontSize(10);
-    pdfDoc.text("Subtotal Produk:", 140, finalY, { align: 'right' });
-    pdfDoc.text(formatCurrency(detailedOrder.subtotal), 195, finalY, { align: 'right' });
+    pdfDoc.text("Subtotal Produk:", leftAlignX, finalY);
+    pdfDoc.text(formatCurrency(detailedOrder.subtotal), rightAlignX, finalY, { align: 'right' });
 
-    pdfDoc.text("Biaya Pengiriman:", 140, finalY + 5, { align: 'right' });
-    pdfDoc.text(formatCurrency(detailedOrder.shippingFee), 195, finalY + 5, { align: 'right' });
-
+    pdfDoc.text("Biaya Pengiriman:", leftAlignX, finalY + 5);
+    pdfDoc.text(formatCurrency(detailedOrder.shippingFee), rightAlignX, finalY + 5, { align: 'right' });
+    
     pdfDoc.setFontSize(12);
     pdfDoc.setFont('helvetica', 'bold');
-    pdfDoc.text("Total:", 140, finalY + 12, { align: 'right' });
-    pdfDoc.text(String(detailedOrder.total), 195, finalY + 12, { align: 'right' });
+    pdfDoc.text("Total:", leftAlignX, finalY + 12);
+    pdfDoc.text(String(detailedOrder.total), rightAlignX, finalY + 12, { align: 'right' });
     pdfDoc.output("dataurlnewwindow");
   };
 
@@ -550,14 +553,19 @@ export default function OrdersPage() {
             startY: tableY
         });
         const finalY = (pdf as any).lastAutoTable.finalY;
+        const rightAlignX = 195;
+        const leftAlignX = 140;
+
         pdf.setFontSize(10);
-        pdf.text('Subtotal:', 140, finalY + 10, { align: 'right' });
-        pdf.text(formatCurrency(order.subtotal), 195, finalY + 10, { align: 'right' });
-        pdf.text('Ongkir:', 140, finalY + 15, { align: 'right' });
-        pdf.text(formatCurrency(order.shippingFee), 195, finalY + 15, { align: 'right' });
+        pdf.text('Subtotal:', leftAlignX, finalY + 10);
+        pdf.text(formatCurrency(order.subtotal), rightAlignX, finalY + 10, { align: 'right' });
+        pdf.text('Ongkir:', leftAlignX, finalY + 15);
+        pdf.text(formatCurrency(order.shippingFee), rightAlignX, finalY + 15, { align: 'right' });
+        
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`Total: ${order.total}`, 140, finalY + 22, { align: 'right' });
+        pdf.text('Total:', leftAlignX, finalY + 22);
+        pdf.text(order.total, rightAlignX, finalY + 22, { align: 'right' });
       }
       isFirstPage = false;
     }
