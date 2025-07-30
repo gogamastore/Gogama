@@ -1,100 +1,110 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+  
+    // Helper Functions
     function isAdmin() {
-      // Return true if the user has the 'admin' role in their user document.
+      // Allow if the user's role in the 'user' collection is 'admin'.
+      // Note: This requires that admins can read the 'user' collection.
       return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Rules for 'user' collection
+    // Rules for the 'user' collection
     match /user/{userId} {
-      // Any logged-in user can read user profiles (needed for isAdmin() to work across rules).
-      // Write access is restricted to the user themselves or an admin.
+      // Any authenticated user can read user documents.
+      // This is necessary for the isAdmin() function to work across all rules.
       allow read: if request.auth.uid != null;
-      allow write: if request.auth.uid == userId || isAdmin();
+      
+      // Only the user themselves or an admin can update their own profile.
+      allow update: if request.auth.uid == userId || isAdmin();
+      
+      // Creating a user document is handled by the registration logic, no direct create needed here.
+      allow create: if request.auth.uid == userId;
+
+      // Only admins can delete user documents (from the admin panel).
+      allow delete: if isAdmin();
     }
     
-    // Rules for user's own addresses
+    // Rules for user's addresses subcollection
     match /user/{userId}/addresses/{addressId} {
+        // A user can manage their own addresses
         allow read, list, create, update, delete: if request.auth.uid == userId;
     }
 
-    // Rules for 'products' collection
+    // Rules for the 'products' collection
     match /products/{productId} {
-      // Admins can manage all products.
-      allow write: if isAdmin();
-      // Anyone can read product data.
-      allow read: if true;
-    }
-    
-    // Rules for 'stock_adjustments' collection
-    match /stock_adjustments/{adjustmentId} {
-        // Only admins can create stock adjustments.
-        allow create: if isAdmin();
-        // Only admins can read adjustment history.
-        allow read: if isAdmin();
-    }
-    
-    // Rules for 'purchase_transactions' collection
-    match /purchase_transactions/{purchaseId} {
-      allow create, read: if isAdmin();
-    }
-    
-    // Rules for 'operational_expenses' collection
-    match /operational_expenses/{expenseId} {
-      allow create, read: if isAdmin();
+      // Anyone can read/list products (for the reseller storefront).
+      allow read, list: if true;
+      // Only admins can create, update, or delete products.
+      allow create, update, delete: if isAdmin();
     }
 
     // Rules for the 'orders' collection
     match /orders/{orderId} {
         // Admins can manage all orders.
-        allow list, create, update, read: if isAdmin();
+        allow read, list, create, update, delete: if isAdmin();
 
-        // Resellers can create orders for themselves.
+        // Resellers can create orders for themselves
         allow create: if request.auth.uid == request.resource.data.customerId;
 
         // Resellers can only read their own orders.
-        allow get: if request.auth.uid == resource.data.customerId;
+        allow get, list: if request.auth.uid == resource.data.customerId;
         
-        // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof).
+        // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
         allow update: if request.auth.uid == resource.data.customerId &&
                         (request.resource.data.status == 'Cancelled' || request.resource.data.keys().has('paymentProofUrl'));
+    }
 
+    // Rules for 'stock_adjustments'
+    match /stock_adjustments/{adjustmentId} {
+        // Only admins can create and read stock adjustment logs.
+        allow read, list, create: if isAdmin();
     }
     
-    // Rules for 'bank_accounts' collection
+    // Rules for 'purchase_transactions'
+    match /purchase_transactions/{transactionId} {
+        // Only admins can create and read purchase transactions.
+        allow read, list, create: if isAdmin();
+    }
+
+    // Rules for 'operational_expenses'
+    match /operational_expenses/{expenseId} {
+        // Only admins can create and read operational expenses.
+        allow read, list, create: if isAdmin();
+    }
+
+    // Rules for 'bank_accounts'
     match /bank_accounts/{accountId} {
-      // Anyone logged in can read bank accounts (for checkout).
-      allow read: if request.auth.uid != null;
-      // Only admins can add, update, or delete bank accounts.
-      allow write: if isAdmin();
+        // Anyone authenticated can read (for resellers to see payment info)
+        allow read, list: if request.auth.uid != null;
+        // Only admins can manage bank accounts
+        allow create, update, delete: if isAdmin();
     }
-    
-    // Rules for 'whatsapp_contacts' collection
+
+    // Rules for 'whatsapp_contacts'
     match /whatsapp_contacts/{contactId} {
-       // Anyone logged in can read contacts.
-      allow read: if request.auth.uid != null;
-      // Only admins can manage contacts.
-      allow write: if isAdmin();
+        // Anyone can read contacts
+        allow read, list: if true;
+        // Only admins can manage contacts
+        allow create, update, delete: if isAdmin();
     }
-    
+
     // Rules for 'banners' collection
     match /banners/{bannerId} {
-      // Anyone can see the banners
-      allow read: if true;
-      // Only admins can create, update, or delete banners
-      allow write: if isAdmin();
+        // Anyone can read banners for the reseller storefront
+        allow read, list: if true;
+        // Only admins can manage banners
+        allow create, update, delete: if isAdmin();
     }
     
     // Rules for 'promotions' collection
     match /promotions/{promoId} {
-       // Anyone can see active promotions
-      allow read: if true;
-       // Only admins can create, update, or delete promotions
-      allow write: if isAdmin();
+        // Anyone can read promotions for the reseller storefront
+        allow read, list: if true;
+        // Only admins can manage promotions
+        allow create, update, delete: if isAdmin();
     }
-
   }
 }
