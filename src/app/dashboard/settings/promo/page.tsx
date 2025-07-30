@@ -4,14 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   collection,
   addDoc,
-  getDocs,
   deleteDoc,
   doc,
   serverTimestamp,
-  updateDoc,
-  query,
-  orderBy,
-  writeBatch
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -25,7 +20,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -35,12 +29,14 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from '@/hooks/use-toast';
-import { Percent, PlusCircle, Trash2, Loader2, ArrowLeft, Edit, CalendarIcon, Tags } from 'lucide-react';
+import { Percent, PlusCircle, Trash2, Loader2, ArrowLeft, Tags, CalendarIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { addDays, format, fromUnixTime } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getPromotionsAndProducts } from './actions';
+
 
 interface Product {
   id: string;
@@ -83,26 +79,20 @@ export default function PromoSettingsPage() {
     to: addDays(new Date(), 7),
   });
 
-  const fetchPromotionsAndProducts = useCallback(async () => {
+  const fetchPromotionsAndProductsCallback = useCallback(async () => {
     setLoading(true);
     try {
-        const productsSnapshot = await getDocs(collection(db, 'products'));
-        const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setProducts(productsData);
+        const { promotions: fetchedPromos, products: fetchedProducts } = await getPromotionsAndProducts();
 
-        const promoSnapshot = await getDocs(query(collection(db, 'promotions'), orderBy('endDate', 'desc')));
-        const promoData = promoSnapshot.docs.map(doc => {
-            const data = doc.data();
-            const product = productsData.find(p => p.id === data.productId);
-            return {
-                ...product,
-                promoId: doc.id,
-                discountPrice: data.discountPrice,
-                startDate: data.startDate.toDate(),
-                endDate: data.endDate.toDate()
-            } as Promotion;
-        }).filter(p => p.name); // Filter out promotions for deleted products
-        setPromotions(promoData);
+        // Dates will be strings after serialization, so we convert them back
+        const parsedPromos = fetchedPromos.map(p => ({
+            ...p,
+            startDate: new Date(p.startDate),
+            endDate: new Date(p.endDate)
+        }));
+
+        setPromotions(parsedPromos as Promotion[]);
+        setProducts(fetchedProducts as Product[]);
     } catch (error) {
         console.error('Error fetching data: ', error);
         toast({ variant: 'destructive', title: 'Gagal Memuat Data' });
@@ -112,8 +102,8 @@ export default function PromoSettingsPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchPromotionsAndProducts();
-  }, [fetchPromotionsAndProducts]);
+    fetchPromotionsAndProductsCallback();
+  }, [fetchPromotionsAndProductsCallback]);
 
   const handleAddPromo = async () => {
     if (!selectedProductId || !discountPrice || !dateRange?.from || !dateRange?.to) {
@@ -131,7 +121,7 @@ export default function PromoSettingsPage() {
         });
         toast({ title: "Promo berhasil ditambahkan" });
         setIsDialogOpen(false);
-        fetchPromotionsAndProducts();
+        fetchPromotionsAndProductsCallback();
         // Reset form
         setSelectedProductId('');
         setDiscountPrice(0);
@@ -149,7 +139,7 @@ export default function PromoSettingsPage() {
     try {
         await deleteDoc(doc(db, 'promotions', promoId));
         toast({ title: 'Promo berhasil dihapus' });
-        fetchPromotionsAndProducts();
+        fetchPromotionsAndProductsCallback();
     } catch (error) {
         console.error("Error deleting promo:", error);
         toast({ variant: 'destructive', title: 'Gagal menghapus promo' });
@@ -196,13 +186,13 @@ export default function PromoSettingsPage() {
                         <p className="text-sm font-semibold text-primary">{formatCurrency(promo.discountPrice)}</p>
                       </div>
                       <p className='text-xs text-muted-foreground'>
-                        Berlaku hingga: {format(promo.endDate, 'dd MMM yyyy')}
+                        Berlaku hingga: {format(new Date(promo.endDate), 'dd MMM yyyy')}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                     <Badge variant={new Date() > promo.endDate ? "secondary" : "default"}>
-                        {new Date() > promo.endDate ? "Berakhir" : "Aktif"}
+                     <Badge variant={new Date() > new Date(promo.endDate) ? "secondary" : "default"}>
+                        {new Date() > new Date(promo.endDate) ? "Berakhir" : "Aktif"}
                      </Badge>
                      <Button variant="ghost" size="icon" onClick={() => handleDeletePromo(promo.promoId)}>
                         <Trash2 className="h-4 w-4 text-destructive" />

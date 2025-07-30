@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   collection,
   addDoc,
-  getDocs,
   deleteDoc,
   doc,
   serverTimestamp,
   updateDoc,
-  query,
-  orderBy
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from '@/lib/firebase';
@@ -40,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ImagePlus, PlusCircle, Trash2, Loader2, ArrowLeft, Edit, GripVertical, Image as ImageIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { getBanners } from './actions';
 
 interface Banner {
   id: string;
@@ -71,15 +69,11 @@ export default function DesignSettingsPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const fetchBanners = async () => {
+  const fetchBannersCallback = useCallback(async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'banners'), orderBy('order', 'asc'));
-      const querySnapshot = await getDocs(q);
-      const fetchedBanners = querySnapshot.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Banner)
-      );
-      setBanners(fetchedBanners);
+      const fetchedBanners = await getBanners();
+      setBanners(fetchedBanners as Banner[]);
     } catch (error) {
       console.error('Error fetching banners: ', error);
       toast({
@@ -89,11 +83,11 @@ export default function DesignSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    fetchBanners();
-  }, []);
+    fetchBannersCallback();
+  }, [fetchBannersCallback]);
   
   const resetForm = () => {
       setFormData({
@@ -178,7 +172,7 @@ export default function DesignSettingsPage() {
         }
       
       setIsDialogOpen(false);
-      fetchBanners(); // Refresh list
+      fetchBannersCallback(); // Refresh list
     } catch (error) {
       console.error('Error saving banner: ', error);
       toast({ variant: 'destructive', title: 'Gagal Menyimpan Banner' });
@@ -193,7 +187,7 @@ export default function DesignSettingsPage() {
     try {
       await deleteDoc(doc(db, 'banners', id));
       toast({ title: 'Banner Berhasil Dihapus' });
-      fetchBanners(); // Refresh list
+      fetchBannersCallback(); // Refresh list
     } catch (error) {
       console.error('Error deleting banner: ', error);
       toast({ variant: 'destructive', title: 'Gagal Menghapus Banner' });
