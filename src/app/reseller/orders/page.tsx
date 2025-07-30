@@ -35,13 +35,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { FileText, Loader2, Package, ArrowLeft, Banknote, UploadCloud, XCircle } from 'lucide-react';
+import { FileText, Loader2, Package, ArrowLeft, Banknote, UploadCloud, XCircle, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { id as dateFnsLocaleId } from 'date-fns/locale';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Separator } from '@/components/ui/separator';
 
 
 interface OrderProduct {
@@ -194,7 +195,8 @@ export default function OrderHistoryPage() {
     try {
       const q = query(
         collection(db, 'orders'),
-        where('customerId', '==', user.uid)
+        where('customerId', '==', user.uid),
+        orderBy('date', 'desc')
       );
       const querySnapshot = await getDocs(q);
       const ordersData = querySnapshot.docs.map(
@@ -204,12 +206,6 @@ export default function OrderHistoryPage() {
             ...doc.data(),
           } as Order)
       );
-      // Sort on the client-side after fetching
-      ordersData.sort((a, b) => {
-        const dateA = a.date?.toDate ? a.date.toDate().getTime() : 0;
-        const dateB = b.date?.toDate ? b.date.toDate().getTime() : 0;
-        return dateB - dateA;
-      });
       setOrders(ordersData);
     } catch (error: any) {
       console.error('Error fetching orders: ', error);
@@ -356,96 +352,109 @@ export default function OrderHistoryPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         {isProcessing === order.id ? <Loader2 className="h-4 w-4 animate-spin mx-auto"/> : (
-                          <div className="flex justify-center items-center">
                             <Dialog>
                                 <DialogTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                        <FileText className="h-4 w-4" />
-                                        <span className="sr-only">Lihat Detail</span>
+                                    <Button variant="outline" size="sm">
+                                        <Eye className="mr-2 h-4 w-4"/>
+                                        Lihat
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-3xl">
+                                <DialogContent className="sm:max-w-md">
                                     <DialogHeader>
-                                        <DialogTitle>Detail Pesanan #{order.id}</DialogTitle>
-                                        <DialogDescription>
-                                            Tanggal: {format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
-                                        </DialogDescription>
+                                        <DialogTitle>Aksi untuk Pesanan #{order.id.substring(0,7)}</DialogTitle>
                                     </DialogHeader>
-                                    <div className="max-h-[70vh] overflow-y-auto p-1 space-y-4">
-                                        <Card>
-                                            <CardHeader><CardTitle>Produk yang Dipesan</CardTitle></CardHeader>
-                                            <CardContent>
-                                                <div className="relative w-full overflow-auto">
-                                                    <Table>
-                                                        <TableHeader>
-                                                            <TableRow>
-                                                                <TableHead>Produk</TableHead>
-                                                                <TableHead>Jumlah</TableHead>
-                                                                <TableHead className="text-right">Harga</TableHead>
-                                                                <TableHead className="text-right">Subtotal</TableHead>
-                                                            </TableRow>
-                                                        </TableHeader>
-                                                        <TableBody>
-                                                            {order.products.map(p => (
-                                                                <TableRow key={p.productId}>
-                                                                    <TableCell className="flex items-center gap-2">
-                                                                        <Image src={p.image} alt={p.name} width={40} height={40} className="rounded" />
-                                                                        {p.name}
-                                                                    </TableCell>
-                                                                    <TableCell>{p.quantity}</TableCell>
-                                                                    <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
-                                                                    <TableCell className="text-right">{formatCurrency(p.price * p.quantity)}</TableCell>
-                                                                </TableRow>
-                                                            ))}
-                                                        </TableBody>
-                                                    </Table>
+                                    <Separator/>
+                                    <div className="grid grid-cols-1 gap-2 py-2">
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-start">
+                                                    <FileText className="mr-2 h-4 w-4" /> Detail Pesanan
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="sm:max-w-3xl">
+                                                <DialogHeader>
+                                                    <DialogTitle>Detail Pesanan #{order.id}</DialogTitle>
+                                                    <DialogDescription>
+                                                        Tanggal: {format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
+                                                    </DialogDescription>
+                                                </DialogHeader>
+                                                <div className="max-h-[70vh] overflow-y-auto p-1 space-y-4">
+                                                    <Card>
+                                                        <CardHeader><CardTitle>Produk yang Dipesan</CardTitle></CardHeader>
+                                                        <CardContent>
+                                                            <div className="relative w-full overflow-auto">
+                                                                <Table>
+                                                                    <TableHeader>
+                                                                        <TableRow>
+                                                                            <TableHead>Produk</TableHead>
+                                                                            <TableHead>Jumlah</TableHead>
+                                                                            <TableHead className="text-right">Harga</TableHead>
+                                                                            <TableHead className="text-right">Subtotal</TableHead>
+                                                                        </TableRow>
+                                                                    </TableHeader>
+                                                                    <TableBody>
+                                                                        {order.products.map(p => (
+                                                                            <TableRow key={p.productId}>
+                                                                                <TableCell className="flex items-center gap-2">
+                                                                                    <Image src={p.image} alt={p.name} width={40} height={40} className="rounded" />
+                                                                                    {p.name}
+                                                                                </TableCell>
+                                                                                <TableCell>{p.quantity}</TableCell>
+                                                                                <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
+                                                                                <TableCell className="text-right">{formatCurrency(p.price * p.quantity)}</TableCell>
+                                                                            </TableRow>
+                                                                        ))}
+                                                                    </TableBody>
+                                                                </Table>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+
+                                                    {order.paymentMethod === 'bank_transfer' && order.paymentStatus === 'Unpaid' && order.status !== 'Cancelled' && (
+                                                    <PaymentUploader order={order} onUploadSuccess={handleUploadSuccess} />
+                                                    )}
+
+                                                    {order.paymentProofUrl && order.paymentMethod === 'bank_transfer' && (
+                                                        <Card>
+                                                            <CardHeader><CardTitle>Bukti Pembayaran</CardTitle></CardHeader>
+                                                            <CardContent>
+                                                                <Image src={order.paymentProofUrl} alt="Bukti Pembayaran" width={250} height={250} className="rounded-md border object-contain" />
+                                                            </CardContent>
+                                                        </Card>
+                                                    )}
+
+
+                                                    <div className="text-right font-bold text-lg border-t pt-4">
+                                                        Total Pesanan: {order.total}
+                                                    </div>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
-
-                                        {order.paymentMethod === 'bank_transfer' && order.paymentStatus === 'Unpaid' && order.status !== 'Cancelled' && (
-                                          <PaymentUploader order={order} onUploadSuccess={handleUploadSuccess} />
+                                            </DialogContent>
+                                        </Dialog>
+                                        
+                                        {(order.status === 'Pending' || order.status === 'Processing') && (
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" className="w-full justify-start">
+                                                        <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Tidak</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         )}
-
-                                        {order.paymentProofUrl && order.paymentMethod === 'bank_transfer' && (
-                                            <Card>
-                                                <CardHeader><CardTitle>Bukti Pembayaran</CardTitle></CardHeader>
-                                                <CardContent>
-                                                    <Image src={order.paymentProofUrl} alt="Bukti Pembayaran" width={250} height={250} className="rounded-md border object-contain" />
-                                                </CardContent>
-                                            </Card>
-                                        )}
-
-
-                                        <div className="text-right font-bold text-lg border-t pt-4">
-                                            Total Pesanan: {order.total}
-                                        </div>
                                     </div>
                                 </DialogContent>
                             </Dialog>
-                             {(order.status === 'Pending' || order.status === 'Processing') && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                          <XCircle className="h-4 w-4" />
-                                          <span className="sr-only">Batalkan Pesanan</span>
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Tidak</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                              )}
-                          </div>
                         )}
                       </TableCell>
                     </TableRow>
