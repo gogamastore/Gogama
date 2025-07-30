@@ -49,16 +49,19 @@ const formatCurrency = (value: string): string => {
 }
 
 
-function ProductDetailDialog({ product, onAddToCart }: { product: Product, onAddToCart: (product: Product) => void }) {
+function ProductDetailDialog({ product, onAddToCart, children }: { product: Product, onAddToCart: (product: Product) => void, children: React.ReactNode }) {
     const stockAvailable = product.stock > 0;
+    const [isOpen, setIsOpen] = useState(false);
     
+    const handleAddToCartClick = () => {
+        onAddToCart(product);
+        setIsOpen(false);
+    }
+
     return (
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <button className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full hover:bg-black/70 transition-colors">
-                    <Info className="h-4 w-4"/>
-                    <span className="sr-only">Lihat Detail</span>
-                </button>
+                {children}
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -89,7 +92,7 @@ function ProductDetailDialog({ product, onAddToCart }: { product: Product, onAdd
                         <DialogDescription className="text-base text-muted-foreground flex-1">
                           {product.description || "Tidak ada deskripsi untuk produk ini."}
                         </DialogDescription>
-                        <Button onClick={() => onAddToCart(product)} disabled={!stockAvailable} size="lg">
+                        <Button onClick={handleAddToCartClick} disabled={!stockAvailable} size="lg">
                             <ShoppingCart className="mr-2 h-5 w-5" />
                             {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
                         </Button>
@@ -241,7 +244,6 @@ export default function ResellerDashboard() {
                                 className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
                                 data-ai-hint={product['data-ai-hint'] || 'product image'}
                                 />
-                                <ProductDetailDialog product={product} onAddToCart={handleAddToCart} />
                                 {!stockAvailable && (
                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                                        <Badge variant="destructive">Stok Habis</Badge>
@@ -251,10 +253,12 @@ export default function ResellerDashboard() {
                             <div className="p-4">
                                 <h3 className="font-semibold text-lg truncate">{product.name}</h3>
                                 <p className="text-muted-foreground mt-1">{product.price}</p>
-                                <Button className="w-full mt-4" variant="secondary" onClick={() => handleAddToCart(product)} disabled={!stockAvailable}>
-                                  {stockAvailable ? <ShoppingCart className="mr-2 h-4 w-4" /> : <PackageX className="mr-2 h-4 w-4" />}
-                                  {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
-                                </Button>
+                                <ProductDetailDialog product={product} onAddToCart={handleAddToCart}>
+                                    <Button className="w-full mt-4" variant="secondary" disabled={!stockAvailable}>
+                                        {stockAvailable ? <ShoppingCart className="mr-2 h-4 w-4" /> : <PackageX className="mr-2 h-4 w-4" />}
+                                        {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
+                                    </Button>
+                                </ProductDetailDialog>
                             </div>
                             </CardContent>
                         </Card>
