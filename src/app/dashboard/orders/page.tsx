@@ -562,7 +562,7 @@ export default function OrdersPage() {
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
         pdf.text('Total:', leftAlignX, finalY + 22);
-        pdf.text(order.total, leftAlignX + 40, finalY + 22);
+        pdf.text(String(order.total), leftAlignX + 40, finalY + 22);
       }
       isFirstPage = false;
     }
