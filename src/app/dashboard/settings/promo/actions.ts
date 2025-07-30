@@ -38,6 +38,12 @@ export async function getPromotionsAndProducts(): Promise<{promotions: Promotion
             const product = productsData.find(p => p.id === data.productId);
             if (!product) return null;
             
+            // Safety check for Timestamp objects
+            if (!(data.startDate instanceof Timestamp) || !(data.endDate instanceof Timestamp)) {
+                console.warn(`Skipping promotion ${doc.id} due to invalid date format.`);
+                return null;
+            }
+
             return {
                 ...product,
                 promoId: doc.id,
