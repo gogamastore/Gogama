@@ -29,6 +29,7 @@ import { useCart } from "@/hooks/use-cart"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import Autoplay from "embla-carousel-autoplay"
 
 interface Product {
   id: string;
@@ -319,7 +320,15 @@ export default function ResellerDashboard() {
     <div className="relative">
       <div className="container mx-auto px-4 py-8">
         <section className="mb-8">
-            <Carousel className="w-full">
+            <Carousel 
+                className="w-full"
+                plugins={[
+                    Autoplay({
+                        delay: 4000,
+                        stopOnInteraction: true,
+                    })
+                ]}
+            >
                 <CarouselContent>
                     {banners.length > 0 ? banners.map(banner => (
                         <CarouselItem key={banner.id}>
