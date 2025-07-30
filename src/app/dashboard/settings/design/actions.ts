@@ -10,17 +10,20 @@ export async function getBanners() {
         const querySnapshot = await getDocs(q);
         const banners = querySnapshot.docs.map(doc => {
             const data = doc.data();
-            // Handle non-serializable Timestamp
-            if (data.createdAt && data.createdAt instanceof Timestamp) {
-                data.createdAt = data.createdAt.toDate().toISOString();
+            
+            // Safely handle the createdAt timestamp
+            const createdAt = data.createdAt;
+            if (createdAt && createdAt instanceof Timestamp) {
+                data.createdAt = createdAt.toDate().toISOString();
             }
+
             return {
                 id: doc.id,
                 ...data
             };
         });
-        // The object should now be serializable
-        return JSON.parse(JSON.stringify(banners));
+        
+        return banners;
     } catch (error) {
         console.error("Error fetching banners in server action: ", error);
         throw new Error("Could not fetch banners.");

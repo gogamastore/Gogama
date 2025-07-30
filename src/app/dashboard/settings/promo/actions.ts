@@ -1,6 +1,7 @@
+
 "use server";
 
-import { collection, getDocs, query, orderBy, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface Product {
@@ -38,9 +39,12 @@ export async function getPromotionsAndProducts(): Promise<{promotions: Promotion
             const product = productsData.find(p => p.id === data.productId);
             if (!product) return null;
             
-            // Safety check for Timestamp objects
-            if (!(data.startDate instanceof Timestamp) || !(data.endDate instanceof Timestamp)) {
-                console.warn(`Skipping promotion ${doc.id} due to invalid date format.`);
+            // Safety check for Timestamp objects before converting
+            const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : null;
+            const endDate = data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString() : null;
+
+            if (!startDate || !endDate) {
+                 console.warn(`Skipping promotion ${doc.id} due to invalid date format.`);
                 return null;
             }
 
@@ -48,12 +52,12 @@ export async function getPromotionsAndProducts(): Promise<{promotions: Promotion
                 ...product,
                 promoId: doc.id,
                 discountPrice: data.discountPrice,
-                startDate: data.startDate.toDate().toISOString(),
-                endDate: data.endDate.toDate().toISOString()
+                startDate: startDate,
+                endDate: endDate
             } as Promotion;
         }).filter(p => p !== null) as Promotion[];
 
-        return JSON.parse(JSON.stringify({ promotions: promoData, products: productsData }));
+        return { promotions: promoData, products: productsData };
 
     } catch (error) {
         console.error("Error fetching promotions and products in server action: ", error);
