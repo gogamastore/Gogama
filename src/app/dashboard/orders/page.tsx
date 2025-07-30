@@ -465,12 +465,19 @@ export default function OrdersPage() {
     const customerInfo = detailedOrder.customerDetails;
     pdfDoc.text("Informasi Pelanggan:", 14, 47);
     pdfDoc.text(`Nama: ${customerInfo?.name || detailedOrder.customer}`, 14, 52);
-    pdfDoc.text(`Alamat: ${customerInfo?.address || 'N/A'}`, 14, 57);
-    pdfDoc.text(`WhatsApp: ${customerInfo?.whatsapp || 'N/A'}`, 14, 62);
+    
+    // Handle long address
+    const addressLines = pdfDoc.splitTextToSize(`Alamat: ${customerInfo?.address || 'N/A'}`, 180);
+    pdfDoc.text(addressLines, 14, 57);
+    let currentY = 57 + (addressLines.length * 5); // Adjust Y based on address lines
+
+    pdfDoc.text(`WhatsApp: ${customerInfo?.whatsapp || 'N/A'}`, 14, currentY + 5);
+
+    const tableY = currentY + 15;
 
     const tableColumn = ["Nama Produk", "Jumlah", "Harga Satuan", "Subtotal"];
     const tableRows: (string | number)[][] = [];
-    let finalY = 70;
+    let finalY = tableY;
 
     if(detailedOrder.products?.length > 0) {
         detailedOrder.products?.forEach(prod => {
@@ -484,21 +491,21 @@ export default function OrdersPage() {
             tableRows.push(row);
         });
 
-        pdfDoc.autoTable({ head: [tableColumn], body: tableRows, startY: 70 });
+        pdfDoc.autoTable({ head: [tableColumn], body: tableRows, startY: tableY });
         finalY = (pdfDoc as any).lastAutoTable.finalY + 10;
     }
     
     pdfDoc.setFontSize(10);
-    pdfDoc.text("Subtotal Produk:", 150, finalY, { align: 'right' });
-    pdfDoc.text(formatCurrency(detailedOrder.subtotal), 200, finalY, { align: 'right' });
+    pdfDoc.text("Subtotal Produk:", 140, finalY, { align: 'right' });
+    pdfDoc.text(formatCurrency(detailedOrder.subtotal), 195, finalY, { align: 'right' });
 
-    pdfDoc.text("Biaya Pengiriman:", 150, finalY + 5, { align: 'right' });
-    pdfDoc.text(formatCurrency(detailedOrder.shippingFee), 200, finalY + 5, { align: 'right' });
+    pdfDoc.text("Biaya Pengiriman:", 140, finalY + 5, { align: 'right' });
+    pdfDoc.text(formatCurrency(detailedOrder.shippingFee), 195, finalY + 5, { align: 'right' });
 
     pdfDoc.setFontSize(12);
     pdfDoc.setFont('helvetica', 'bold');
-    pdfDoc.text("Total:", 150, finalY + 12, { align: 'right' });
-    pdfDoc.text(String(detailedOrder.total), 200, finalY + 12, { align: 'right' });
+    pdfDoc.text("Total:", 140, finalY + 12, { align: 'right' });
+    pdfDoc.text(String(detailedOrder.total), 195, finalY + 12, { align: 'right' });
     pdfDoc.output("dataurlnewwindow");
   };
 
@@ -520,8 +527,14 @@ export default function OrdersPage() {
         pdf.text(`Detail Pesanan: ${order.id}`, 14, 20);
         pdf.setFontSize(12);
         pdf.text(`Pelanggan: ${order.customerDetails?.name || order.customer}`, 14, 30);
-        pdf.text(`Alamat: ${order.customerDetails?.address || 'N/A'}`, 14, 36);
-        pdf.text(`WhatsApp: ${order.customerDetails?.whatsapp || 'N/A'}`, 14, 42);
+        
+        const addressLines = pdf.splitTextToSize(`Alamat: ${order.customerDetails?.address || 'N/A'}`, 180);
+        pdf.text(addressLines, 14, 36);
+        let currentY = 36 + (addressLines.length * 5);
+
+        pdf.text(`WhatsApp: ${order.customerDetails?.whatsapp || 'N/A'}`, 14, currentY + 6);
+        
+        const tableY = currentY + 14;
 
         const tableColumn = ["Produk", "Jumlah", "Harga", "Subtotal"];
         const tableRows = order.products.map(p => [
@@ -534,17 +547,17 @@ export default function OrdersPage() {
         pdf.autoTable({
             head: [tableColumn],
             body: tableRows,
-            startY: 50
+            startY: tableY
         });
         const finalY = (pdf as any).lastAutoTable.finalY;
         pdf.setFontSize(10);
-        pdf.text('Subtotal:', 150, finalY + 10, { align: 'right' });
-        pdf.text(formatCurrency(order.subtotal), 200, finalY + 10, { align: 'right' });
-        pdf.text('Ongkir:', 150, finalY + 15, { align: 'right' });
-        pdf.text(formatCurrency(order.shippingFee), 200, finalY + 15, { align: 'right' });
+        pdf.text('Subtotal:', 140, finalY + 10, { align: 'right' });
+        pdf.text(formatCurrency(order.subtotal), 195, finalY + 10, { align: 'right' });
+        pdf.text('Ongkir:', 140, finalY + 15, { align: 'right' });
+        pdf.text(formatCurrency(order.shippingFee), 195, finalY + 15, { align: 'right' });
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(`Total: ${order.total}`, 150, finalY + 22, { align: 'right' });
+        pdf.text(`Total: ${order.total}`, 140, finalY + 22, { align: 'right' });
       }
       isFirstPage = false;
     }
