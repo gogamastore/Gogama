@@ -50,13 +50,14 @@ const formatCurrency = (value: string): string => {
 }
 
 
-function ProductDetailDialog({ product, onAddToCart, children }: { product: Product, onAddToCart: (product: Product, quantity: number) => void, children: React.ReactNode }) {
+function ProductDetailDialog({ product, children }: { product: Product, children: React.ReactNode }) {
     const stockAvailable = product.stock > 0;
     const [isOpen, setIsOpen] = useState(false);
     const [quantity, setQuantity] = useState(1);
+    const { addToCart } = useCart();
+    const { toast } = useToast();
     
     useEffect(() => {
-        // Reset quantity when dialog opens
         if (isOpen) {
             setQuantity(1);
         }
@@ -69,7 +70,11 @@ function ProductDetailDialog({ product, onAddToCart, children }: { product: Prod
     }
 
     const handleAddToCartClick = () => {
-        onAddToCart(product, quantity);
+        addToCart(product, quantity);
+        toast({
+            title: "Produk Ditambahkan",
+            description: `${quantity}x ${product.name} telah ditambahkan ke keranjang.`,
+        });
         setIsOpen(false);
     }
 
@@ -108,7 +113,7 @@ function ProductDetailDialog({ product, onAddToCart, children }: { product: Prod
                           {product.description || "Tidak ada deskripsi untuk produk ini."}
                         </DialogDescription>
                         
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-end gap-4">
                             <div className="space-y-1">
                                 <Label htmlFor="quantity">Jumlah</Label>
                                 <div className="flex items-center gap-2">
@@ -130,9 +135,9 @@ function ProductDetailDialog({ product, onAddToCart, children }: { product: Prod
                                     </Button>
                                 </div>
                             </div>
-                            <Button onClick={handleAddToCartClick} disabled={!stockAvailable} size="lg" className="flex-1 mt-auto">
+                            <Button onClick={handleAddToCartClick} disabled={!stockAvailable} size="lg" className="flex-1">
                                 <ShoppingCart className="mr-2 h-5 w-5" />
-                                {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
+                                {stockAvailable ? 'Tambah' : 'Stok Habis'}
                             </Button>
                         </div>
 
@@ -154,7 +159,6 @@ export default function ResellerDashboard() {
   const [itemsPerPage, setItemsPerPage] = useState(12);
 
   const { toast } = useToast();
-  const { addToCart } = useCart();
 
   useEffect(() => {
     async function getProducts() {
@@ -163,7 +167,9 @@ export default function ResellerDashboard() {
             const querySnapshot = await getDocs(collection(db, "products"));
             const productsData = querySnapshot.docs.map(doc => ({ 
                 id: doc.id, 
-                ...doc.data() 
+                ...doc.data(),
+                stock: doc.data().stock || 0,
+                description: doc.data().description || '',
             } as Product));
             setAllProducts(productsData);
             setFilteredProducts(productsData);
@@ -199,14 +205,6 @@ export default function ResellerDashboard() {
   }, [currentPage, itemsPerPage, filteredProducts]);
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-
-  const handleAddToCart = (product: Product, quantity: number) => {
-    addToCart(product, quantity);
-    toast({
-        title: "Produk Ditambahkan",
-        description: `${quantity}x ${product.name} telah ditambahkan ke keranjang.`,
-    });
-  };
 
   return (
     <div className="relative">
@@ -275,28 +273,32 @@ export default function ResellerDashboard() {
                       return (
                         <Card key={product.id} className="overflow-hidden group">
                             <CardContent className="p-0">
-                            <div className="relative">
-                                <Image
-                                src={product.image}
-                                alt={product.name}
-                                width={400}
-                                height={400}
-                                className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
-                                data-ai-hint={product['data-ai-hint'] || 'product image'}
-                                />
-                                {!stockAvailable && (
-                                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                       <Badge variant="destructive">Stok Habis</Badge>
-                                   </div>
-                                )}
-                            </div>
+                            <ProductDetailDialog product={product}>
+                                <div className="relative cursor-pointer">
+                                    <Image
+                                    src={product.image}
+                                    alt={product.name}
+                                    width={400}
+                                    height={400}
+                                    className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
+                                    data-ai-hint={product['data-ai-hint'] || 'product image'}
+                                    />
+                                    {!stockAvailable && (
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                        <Badge variant="destructive">Stok Habis</Badge>
+                                    </div>
+                                    )}
+                                </div>
+                            </ProductDetailDialog>
                             <div className="p-4">
-                                <h3 className="font-semibold text-lg truncate">{product.name}</h3>
+                                <ProductDetailDialog product={product}>
+                                    <h3 className="font-semibold text-lg truncate cursor-pointer hover:underline">{product.name}</h3>
+                                </ProductDetailDialog>
                                 <p className="text-muted-foreground mt-1">{product.price}</p>
-                                <ProductDetailDialog product={product} onAddToCart={handleAddToCart}>
-                                    <Button className="w-full mt-4" variant="secondary" disabled={!stockAvailable}>
+                                <ProductDetailDialog product={product}>
+                                     <Button className="w-full mt-4" variant="secondary" disabled={!stockAvailable}>
                                         {stockAvailable ? <ShoppingCart className="mr-2 h-4 w-4" /> : <PackageX className="mr-2 h-4 w-4" />}
-                                        {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
+                                        {stockAvailable ? 'Detail & Pesan' : 'Stok Habis'}
                                     </Button>
                                 </ProductDetailDialog>
                             </div>
