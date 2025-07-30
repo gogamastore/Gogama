@@ -26,10 +26,9 @@ import {
 } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon } from "lucide-react"
-import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import { Download, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon, Eye } from "lucide-react"
+import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -42,6 +41,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 
 
 declare module 'jspdf' {
@@ -289,9 +289,9 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
     return (
          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
              <DialogTrigger asChild>
-                <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                <Button variant="outline" className="w-full justify-start">
                     <Edit className="mr-2 h-4 w-4" /> Edit Pesanan
-                </button>
+                </Button>
              </DialogTrigger>
              <DialogContent className="sm:max-w-4xl">
                 <DialogHeader className="flex-row justify-between items-center">
@@ -662,91 +662,97 @@ export default function OrdersPage() {
                     <TableCell className="text-right">{order.total}</TableCell>
                     <TableCell className="text-center">
                         {isProcessing === order.id ? <Loader2 className="h-4 w-4 animate-spin mx-auto"/> : (
-                           <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0">
-                                      <span className="sr-only">Open menu</span>
-                                      <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Aksi Cepat</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  
-                                  {order.paymentStatus === 'Unpaid' && order.paymentMethod === 'bank_transfer' && (
-                                     <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { paymentStatus: 'Paid', status: 'Processing' })}>
-                                        <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
-                                     </DropdownMenuItem>
-                                  )}
-                                  
-                                  {order.status === 'Pending' && (
-                                     <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Processing' })}>
-                                        <RefreshCw className="mr-2 h-4 w-4" /> Proses Pesanan
-                                     </DropdownMenuItem>
-                                  )}
-                                  
-                                  {order.status === 'Processing' && (
-                                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Shipped' })}>
-                                          <Truck className="mr-2 h-4 w-4" /> Kirim Pesanan
-                                      </DropdownMenuItem>
-                                  )}
+                           <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                    <Eye className="mr-2 h-4 w-4"/>
+                                    Lihat
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle>Aksi untuk Pesanan #{order.id.substring(0,7)}</DialogTitle>
+                                    <DialogDescription>
+                                        Pelanggan: {order.customer}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <Separator />
+                                <div className="grid grid-cols-1 gap-2 py-2">
+                                     {order.paymentStatus === 'Unpaid' && order.paymentMethod === 'bank_transfer' && (
+                                        <Button variant="outline" className="w-full justify-start" onClick={() => updateOrderStatus(order.id, { paymentStatus: 'Paid', status: 'Processing' })}>
+                                            <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
+                                        </Button>
+                                    )}
+                                    
+                                    {order.status === 'Pending' && (
+                                        <Button variant="outline" className="w-full justify-start" onClick={() => updateOrderStatus(order.id, { status: 'Processing' })}>
+                                            <RefreshCw className="mr-2 h-4 w-4" /> Proses Pesanan
+                                        </Button>
+                                    )}
+                                    
+                                    {order.status === 'Processing' && (
+                                        <Button variant="outline" className="w-full justify-start" onClick={() => updateOrderStatus(order.id, { status: 'Shipped' })}>
+                                            <Truck className="mr-2 h-4 w-4" /> Kirim Pesanan
+                                        </Button>
+                                    )}
 
-                                   {order.status === 'Shipped' && (
-                                      <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Delivered' })}>
-                                          <Check className="mr-2 h-4 w-4" /> Tandai Telah Sampai
-                                      </DropdownMenuItem>
-                                  )}
+                                    {order.status === 'Shipped' && (
+                                        <Button variant="outline" className="w-full justify-start" onClick={() => updateOrderStatus(order.id, { status: 'Delivered' })}>
+                                            <Check className="mr-2 h-4 w-4" /> Tandai Telah Sampai
+                                        </Button>
+                                    )}
+                                    
+                                    <Separator />
+                                    
+                                    <EditOrderDialog order={order} onOrderUpdated={fetchOrders} />
+                                    
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                             <Button variant="outline" className="w-full justify-start">
+                                                <FileText className="mr-2 h-4 w-4" /> Lihat Bukti Bayar
+                                             </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Bukti Pembayaran #{order.id}</DialogTitle>
+                                                <DialogDescription>Pelanggan: {order.customer}</DialogDescription>
+                                            </DialogHeader>
+                                            {order.paymentProofUrl ? (
+                                                <Link href={order.paymentProofUrl} target="_blank" rel="noopener noreferrer">
+                                                    <Image src={order.paymentProofUrl} alt={`Payment proof for ${order.id}`} width={500} height={500} className="rounded-md object-contain border" />
+                                                </Link>
+                                            ) : (<p className="text-center text-muted-foreground py-8">Belum ada bukti pembayaran.</p>)}
+                                        </DialogContent>
+                                    </Dialog>
 
-                                  {(order.status === 'Pending' || order.status === 'Processing') && (
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <button className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-destructive hover:text-destructive-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
-                                                <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
-                                            </button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Tidak</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                  )}
+                                    <Button variant="outline" className="w-full justify-start" onClick={() => generateSinglePdf(order.id)}>
+                                        <Printer className="mr-2 h-4 w-4" /> Download PDF
+                                    </Button>
 
-                                  <DropdownMenuSeparator />
-                                   <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                       <EditOrderDialog order={order} onOrderUpdated={fetchOrders} />
-                                   </DropdownMenuItem>
-                                  
-                                   <Dialog>
-                                      <DialogTrigger asChild>
-                                          <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
-                                              <FileText className="mr-2 h-4 w-4" /> Lihat Bukti Bayar
-                                          </button>
-                                      </DialogTrigger>
-                                      <DialogContent>
-                                          <DialogHeader>
-                                              <DialogTitle>Bukti Pembayaran #{order.id}</DialogTitle>
-                                              <DialogDescription>Pelanggan: {order.customer}</DialogDescription>
-                                          </DialogHeader>
-                                          {order.paymentProofUrl ? (
-                                              <Link href={order.paymentProofUrl} target="_blank" rel="noopener noreferrer">
-                                                  <Image src={order.paymentProofUrl} alt={`Payment proof for ${order.id}`} width={500} height={500} className="rounded-md object-contain border" />
-                                              </Link>
-                                          ) : (<p className="text-center text-muted-foreground py-8">Belum ada bukti pembayaran.</p>)}
-                                      </DialogContent>
-                                  </Dialog>
-                                  <DropdownMenuItem onClick={() => generateSinglePdf(order.id)}>
-                                      <Printer className="mr-2 h-4 w-4" /> Download PDF
-                                  </DropdownMenuItem>
-                              </DropdownMenuContent>
-                           </DropdownMenu>
+                                    {(order.status === 'Pending' || order.status === 'Processing') && (
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="destructive" className="w-full justify-start">
+                                                    <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Tidak</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    )}
+                                </div>
+                            </DialogContent>
+                           </Dialog>
                         )}
                     </TableCell>
                 </TableRow>

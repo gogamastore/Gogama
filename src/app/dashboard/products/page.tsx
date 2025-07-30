@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Image from "next/image"
@@ -41,28 +42,22 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuTrigger,
-    DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button"
-import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload, FileDown, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload, FileDown, Loader2, Search, ChevronLeft, ChevronRight, Eye, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch, query, where } from "firebase/firestore";
+import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch, query, where, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator";
 
 
 interface Product {
@@ -474,6 +469,8 @@ export default function ProductsPage() {
   
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const { toast } = useToast();
+
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -528,6 +525,24 @@ export default function ProductsPage() {
           setEditingProduct(undefined);
       }
   }
+
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+        await deleteDoc(doc(db, "products", productId));
+        toast({
+            title: "Produk Dihapus",
+            description: "Produk telah berhasil dihapus dari database.",
+        });
+        fetchProducts(); // Refresh the product list
+    } catch (error) {
+        console.error("Error deleting product:", error);
+        toast({
+            variant: "destructive",
+            title: "Gagal Menghapus Produk",
+            description: "Terjadi kesalahan saat menghapus produk.",
+        });
+    }
+  };
 
   return (
     <>
@@ -601,20 +616,44 @@ export default function ProductsPage() {
                                     <TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
                                     <TableCell className="text-right">{product.price}</TableCell>
                                     <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                    <MoreHorizontal className="h-4 w-4" />
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" size="sm">
+                                                    <Eye className="mr-2 h-4 w-4"/>
+                                                    Lihat
                                                 </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                                <DropdownMenuItem onSelect={() => handleEditClick(product)}>
-                                                    <Edit className="mr-2 h-4 w-4"/>
-                                                    Edit Produk
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                            </DialogTrigger>
+                                            <DialogContent className="sm:max-w-md">
+                                                <DialogHeader>
+                                                    <DialogTitle>Aksi untuk: {product.name}</DialogTitle>
+                                                </DialogHeader>
+                                                <Separator />
+                                                <div className="grid grid-cols-1 gap-2 py-2">
+                                                    <Button variant="outline" className="w-full justify-start" onClick={() => handleEditClick(product)}>
+                                                        <Edit className="mr-2 h-4 w-4"/> Edit Produk
+                                                    </Button>
+                                                     <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="destructive" className="w-full justify-start">
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Hapus Produk
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Tindakan ini akan menghapus produk <span className="font-bold">{product.name}</span> secara permanen. Aksi ini tidak dapat diurungkan.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteProduct(product.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Hapus Produk</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
                                     </TableCell>
                                 </TableRow>
                                 ))}
