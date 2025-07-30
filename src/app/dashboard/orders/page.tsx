@@ -466,10 +466,9 @@ export default function OrdersPage() {
     pdfDoc.text("Informasi Pelanggan:", 14, 47);
     pdfDoc.text(`Nama: ${customerInfo?.name || detailedOrder.customer}`, 14, 52);
     
-    // Handle long address
     const addressLines = pdfDoc.splitTextToSize(`Alamat: ${customerInfo?.address || 'N/A'}`, 180);
     pdfDoc.text(addressLines, 14, 57);
-    let currentY = 57 + (addressLines.length * 5); // Adjust Y based on address lines
+    let currentY = 57 + (addressLines.length * 5);
 
     pdfDoc.text(`WhatsApp: ${customerInfo?.whatsapp || 'N/A'}`, 14, currentY + 5);
 
@@ -495,20 +494,19 @@ export default function OrdersPage() {
         finalY = (pdfDoc as any).lastAutoTable.finalY + 10;
     }
     
-    const rightAlignX = 195;
-    const leftAlignX = 140;
+    const leftMargin = 14;
 
     pdfDoc.setFontSize(10);
-    pdfDoc.text("Subtotal Produk:", leftAlignX, finalY);
-    pdfDoc.text(formatCurrency(detailedOrder.subtotal), rightAlignX, finalY, { align: 'right' });
+    pdfDoc.text("Subtotal Produk:", leftMargin, finalY);
+    pdfDoc.text(formatCurrency(detailedOrder.subtotal), leftMargin + 40, finalY);
 
-    pdfDoc.text("Biaya Pengiriman:", leftAlignX, finalY + 5);
-    pdfDoc.text(formatCurrency(detailedOrder.shippingFee), rightAlignX, finalY + 5, { align: 'right' });
+    pdfDoc.text("Biaya Pengiriman:", leftMargin, finalY + 5);
+    pdfDoc.text(formatCurrency(detailedOrder.shippingFee), leftMargin + 40, finalY + 5);
     
     pdfDoc.setFontSize(12);
     pdfDoc.setFont('helvetica', 'bold');
-    pdfDoc.text("Total:", leftAlignX, finalY + 12);
-    pdfDoc.text(String(detailedOrder.total), rightAlignX, finalY + 12, { align: 'right' });
+    pdfDoc.text("Total:", leftMargin, finalY + 12);
+    pdfDoc.text(String(detailedOrder.total), leftMargin + 40, finalY + 12);
     pdfDoc.output("dataurlnewwindow");
   };
 
