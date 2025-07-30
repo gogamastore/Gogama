@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -56,6 +57,23 @@ interface Banner {
   order: number;
 }
 
+// Wrapper to fix react-beautiful-dnd strict mode issue
+const StrictDroppable = ({ children, ...props }: any) => {
+    const [enabled, setEnabled] = useState(false);
+    useEffect(() => {
+        const animation = requestAnimationFrame(() => setEnabled(true));
+        return () => {
+            cancelAnimationFrame(animation);
+            setEnabled(false);
+        };
+    }, []);
+    if (!enabled) {
+        return null;
+    }
+    return <Droppable {...props}>{children}</Droppable>;
+};
+
+
 export default function DesignSettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -80,10 +98,15 @@ export default function DesignSettingsPage() {
     try {
       const q = query(collection(db, 'banners'), orderBy('order', 'asc'));
       const querySnapshot = await getDocs(q);
-      const fetchedBanners = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-      } as Banner));
+      const fetchedBanners = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+              id: doc.id,
+              ...data,
+              // Convert timestamp to a serializable format if it exists
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null,
+          } as Banner
+      });
       setBanners(fetchedBanners);
     } catch (error) {
       console.error('Error fetching banners: ', error);
@@ -258,8 +281,8 @@ export default function DesignSettingsPage() {
              <div className="text-center p-8 text-muted-foreground">Memuat data banner...</div>
           ) : banners.length > 0 ? (
             <DragDropContext onDragEnd={onDragEnd}>
-              <Droppable droppableId="banners">
-                {(provided) => (
+              <StrictDroppable droppableId="banners">
+                {(provided: any) => (
                   <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
                     {banners.map((banner, index) => (
                       <Draggable key={banner.id} draggableId={banner.id} index={index}>
@@ -299,7 +322,7 @@ export default function DesignSettingsPage() {
                     {provided.placeholder}
                   </div>
                 )}
-              </Droppable>
+              </StrictDroppable>
             </DragDropContext>
           ) : (
             <div className="text-center p-8 text-muted-foreground border-2 border-dashed rounded-lg">
