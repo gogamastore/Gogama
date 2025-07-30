@@ -551,19 +551,18 @@ export default function OrdersPage() {
             startY: tableY
         });
         const finalY = (pdf as any).lastAutoTable.finalY;
-        const rightAlignX = 195;
-        const leftAlignX = 140;
+        const leftAlignX = 14;
 
         pdf.setFontSize(10);
         pdf.text('Subtotal:', leftAlignX, finalY + 10);
-        pdf.text(formatCurrency(order.subtotal), rightAlignX, finalY + 10, { align: 'right' });
+        pdf.text(formatCurrency(order.subtotal), leftAlignX + 40, finalY + 10);
         pdf.text('Ongkir:', leftAlignX, finalY + 15);
-        pdf.text(formatCurrency(order.shippingFee), rightAlignX, finalY + 15, { align: 'right' });
+        pdf.text(formatCurrency(order.shippingFee), leftAlignX + 40, finalY + 15);
         
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
         pdf.text('Total:', leftAlignX, finalY + 22);
-        pdf.text(order.total, rightAlignX, finalY + 22, { align: 'right' });
+        pdf.text(order.total, leftAlignX + 40, finalY + 22);
       }
       isFirstPage = false;
     }
