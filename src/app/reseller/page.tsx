@@ -1,3 +1,4 @@
+
 "use client"
 
 import Image from "next/image"
@@ -21,7 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { collection, getDocs, query, where, Timestamp } from "firebase/firestore"
+import { collection, getDocs, query, where, Timestamp, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useEffect, useState, useMemo } from "react"
 import { useToast } from "@/hooks/use-toast"
@@ -53,6 +54,7 @@ interface Banner {
   buttonText: string;
   buttonLink: string;
   isActive: boolean;
+  order: number;
 }
 
 interface Promotion {
@@ -231,7 +233,7 @@ export default function ResellerDashboard() {
             setFilteredProducts(productsData);
 
             // Fetch Banners
-            const bannersQuery = query(collection(db, 'banners'), where('isActive', '==', true));
+            const bannersQuery = query(collection(db, 'banners'), where('isActive', '==', true), orderBy('order', 'asc'));
             const bannersSnapshot = await getDocs(bannersQuery);
             const bannersData = bannersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner));
             setBanners(bannersData);
