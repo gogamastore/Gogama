@@ -8,6 +8,10 @@ import {
   doc,
   serverTimestamp,
   updateDoc,
+  getDocs,
+  query,
+  orderBy,
+  where
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from '@/lib/firebase';
@@ -37,7 +41,6 @@ import { useToast } from '@/hooks/use-toast';
 import { ImagePlus, PlusCircle, Trash2, Loader2, ArrowLeft, Edit, GripVertical, Image as ImageIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { getBanners } from './actions';
 
 interface Banner {
   id: string;
@@ -72,8 +75,13 @@ export default function DesignSettingsPage() {
   const fetchBannersCallback = useCallback(async () => {
     setLoading(true);
     try {
-      const fetchedBanners = await getBanners();
-      setBanners(fetchedBanners as Banner[]);
+      const q = query(collection(db, 'banners'), orderBy('order', 'asc'));
+      const querySnapshot = await getDocs(q);
+      const fetchedBanners = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+      } as Banner));
+      setBanners(fetchedBanners);
     } catch (error) {
       console.error('Error fetching banners: ', error);
       toast({

@@ -7,6 +7,9 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  getDocs,
+  query,
+  orderBy
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -35,8 +38,6 @@ import Image from 'next/image';
 import { addDays, format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getPromotionsAndProducts } from './actions';
-
 
 interface Product {
   id: string;
@@ -82,17 +83,27 @@ export default function PromoSettingsPage() {
   const fetchPromotionsAndProductsCallback = useCallback(async () => {
     setLoading(true);
     try {
-        const { promotions: fetchedPromos, products: fetchedProducts } = await getPromotionsAndProducts();
+        const productsSnapshot = await getDocs(collection(db, 'products'));
+        const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setProducts(productsData);
 
-        // Dates will be strings after serialization, so we convert them back
-        const parsedPromos = fetchedPromos.map(p => ({
-            ...p,
-            startDate: new Date(p.startDate),
-            endDate: new Date(p.endDate)
-        }));
+        const promoSnapshot = await getDocs(query(collection(db, 'promotions'), orderBy('endDate', 'desc')));
+        const promoData = promoSnapshot.docs.map(doc => {
+            const data = doc.data();
+            const product = productsData.find(p => p.id === data.productId);
+            if (!product) return null;
+            
+            return {
+                ...product,
+                promoId: doc.id,
+                discountPrice: data.discountPrice,
+                startDate: data.startDate.toDate(),
+                endDate: data.endDate.toDate()
+            } as Promotion;
+        }).filter(p => p !== null) as Promotion[];
+        
+        setPromotions(promoData);
 
-        setPromotions(parsedPromos as Promotion[]);
-        setProducts(fetchedProducts as Product[]);
     } catch (error) {
         console.error('Error fetching data: ', error);
         toast({ variant: 'destructive', title: 'Gagal Memuat Data' });
