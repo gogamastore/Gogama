@@ -43,6 +43,7 @@ import { ImagePlus, PlusCircle, Trash2, Loader2, ArrowLeft, Edit, GripVertical, 
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 
 
 interface Banner {
@@ -54,7 +55,24 @@ interface Banner {
   buttonLink: string;
   isActive: boolean;
   order: number;
+  createdAt: any;
 }
+
+// Helper component to bypass react-beautiful-dnd strict mode issue
+const StrictDroppable = ({ children, ...props }: any) => {
+    const [enabled, setEnabled] = useState(false);
+    useEffect(() => {
+        const animation = requestAnimationFrame(() => setEnabled(true));
+        return () => {
+            cancelAnimationFrame(animation);
+            setEnabled(false);
+        };
+    }, []);
+    if (!enabled) {
+        return null;
+    }
+    return <Droppable {...props}>{children}</Droppable>;
+};
 
 
 export default function DesignSettingsPage() {
@@ -208,6 +226,34 @@ export default function DesignSettingsPage() {
     }
   };
 
+  const onDragEnd = async (result: DropResult) => {
+    const { destination, source } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) {
+      return;
+    }
+
+    const newBanners = Array.from(banners);
+    const [reorderedItem] = newBanners.splice(source.index, 1);
+    newBanners.splice(destination.index, 0, reorderedItem);
+
+    setBanners(newBanners); // Optimistic UI update
+
+    try {
+        const batch = writeBatch(db);
+        newBanners.forEach((banner, index) => {
+            const bannerRef = doc(db, 'banners', banner.id);
+            batch.update(bannerRef, { order: index });
+        });
+        await batch.commit();
+        toast({ title: "Urutan banner berhasil diperbarui" });
+    } catch (error) {
+        console.error("Error updating banner order:", error);
+        toast({ variant: 'destructive', title: "Gagal memperbarui urutan" });
+        setBanners(banners); // Revert on failure
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -236,35 +282,50 @@ export default function DesignSettingsPage() {
           {loading ? (
              <div className="text-center p-8 text-muted-foreground">Memuat data banner...</div>
           ) : banners.length > 0 ? (
-            <div className="space-y-4">
-              {banners.map((banner, index) => (
-                 <div
-                    key={banner.id}
-                    className='flex items-center justify-between rounded-lg border p-4'
-                  >
-                    <div className="flex items-center gap-4">
-                      <Image src={banner.imageUrl} alt={banner.title} width={120} height={50} className="rounded-md object-cover aspect-video"/>
-                      <div>
-                        <p className="font-bold">{banner.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {banner.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                       <Badge variant={banner.isActive ? "default" : "secondary"}>
-                          {banner.isActive ? "Aktif" : "Nonaktif"}
-                       </Badge>
-                       <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(banner)}>
-                          <Edit className="h-4 w-4"/>
-                       </Button>
-                       <Button variant="ghost" size="icon" onClick={() => handleDeleteBanner(banner.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                       </Button>
-                    </div>
+            <DragDropContext onDragEnd={onDragEnd}>
+              <StrictDroppable droppableId="banners">
+                {(provided: any) => (
+                  <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
+                    {banners.map((banner, index) => (
+                       <Draggable key={banner.id} draggableId={banner.id} index={index}>
+                         {(provided: any) => (
+                            <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                className='flex items-center justify-between rounded-lg border p-4 bg-card'
+                            >
+                                <div className="flex items-center gap-4">
+                                  <div {...provided.dragHandleProps} className="cursor-grab p-2">
+                                      <GripVertical className="h-5 w-5 text-muted-foreground"/>
+                                  </div>
+                                  <Image src={banner.imageUrl} alt={banner.title} width={120} height={50} className="rounded-md object-cover aspect-video"/>
+                                  <div>
+                                    <p className="font-bold">{banner.title}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {banner.description}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={banner.isActive ? "default" : "secondary"}>
+                                      {banner.isActive ? "Aktif" : "Nonaktif"}
+                                  </Badge>
+                                  <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(banner)}>
+                                      <Edit className="h-4 w-4"/>
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteBanner(banner.id)}>
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                            </div>
+                         )}
+                       </Draggable>
+                    ))}
+                    {provided.placeholder}
                   </div>
-              ))}
-            </div>
+                )}
+              </StrictDroppable>
+            </DragDropContext>
           ) : (
             <div className="text-center p-8 text-muted-foreground border-2 border-dashed rounded-lg">
                 <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground"/>
