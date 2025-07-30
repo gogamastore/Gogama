@@ -28,17 +28,19 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search } from "lucide-react"
+import { Download, MoreHorizontal, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon } from "lucide-react"
 import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import Link from "next/link";
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -375,6 +377,7 @@ export default function OrdersPage() {
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const { toast } = useToast();
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
 
 
   const fetchOrders = useCallback(async () => {
@@ -531,7 +534,7 @@ export default function OrdersPage() {
         const orderRef = doc(db, "orders", order.id);
         batch.update(orderRef, { status: 'Cancelled' });
 
-        if (order.products) {
+        if (order.products && order.status !== 'Cancelled') {
             for (const item of order.products) {
                 const productRef = doc(db, "products", item.productId);
                 const productDoc = await getDoc(productRef);
@@ -566,26 +569,26 @@ export default function OrdersPage() {
 
 
   const filteredOrders = useMemo(() => {
-    const safeSort = (a: Order, b: Order) => {
-        const dateA = a.date?.toMillis ? a.date.toMillis() : 0;
-        const dateB = b.date?.toMillis ? b.date.toMillis() : 0;
-        return dateB - dateA; // Sort descending
-    };
+    const { from, to } = dateRange;
+    let filtered = allOrders;
 
-    const unpaid = allOrders
-      .filter(o => o.paymentMethod === 'bank_transfer' && o.paymentStatus === 'Unpaid' && o.status === 'Pending')
-      .sort(safeSort);
+    if (from || to) {
+        filtered = allOrders.filter(order => {
+            const orderDate = order.date.toDate();
+            if (from && orderDate < startOfDay(from)) return false;
+            if (to && orderDate > endOfDay(to)) return false;
+            return true;
+        });
+    }
 
-    const toShip = allOrders
-      .filter(o => o.status === 'Processing')
-      .sort(safeSort);
-
-    const shipped = allOrders.filter(o => o.status === 'Shipped').sort(safeSort);
-    const delivered = allOrders.filter(o => o.status === 'Delivered').sort(safeSort);
-    const cancelled = allOrders.filter(o => o.status === 'Cancelled').sort(safeSort);
+    const unpaid = filtered.filter(o => o.paymentMethod === 'bank_transfer' && o.paymentStatus === 'Unpaid' && o.status === 'Pending');
+    const toShip = filtered.filter(o => o.status === 'Processing');
+    const shipped = filtered.filter(o => o.status === 'Shipped');
+    const delivered = filtered.filter(o => o.status === 'Delivered');
+    const cancelled = filtered.filter(o => o.status === 'Cancelled');
 
     return { unpaid, toShip, shipped, delivered, cancelled };
-  }, [allOrders]);
+  }, [allOrders, dateRange]);
   
   const handleSelectOrder = (orderId: string, isSelected: boolean) => {
       setSelectedOrders(prev => isSelected ? [...prev, orderId] : prev.filter(id => id !== orderId));
@@ -693,7 +696,7 @@ export default function OrdersPage() {
                                       </DropdownMenuItem>
                                   )}
 
-                                  {order.status !== 'Cancelled' && order.status !== 'Delivered' && (
+                                  {order.status !== 'Cancelled' && order.status !== 'Delivered' && order.status !== 'Shipped' && (
                                     <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleCancelOrder(order)}>
                                         <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
                                     </DropdownMenuItem>
@@ -746,15 +749,28 @@ export default function OrdersPage() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div>
                  <CardTitle>Pesanan</CardTitle>
                  <CardDescription>Lihat dan kelola semua pesanan yang masuk berdasarkan statusnya.</CardDescription>
             </div>
-             <Button onClick={generateBulkPdf} disabled={selectedOrders.length === 0}>
-                <Download className="mr-2 h-4 w-4" />
-                Download PDF Terpilih ({selectedOrders.length})
-            </Button>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button id="date" variant={"outline"} className="w-full sm:w-[280px] justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange?.from ? (dateRange.to ? `${format(dateRange.from, "LLL dd, y")} - ${format(dateRange.to, "LLL dd, y")}` : format(dateRange.from, "LLL dd, y")) : (<span>Pilih rentang tanggal</span>)}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                        <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
+                    </PopoverContent>
+                </Popover>
+                 <Button onClick={generateBulkPdf} disabled={selectedOrders.length === 0}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF ({selectedOrders.length})
+                </Button>
+            </div>
         </div>
       </CardHeader>
       <CardContent>

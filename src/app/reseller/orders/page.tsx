@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -115,7 +116,6 @@ function PaymentUploader({ order, onUploadSuccess }: { order: Order, onUploadSuc
             const downloadUrl = await getDownloadURL(storageRef);
 
             const orderRef = doc(db, "orders", order.id);
-            // ONLY update the payment proof URL. Admin will verify and change status.
             await updateDoc(orderRef, { paymentProofUrl: downloadUrl });
 
             toast({ 
@@ -243,7 +243,7 @@ export default function OrderHistoryPage() {
         const orderRef = doc(db, "orders", order.id);
         batch.update(orderRef, { status: 'Cancelled' });
 
-        if (order.products) {
+        if (order.products && order.status !== 'Cancelled') {
             for (const item of order.products) {
                 const productRef = doc(db, "products", item.productId);
                 const productDoc = await getDoc(productRef);
@@ -423,7 +423,7 @@ export default function OrderHistoryPage() {
                                     </div>
                                 </DialogContent>
                             </Dialog>
-                             {(order.status === 'Pending' || order.status === 'Processing') && (
+                             {order.status !== 'Cancelled' && order.status !== 'Delivered' && order.status !== 'Shipped' && (
                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleCancelOrder(order)}>
                                   <XCircle className="h-4 w-4" />
                                   <span className="sr-only">Batalkan Pesanan</span>
