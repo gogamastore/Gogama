@@ -27,7 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Download, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon, Eye } from "lucide-react"
+import { Download, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon, Eye, DollarSign } from "lucide-react"
 import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +42,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 
 
 declare module 'jspdf' {
@@ -82,6 +83,8 @@ interface Order {
   paymentMethod: 'cod' | 'bank_transfer';
   paymentProofUrl?: string;
   total: string;
+  subtotal: number;
+  shippingFee: number;
   date: any; // Allow for Firestore Timestamp object
   products: OrderProduct[];
 }
@@ -191,14 +194,16 @@ function AddProductToOrderDialog({ currentProducts, onAddProduct }: { currentPro
 function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdated: () => void }) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editableProducts, setEditableProducts] = useState<OrderProduct[]>([]);
+    const [shippingFee, setShippingFee] = useState<number>(0);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
-        if (order.products) {
-            setEditableProducts(JSON.parse(JSON.stringify(order.products))); // Deep copy
+        if (order) {
+            setEditableProducts(JSON.parse(JSON.stringify(order.products || []))); // Deep copy
+            setShippingFee(order.shippingFee || 0);
         }
-    }, [order.products]);
+    }, [order]);
 
     const handleQuantityChange = (productId: string, newQuantity: number) => {
         if (newQuantity < 1) return;
@@ -221,9 +226,11 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
         setEditableProducts(prev => [...prev, newProduct]);
     };
 
-    const newTotal = useMemo(() => {
+    const subtotal = useMemo(() => {
         return editableProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
     }, [editableProducts]);
+
+    const newTotal = useMemo(() => subtotal + shippingFee, [subtotal, shippingFee]);
 
     const handleSaveChanges = async () => {
         setIsSaving(true);
@@ -269,6 +276,8 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
             const orderRef = doc(db, "orders", order.id);
             batch.update(orderRef, {
                 products: editableProducts,
+                shippingFee: shippingFee,
+                subtotal: subtotal,
                 total: formatCurrency(newTotal),
             });
             
@@ -303,7 +312,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                     </div>
                     <AddProductToOrderDialog currentProducts={editableProducts} onAddProduct={handleAddProduct} />
                 </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto p-1">
+                <div className="max-h-[50vh] overflow-y-auto p-1">
                     <div className="relative w-full overflow-auto">
                         <Table>
                             <TableHeader>
@@ -355,11 +364,28 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                             </TableBody>
                         </Table>
                     </div>
+                     <Separator className="my-4"/>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4">
+                        <div className="space-y-2">
+                             <Label htmlFor="shippingFee">Biaya Pengiriman</Label>
+                             <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+                                <Input 
+                                    id="shippingFee" 
+                                    type="number" 
+                                    value={shippingFee}
+                                    onChange={(e) => setShippingFee(Number(e.target.value))}
+                                    className="pl-8"
+                                />
+                             </div>
+                        </div>
+                        <div className="space-y-1 text-right md:pt-5">
+                            <p className="text-sm text-muted-foreground">Subtotal Produk: {formatCurrency(subtotal)}</p>
+                            <p className="text-lg font-bold">Total Baru: {formatCurrency(newTotal)}</p>
+                        </div>
+                     </div>
                 </div>
-                 <DialogFooter className="flex-col sm:flex-row sm:justify-between items-stretch sm:items-center gap-4 pt-4 border-t">
-                    <div className="text-lg font-bold">
-                        Total Baru: {formatCurrency(newTotal)}
-                    </div>
+                 <DialogFooter className="flex-col sm:flex-row sm:justify-end items-stretch sm:items-center gap-4 pt-4 border-t">
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Batal</Button>
                         <Button onClick={handleSaveChanges} disabled={isSaving || editableProducts.length === 0}>
@@ -397,6 +423,8 @@ export default function OrdersPage() {
                 id: doc.id,
                 ...data,
                 products,
+                shippingFee: data.shippingFee || 0,
+                subtotal: data.subtotal || 0,
             } as Order
         });
         setAllOrders(ordersData);
@@ -441,23 +469,35 @@ export default function OrdersPage() {
 
     const tableColumn = ["Nama Produk", "Jumlah", "Harga Satuan", "Subtotal"];
     const tableRows: (string | number)[][] = [];
-    detailedOrder.products?.forEach(prod => {
-        const subtotal = prod.price * prod.quantity;
-        const row = [
-            prod.name,
-            prod.quantity,
-            new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(prod.price),
-            new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(subtotal)
-        ];
-        tableRows.push(row);
-    });
+    let finalY = 70;
 
-    pdfDoc.autoTable({ head: [tableColumn], body: tableRows, startY: 70 });
-    const finalY = (pdfDoc as any).lastAutoTable.finalY;
+    if(detailedOrder.products?.length > 0) {
+        detailedOrder.products?.forEach(prod => {
+            const subtotal = prod.price * prod.quantity;
+            const row = [
+                prod.name,
+                prod.quantity,
+                new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(prod.price),
+                new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(subtotal)
+            ];
+            tableRows.push(row);
+        });
+
+        pdfDoc.autoTable({ head: [tableColumn], body: tableRows, startY: 70 });
+        finalY = (pdfDoc as any).lastAutoTable.finalY + 10;
+    }
+    
+    pdfDoc.setFontSize(10);
+    pdfDoc.text("Subtotal Produk:", 150, finalY, { align: 'right' });
+    pdfDoc.text(formatCurrency(detailedOrder.subtotal), 200, finalY, { align: 'right' });
+
+    pdfDoc.text("Biaya Pengiriman:", 150, finalY + 5, { align: 'right' });
+    pdfDoc.text(formatCurrency(detailedOrder.shippingFee), 200, finalY + 5, { align: 'right' });
+
     pdfDoc.setFontSize(12);
     pdfDoc.setFont('helvetica', 'bold');
-    pdfDoc.text("Total:", 150, finalY + 10, { align: 'right' });
-    pdfDoc.text(String(detailedOrder.total), 200, finalY + 10, { align: 'right' });
+    pdfDoc.text("Total:", 150, finalY + 12, { align: 'right' });
+    pdfDoc.text(String(detailedOrder.total), 200, finalY + 12, { align: 'right' });
     pdfDoc.output("dataurlnewwindow");
   };
 
@@ -496,8 +536,14 @@ export default function OrdersPage() {
             startY: 50
         });
         const finalY = (pdf as any).lastAutoTable.finalY;
+        pdf.setFontSize(10);
+        pdf.text('Subtotal:', 150, finalY + 10, { align: 'right' });
+        pdf.text(formatCurrency(order.subtotal), 200, finalY + 10, { align: 'right' });
+        pdf.text('Ongkir:', 150, finalY + 15, { align: 'right' });
+        pdf.text(formatCurrency(order.shippingFee), 200, finalY + 15, { align: 'right' });
         pdf.setFontSize(12);
-        pdf.text(`Total: ${order.total}`, 14, finalY + 10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`Total: ${order.total}`, 150, finalY + 22, { align: 'right' });
       }
       isFirstPage = false;
     }

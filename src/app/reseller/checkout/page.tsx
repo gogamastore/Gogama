@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,8 @@ interface UserAddress {
     whatsapp: string;
 }
 
+const INITIAL_SHIPPING_FEE = 15000;
+
 
 export default function CheckoutPage() {
   const { cart, totalAmount, clearCart, totalItems } = useCart();
@@ -92,6 +94,7 @@ export default function CheckoutPage() {
   });
 
   const [shippingMethod, setShippingMethod] = useState("expedition");
+  const [shippingFee, setShippingFee] = useState(INITIAL_SHIPPING_FEE);
   const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofPreview, setPaymentProofPreview] = useState<string | null>(null);
@@ -169,6 +172,17 @@ export default function CheckoutPage() {
       }
   }
 
+  const handleShippingChange = (value: string) => {
+      setShippingMethod(value);
+      if (value === 'expedition') {
+          setShippingFee(INITIAL_SHIPPING_FEE);
+      } else {
+          setShippingFee(0);
+      }
+  }
+
+  const grandTotal = useMemo(() => totalAmount + shippingFee, [totalAmount, shippingFee]);
+
 
   const handlePlaceOrder = async () => {
     if (!customerDetails.name || !customerDetails.address || !customerDetails.whatsapp) {
@@ -208,13 +222,15 @@ export default function CheckoutPage() {
                 quantity: item.quantity,
                 image: item.image,
             })),
-            total: formatCurrency(totalAmount),
+            total: formatCurrency(grandTotal),
+            shippingFee: shippingFee,
+            shippingMethod: shippingMethod,
+            subtotal: totalAmount,
             date: serverTimestamp(),
             status: initialStatus,
             paymentStatus: paymentMethod === 'cod' ? 'Unpaid' : (paymentProof ? 'Paid' : 'Unpaid'),
             paymentMethod: paymentMethod,
             paymentProofUrl: paymentProofUrl,
-            shippingMethod: shippingMethod,
         };
         batch.set(orderRef, orderData);
 
@@ -315,18 +331,28 @@ export default function CheckoutPage() {
                 <Card>
                     <CardHeader><CardTitle>2. Opsi Pengiriman</CardTitle></CardHeader>
                     <CardContent>
-                        <RadioGroup value={shippingMethod} onValueChange={setShippingMethod}>
-                            <div className="flex items-center space-x-2 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
-                                <RadioGroupItem value="expedition" id="expedition" />
-                                <Label htmlFor="expedition" className="flex-1 cursor-pointer">
-                                    <div className="flex items-center gap-4">
-                                        <Package className="h-6 w-6"/>
-                                        <div>
-                                            <p className="font-semibold">Ekspedisi</p>
-                                            <p className="text-sm text-muted-foreground">Pesanan akan dikirim ke alamat Anda.</p>
+                        <RadioGroup value={shippingMethod} onValueChange={handleShippingChange}>
+                             <div className="flex flex-col space-y-4 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="expedition" id="expedition" />
+                                    <Label htmlFor="expedition" className="flex-1 cursor-pointer">
+                                        <div className="flex items-center gap-4">
+                                            <Package className="h-6 w-6"/>
+                                            <div>
+                                                <p className="font-semibold">Ekspedisi</p>
+                                                <p className="text-sm text-muted-foreground">Pesanan akan dikirim ke alamat Anda.</p>
+                                            </div>
                                         </div>
+                                    </Label>
+                                </div>
+                                {shippingMethod === 'expedition' && (
+                                     <div className="pl-10 pt-4 border-t">
+                                        <h4 className="font-semibold text-sm">Kurir</h4>
+                                        <p className="text-xs text-muted-foreground">
+                                           Biaya awal mulai dari <strong>{formatCurrency(INITIAL_SHIPPING_FEE)} / koli</strong>. Biaya akhir akan disesuaikan oleh admin.
+                                        </p>
                                     </div>
-                                </Label>
+                                )}
                             </div>
                              <div className="flex items-center space-x-2 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
                                 <RadioGroupItem value="pickup" id="pickup" />
@@ -438,11 +464,11 @@ export default function CheckoutPage() {
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span>Ongkos Kirim</span>
-                                <span className="text-muted-foreground">Akan dihitung</span>
+                                <span>{formatCurrency(shippingFee)}</span>
                             </div>
                             <div className="flex justify-between font-bold text-lg pt-2 border-t">
                                 <span>Total</span>
-                                <span>{formatCurrency(totalAmount)}</span>
+                                <span>{formatCurrency(grandTotal)}</span>
                             </div>
                         </div>
                     </CardContent>
