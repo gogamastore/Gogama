@@ -116,7 +116,9 @@ function PaymentUploader({ order, onUploadSuccess }: { order: Order, onUploadSuc
             const downloadUrl = await getDownloadURL(storageRef);
 
             const orderRef = doc(db, "orders", order.id);
-            await updateDoc(orderRef, { paymentProofUrl: downloadUrl });
+            await updateDoc(orderRef, { 
+                paymentProofUrl: downloadUrl
+            });
 
             toast({ 
                 title: "Bukti pembayaran berhasil diunggah!",
@@ -247,8 +249,6 @@ export default function OrderHistoryPage() {
         if (order.products && order.status !== 'Cancelled') {
             for (const item of order.products) {
                 const productRef = doc(db, "products", item.productId);
-                // We need to get the product doc inside the transaction to avoid race conditions, but for simplicity here we get it before.
-                // For a production app, use a Cloud Function for this kind of logic.
                 const productDoc = await getDoc(productRef);
                 if (productDoc.exists()) {
                     const currentStock = productDoc.data().stock || 0;
@@ -426,7 +426,7 @@ export default function OrderHistoryPage() {
                                     </div>
                                 </DialogContent>
                             </Dialog>
-                             {order.status === 'Pending' && (
+                             {(order.status === 'Pending' || order.status === 'Processing') && (
                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleCancelOrder(order)}>
                                   <XCircle className="h-4 w-4" />
                                   <span className="sr-only">Batalkan Pesanan</span>

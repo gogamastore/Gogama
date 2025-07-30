@@ -538,8 +538,6 @@ export default function OrdersPage() {
         if (order.products && order.status !== 'Cancelled') {
             for (const item of order.products) {
                 const productRef = doc(db, "products", item.productId);
-                // We need to get the product doc inside the transaction to avoid race conditions, but for simplicity here we get it before.
-                // For a production app, use a Cloud Function for this kind of logic.
                 const productDoc = await getDoc(productRef);
                 if (productDoc.exists()) {
                     const currentStock = productDoc.data().stock || 0;
