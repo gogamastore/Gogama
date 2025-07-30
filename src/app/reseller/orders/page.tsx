@@ -41,6 +41,7 @@ import { id as dateFnsLocaleId } from 'date-fns/locale';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
 interface OrderProduct {
@@ -235,9 +236,6 @@ export default function OrderHistoryPage() {
   };
 
   const handleCancelOrder = async (order: Order) => {
-    if (!confirm('Apakah Anda yakin ingin membatalkan pesanan ini? Stok akan dikembalikan.')) {
-        return;
-    }
     setIsProcessing(order.id);
     const batch = writeBatch(db);
 
@@ -245,7 +243,6 @@ export default function OrderHistoryPage() {
         const orderRef = doc(db, "orders", order.id);
         batch.update(orderRef, { status: 'Cancelled' });
 
-        // Only return stock if the order was not already cancelled
         if (order.products && order.status !== 'Cancelled') {
             for (const item of order.products) {
                 const productRef = doc(db, "products", item.productId);
@@ -265,7 +262,7 @@ export default function OrderHistoryPage() {
             description: "Pesanan Anda telah berhasil dibatalkan.",
         });
 
-        fetchOrders();
+        await fetchOrders();
 
     } catch (error) {
         console.error("Error cancelling order:", error);
@@ -427,10 +424,26 @@ export default function OrderHistoryPage() {
                                 </DialogContent>
                             </Dialog>
                              {(order.status === 'Pending' || order.status === 'Processing') && (
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleCancelOrder(order)}>
-                                  <XCircle className="h-4 w-4" />
-                                  <span className="sr-only">Batalkan Pesanan</span>
-                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                          <XCircle className="h-4 w-4" />
+                                          <span className="sr-only">Batalkan Pesanan</span>
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Tidak</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                               )}
                           </div>
                         )}

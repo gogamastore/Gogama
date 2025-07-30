@@ -41,6 +41,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -524,9 +526,6 @@ export default function OrdersPage() {
   };
 
   const handleCancelOrder = async (order: Order) => {
-    if (!confirm('Apakah Anda yakin ingin membatalkan pesanan ini? Stok akan dikembalikan.')) {
-        return;
-    }
     setIsProcessing(order.id);
     const batch = writeBatch(db);
 
@@ -554,7 +553,7 @@ export default function OrdersPage() {
             description: "Pesanan telah dibatalkan dan stok produk telah dikembalikan.",
         });
 
-        fetchOrders();
+        await fetchOrders();
 
     } catch (error) {
         console.error("Error cancelling order:", error);
@@ -575,6 +574,7 @@ export default function OrdersPage() {
 
     if (from || to) {
         filtered = allOrders.filter(order => {
+            if (!order.date?.toDate) return false;
             const orderDate = order.date.toDate();
             if (from && orderDate < startOfDay(from)) return false;
             if (to && orderDate > endOfDay(to)) return false;
@@ -698,9 +698,25 @@ export default function OrdersPage() {
                                   )}
 
                                   {(order.status === 'Pending' || order.status === 'Processing') && (
-                                    <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleCancelOrder(order)}>
-                                        <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
-                                    </DropdownMenuItem>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <button className="relative flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-destructive hover:text-destructive-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-destructive">
+                                                <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
+                                            </button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Tidak</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                   )}
 
                                   <DropdownMenuSeparator />
