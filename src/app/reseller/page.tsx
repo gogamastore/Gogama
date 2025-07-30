@@ -1,4 +1,3 @@
-
 "use client"
 
 import Image from "next/image"
@@ -13,7 +12,7 @@ import {
 } from "@/components/ui/carousel"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight, Search, ShoppingCart, Info, PackageX, Plus, Minus } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, ShoppingCart, Info, PackageX, Plus, Minus, Tags } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -22,13 +21,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { collection, getDocs } from "firebase/firestore"
+import { collection, getDocs, query, where, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useEffect, useState, useMemo } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { useCart } from "@/hooks/use-cart"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+import Link from "next/link"
 
 interface Product {
   id: string;
@@ -39,14 +39,35 @@ interface Product {
   'data-ai-hint': string;
   stock: number;
   description?: string;
+  // Promo fields
+  isPromo?: boolean;
+  discountPrice?: string;
 }
 
-const formatCurrency = (value: string): string => {
+interface Banner {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  buttonText: string;
+  buttonLink: string;
+  isActive: boolean;
+}
+
+interface Promotion {
+    productId: string;
+    discountPrice: number;
+    startDate: Timestamp;
+    endDate: Timestamp;
+}
+
+const formatCurrency = (value: string | number): string => {
+    const num = typeof value === 'string' ? Number(value.replace(/[^0-9]/g, '')) : value;
     return new Intl.NumberFormat("id-ID", {
         style: "currency",
         currency: "IDR",
         minimumFractionDigits: 0,
-    }).format(Number(value.replace(/[^0-9]/g, '')));
+    }).format(num);
 }
 
 
@@ -100,7 +121,14 @@ function ProductDetailDialog({ product, children }: { product: Product, children
                             <DialogTitle className="text-2xl font-bold font-headline">{product.name}</DialogTitle>
                         </DialogHeader>
                         <div>
-                             <p className="text-3xl font-bold text-primary">{product.price}</p>
+                             {product.isPromo && product.discountPrice ? (
+                                <div className="flex items-baseline gap-2">
+                                    <p className="text-3xl font-bold text-primary">{formatCurrency(product.discountPrice)}</p>
+                                    <p className="text-lg font-normal text-muted-foreground line-through">{formatCurrency(product.price)}</p>
+                                </div>
+                            ) : (
+                                <p className="text-3xl font-bold text-primary">{formatCurrency(product.price)}</p>
+                            )}
                              <div className="mt-2">
                                 {stockAvailable ? (
                                     <Badge variant="default">Stok Tersedia: {product.stock}</Badge>
@@ -151,6 +179,8 @@ function ProductDetailDialog({ product, children }: { product: Product, children
 
 export default function ResellerDashboard() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [promotions, setPromotions] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -161,30 +191,62 @@ export default function ResellerDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    async function getProducts() {
+    async function getPageData() {
         setLoading(true);
         try {
-            const querySnapshot = await getDocs(collection(db, "products"));
-            const productsData = querySnapshot.docs.map(doc => ({ 
-                id: doc.id, 
-                ...doc.data(),
-                stock: doc.data().stock || 0,
-                description: doc.data().description || '',
-            } as Product));
+            // Fetch Promotions
+            const now = new Date();
+            const promoQuery = query(collection(db, "promotions"), where("endDate", ">", now));
+            const promoSnapshot = await getDocs(promoQuery);
+            const activePromos = new Map<string, { discountPrice: number }>();
+            promoSnapshot.forEach(doc => {
+                const data = doc.data() as Promotion;
+                 if (data.startDate.toDate() <= now) {
+                    activePromos.set(data.productId, { discountPrice: data.discountPrice });
+                 }
+            });
+
+            // Fetch Products
+            const productsSnapshot = await getDocs(collection(db, "products"));
+            const productsData = productsSnapshot.docs.map(doc => {
+                const product = { 
+                    id: doc.id, 
+                    ...doc.data(),
+                    stock: doc.data().stock || 0,
+                    description: doc.data().description || '',
+                } as Product;
+                
+                if (activePromos.has(product.id)) {
+                    product.isPromo = true;
+                    product.discountPrice = formatCurrency(activePromos.get(product.id)!.discountPrice);
+                }
+                return product;
+            });
+
+            const promoProducts = productsData.filter(p => p.isPromo);
+            setPromotions(promoProducts);
+
             setAllProducts(productsData);
             setFilteredProducts(productsData);
+
+            // Fetch Banners
+            const bannersQuery = query(collection(db, 'banners'), where('isActive', '==', true));
+            const bannersSnapshot = await getDocs(bannersQuery);
+            const bannersData = bannersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner));
+            setBanners(bannersData);
+
         } catch(error) {
-            console.error("Failed to fetch products:", error);
+            console.error("Failed to fetch page data:", error);
             toast({
                 variant: "destructive",
-                title: "Gagal memuat produk",
-                description: "Tidak bisa mengambil data produk dari server."
+                title: "Gagal memuat halaman",
+                description: "Tidak bisa mengambil data dari server."
             })
         } finally {
             setLoading(false);
         }
     }
-    getProducts();
+    getPageData();
   }, [toast]);
 
   useEffect(() => {
@@ -206,37 +268,97 @@ export default function ResellerDashboard() {
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
+  const renderProductCard = (product: Product) => {
+    const stockAvailable = product.stock > 0;
+    return (
+      <Card key={product.id} className="overflow-hidden group">
+          <CardContent className="p-0">
+          <ProductDetailDialog product={product}>
+              <div className="relative cursor-pointer">
+                  {product.isPromo && <Badge className="absolute top-2 left-2 z-10" variant="destructive">Promo</Badge>}
+                  <Image
+                  src={product.image}
+                  alt={product.name}
+                  width={400}
+                  height={400}
+                  className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
+                  data-ai-hint={product['data-ai-hint'] || 'product image'}
+                  />
+                  {!stockAvailable && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Badge variant="destructive">Stok Habis</Badge>
+                  </div>
+                  )}
+              </div>
+          </ProductDetailDialog>
+          <div className="p-4">
+              <ProductDetailDialog product={product}>
+                  <h3 className="font-semibold text-lg truncate cursor-pointer hover:underline">{product.name}</h3>
+              </ProductDetailDialog>
+              {product.isPromo && product.discountPrice ? (
+                  <div className="flex items-baseline gap-2">
+                       <p className="text-muted-foreground mt-1 line-through">{formatCurrency(product.price)}</p>
+                       <p className="text-red-600 font-bold">{formatCurrency(product.discountPrice)}</p>
+                  </div>
+              ) : (
+                  <p className="text-muted-foreground mt-1">{formatCurrency(product.price)}</p>
+              )}
+              <ProductDetailDialog product={product}>
+                    <Button className="w-full mt-4" variant="secondary" disabled={!stockAvailable}>
+                        <ShoppingCart className="mr-2 h-4 w-4" />
+                        Detail & Pesan
+                    </Button>
+              </ProductDetailDialog>
+          </div>
+          </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="relative">
       <div className="container mx-auto px-4 py-8">
         <section className="mb-8">
             <Carousel className="w-full">
                 <CarouselContent>
-                    <CarouselItem>
-                        <div className="relative h-64 md:h-80 w-full overflow-hidden rounded-lg">
-                            <Image src="https://placehold.co/1200x400.png" alt="Banner 1" fill style={{ objectFit: 'cover' }} data-ai-hint="fashion sale" />
-                            <div className="absolute inset-0 bg-black/30 flex flex-col justify-center items-center text-white p-4 text-center">
-                                <h2 className="text-3xl md:text-5xl font-bold font-headline">Koleksi Terbaru</h2>
-                                <p className="mt-2 text-lg">Diskon hingga 30% untuk member baru!</p>
-                                <Button className="mt-4">Belanja Sekarang</Button>
+                    {banners.length > 0 ? banners.map(banner => (
+                        <CarouselItem key={banner.id}>
+                            <div className="relative h-64 md:h-80 w-full overflow-hidden rounded-lg">
+                                <Image src={banner.imageUrl} alt={banner.title} fill style={{ objectFit: 'cover' }} />
+                                <div className="absolute inset-0 bg-black/30 flex flex-col justify-center items-center text-white p-4 text-center">
+                                    <h2 className="text-3xl md:text-5xl font-bold font-headline">{banner.title}</h2>
+                                    <p className="mt-2 text-lg">{banner.description}</p>
+                                    <Button asChild className="mt-4">
+                                        <Link href={banner.buttonLink || '#'}>{banner.buttonText}</Link>
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    </CarouselItem>
-                     <CarouselItem>
-                        <div className="relative h-64 md:h-80 w-full overflow-hidden rounded-lg">
-                            <Image src="https://placehold.co/1200x400.png" alt="Banner 2" fill style={{ objectFit: 'cover' }} data-ai-hint="new arrivals" />
-                             <div className="absolute inset-0 bg-black/30 flex flex-col justify-center items-center text-white p-4 text-center">
-                                <h2 className="text-3xl md:text-5xl font-bold font-headline">Produk Terlaris</h2>
-                                <p className="mt-2 text-lg">Jangan sampai kehabisan stok favoritmu.</p>
-                                <Button className="mt-4">Lihat Produk</Button>
+                        </CarouselItem>
+                    )) : (
+                         <CarouselItem>
+                            <div className="relative h-64 md:h-80 w-full overflow-hidden rounded-lg bg-muted animate-pulse">
                             </div>
-                        </div>
-                    </CarouselItem>
+                        </CarouselItem>
+                    )}
                 </CarouselContent>
-                <CarouselPrevious className="absolute left-4" />
-                <CarouselNext className="absolute right-4" />
+                {banners.length > 1 && <>
+                    <CarouselPrevious className="absolute left-4" />
+                    <CarouselNext className="absolute right-4" />
+                </>}
             </Carousel>
         </section>
+
+        {promotions.length > 0 && (
+            <section className="mb-12">
+                 <div className="flex items-center gap-2 mb-4">
+                    <Tags className="h-6 w-6 text-primary"/>
+                    <h2 className="text-2xl font-bold font-headline">Produk Promo</h2>
+                 </div>
+                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                     {promotions.map(renderProductCard)}
+                 </div>
+            </section>
+        )}
 
         <section>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
@@ -268,44 +390,7 @@ export default function ResellerDashboard() {
           ) : (
              paginatedProducts.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {paginatedProducts.map((product) => {
-                      const stockAvailable = product.stock > 0;
-                      return (
-                        <Card key={product.id} className="overflow-hidden group">
-                            <CardContent className="p-0">
-                            <ProductDetailDialog product={product}>
-                                <div className="relative cursor-pointer">
-                                    <Image
-                                    src={product.image}
-                                    alt={product.name}
-                                    width={400}
-                                    height={400}
-                                    className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
-                                    data-ai-hint={product['data-ai-hint'] || 'product image'}
-                                    />
-                                    {!stockAvailable && (
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                        <Badge variant="destructive">Stok Habis</Badge>
-                                    </div>
-                                    )}
-                                </div>
-                            </ProductDetailDialog>
-                            <div className="p-4">
-                                <ProductDetailDialog product={product}>
-                                    <h3 className="font-semibold text-lg truncate cursor-pointer hover:underline">{product.name}</h3>
-                                </ProductDetailDialog>
-                                <p className="text-muted-foreground mt-1">{product.price}</p>
-                                <ProductDetailDialog product={product}>
-                                     <Button className="w-full mt-4" variant="secondary" disabled={!stockAvailable}>
-                                        {stockAvailable ? <ShoppingCart className="mr-2 h-4 w-4" /> : <PackageX className="mr-2 h-4 w-4" />}
-                                        {stockAvailable ? 'Detail & Pesan' : 'Stok Habis'}
-                                    </Button>
-                                </ProductDetailDialog>
-                            </div>
-                            </CardContent>
-                        </Card>
-                      )
-                    })}
+                    {paginatedProducts.map(renderProductCard)}
                 </div>
              ) : (
                 <div className="text-center py-20 bg-card rounded-lg border">

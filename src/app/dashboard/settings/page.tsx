@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Banknote, Users, Contact } from "lucide-react";
+import { Banknote, Users, Contact, LayoutTemplate, Percent } from "lucide-react";
 import Link from "next/link";
 
 
@@ -29,6 +29,18 @@ const settingsCards = [
     description: "Kelola daftar kontak admin untuk dihubungi reseller.",
     icon: Contact,
     href: "/dashboard/settings/contacts",
+  },
+  {
+    title: "Desain",
+    description: "Atur banner dan tampilan halaman reseller.",
+    icon: LayoutTemplate,
+    href: "/dashboard/settings/design",
+  },
+  {
+    title: "Promo",
+    description: "Buat dan kelola diskon produk atau flash sale.",
+    icon: Percent,
+    href: "/dashboard/settings/promo",
   },
 ];
 
