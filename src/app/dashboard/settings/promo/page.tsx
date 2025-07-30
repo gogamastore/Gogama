@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -38,6 +39,8 @@ import Image from 'next/image';
 import { addDays, format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+
 
 interface Product {
   id: string;
@@ -297,4 +300,5 @@ export default function PromoSettingsPage() {
           </Dialog>
     </div>
   );
-}
+
+    
