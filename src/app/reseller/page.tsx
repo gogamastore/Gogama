@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/carousel"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight, Search, ShoppingCart, Info, PackageX } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, ShoppingCart, Info, PackageX, Plus, Minus } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import { useEffect, useState, useMemo } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { useCart } from "@/hooks/use-cart"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
 
 interface Product {
   id: string;
@@ -49,12 +50,26 @@ const formatCurrency = (value: string): string => {
 }
 
 
-function ProductDetailDialog({ product, onAddToCart, children }: { product: Product, onAddToCart: (product: Product) => void, children: React.ReactNode }) {
+function ProductDetailDialog({ product, onAddToCart, children }: { product: Product, onAddToCart: (product: Product, quantity: number) => void, children: React.ReactNode }) {
     const stockAvailable = product.stock > 0;
     const [isOpen, setIsOpen] = useState(false);
+    const [quantity, setQuantity] = useState(1);
     
+    useEffect(() => {
+        // Reset quantity when dialog opens
+        if (isOpen) {
+            setQuantity(1);
+        }
+    }, [isOpen]);
+
+    const handleQuantityChange = (newQuantity: number) => {
+        if (newQuantity >= 1 && newQuantity <= product.stock) {
+            setQuantity(newQuantity);
+        }
+    }
+
     const handleAddToCartClick = () => {
-        onAddToCart(product);
+        onAddToCart(product, quantity);
         setIsOpen(false);
     }
 
@@ -92,10 +107,35 @@ function ProductDetailDialog({ product, onAddToCart, children }: { product: Prod
                         <DialogDescription className="text-base text-muted-foreground flex-1">
                           {product.description || "Tidak ada deskripsi untuk produk ini."}
                         </DialogDescription>
-                        <Button onClick={handleAddToCartClick} disabled={!stockAvailable} size="lg">
-                            <ShoppingCart className="mr-2 h-5 w-5" />
-                            {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
-                        </Button>
+                        
+                        <div className="flex items-center gap-4">
+                            <div className="space-y-1">
+                                <Label htmlFor="quantity">Jumlah</Label>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => handleQuantityChange(quantity - 1)} disabled={!stockAvailable || quantity <= 1}>
+                                        <Minus className="h-4 w-4" />
+                                    </Button>
+                                    <Input
+                                        id="quantity"
+                                        type="number"
+                                        value={quantity}
+                                        onChange={(e) => handleQuantityChange(parseInt(e.target.value))}
+                                        className="w-16 h-10 text-center"
+                                        min={1}
+                                        max={product.stock}
+                                        disabled={!stockAvailable}
+                                    />
+                                    <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => handleQuantityChange(quantity + 1)} disabled={!stockAvailable || quantity >= product.stock}>
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <Button onClick={handleAddToCartClick} disabled={!stockAvailable} size="lg" className="flex-1 mt-auto">
+                                <ShoppingCart className="mr-2 h-5 w-5" />
+                                {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
+                            </Button>
+                        </div>
+
                     </div>
                 </div>
             </DialogContent>
@@ -160,11 +200,11 @@ export default function ResellerDashboard() {
 
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
-  const handleAddToCart = (product: Product) => {
-    addToCart(product);
+  const handleAddToCart = (product: Product, quantity: number) => {
+    addToCart(product, quantity);
     toast({
         title: "Produk Ditambahkan",
-        description: `${product.name} telah ditambahkan ke keranjang.`,
+        description: `${quantity}x ${product.name} telah ditambahkan ke keranjang.`,
     });
   };
 
