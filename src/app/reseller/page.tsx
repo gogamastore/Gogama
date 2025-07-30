@@ -13,12 +13,21 @@ import {
 } from "@/components/ui/carousel"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight, MessageSquare, Search, ShoppingCart } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, ShoppingCart, Info, PackageX } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useEffect, useState, useMemo } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { useCart } from "@/hooks/use-cart"
+import { Badge } from "@/components/ui/badge"
 
 interface Product {
   id: string;
@@ -27,7 +36,70 @@ interface Product {
   price: string;
   image: string;
   'data-ai-hint': string;
+  stock: number;
+  description?: string;
 }
+
+const formatCurrency = (value: string): string => {
+    return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+    }).format(Number(value.replace(/[^0-9]/g, '')));
+}
+
+
+function ProductDetailDialog({ product, onAddToCart }: { product: Product, onAddToCart: (product: Product) => void }) {
+    const stockAvailable = product.stock > 0;
+    
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <button className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full hover:bg-black/70 transition-colors">
+                    <Info className="h-4 w-4"/>
+                    <span className="sr-only">Lihat Detail</span>
+                </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <Image
+                            src={product.image}
+                            alt={product.name}
+                            width={600}
+                            height={600}
+                            className="rounded-lg object-cover w-full h-auto aspect-square"
+                            data-ai-hint={product['data-ai-hint'] || 'product image'}
+                        />
+                    </div>
+                    <div className="flex flex-col space-y-4">
+                        <DialogHeader>
+                            <DialogTitle className="text-2xl font-bold font-headline">{product.name}</DialogTitle>
+                        </DialogHeader>
+                        <div>
+                             <p className="text-3xl font-bold text-primary">{product.price}</p>
+                             <div className="mt-2">
+                                {stockAvailable ? (
+                                    <Badge variant="default">Stok Tersedia: {product.stock}</Badge>
+                                ) : (
+                                    <Badge variant="destructive">Stok Habis</Badge>
+                                )}
+                             </div>
+                        </div>
+                        <DialogDescription className="text-base text-muted-foreground flex-1">
+                          {product.description || "Tidak ada deskripsi untuk produk ini."}
+                        </DialogDescription>
+                        <Button onClick={() => onAddToCart(product)} disabled={!stockAvailable} size="lg">
+                            <ShoppingCart className="mr-2 h-5 w-5" />
+                            {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 export default function ResellerDashboard() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -155,30 +227,39 @@ export default function ResellerDashboard() {
           ) : (
              paginatedProducts.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {paginatedProducts.map((product) => (
-                    <Card key={product.id} className="overflow-hidden group">
-                        <CardContent className="p-0">
-                        <div className="relative">
-                            <Image
-                            src={product.image}
-                            alt={product.name}
-                            width={400}
-                            height={400}
-                            className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
-                            data-ai-hint={product['data-ai-hint'] || 'product image'}
-                            />
-                        </div>
-                        <div className="p-4">
-                            <h3 className="font-semibold text-lg">{product.name}</h3>
-                            <p className="text-muted-foreground mt-1">{product.price}</p>
-                            <Button className="w-full mt-4" variant="secondary" onClick={() => handleAddToCart(product)}>
-                                <ShoppingCart className="mr-2 h-4 w-4" />
-                                Tambah ke Keranjang
-                            </Button>
-                        </div>
-                        </CardContent>
-                    </Card>
-                    ))}
+                    {paginatedProducts.map((product) => {
+                      const stockAvailable = product.stock > 0;
+                      return (
+                        <Card key={product.id} className="overflow-hidden group">
+                            <CardContent className="p-0">
+                            <div className="relative">
+                                <Image
+                                src={product.image}
+                                alt={product.name}
+                                width={400}
+                                height={400}
+                                className="object-cover w-full h-auto aspect-square group-hover:scale-105 transition-transform duration-300"
+                                data-ai-hint={product['data-ai-hint'] || 'product image'}
+                                />
+                                <ProductDetailDialog product={product} onAddToCart={handleAddToCart} />
+                                {!stockAvailable && (
+                                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                       <Badge variant="destructive">Stok Habis</Badge>
+                                   </div>
+                                )}
+                            </div>
+                            <div className="p-4">
+                                <h3 className="font-semibold text-lg truncate">{product.name}</h3>
+                                <p className="text-muted-foreground mt-1">{product.price}</p>
+                                <Button className="w-full mt-4" variant="secondary" onClick={() => handleAddToCart(product)} disabled={!stockAvailable}>
+                                  {stockAvailable ? <ShoppingCart className="mr-2 h-4 w-4" /> : <PackageX className="mr-2 h-4 w-4" />}
+                                  {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
+                                </Button>
+                            </div>
+                            </CardContent>
+                        </Card>
+                      )
+                    })}
                 </div>
              ) : (
                 <div className="text-center py-20 bg-card rounded-lg border">
