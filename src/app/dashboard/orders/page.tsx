@@ -498,10 +498,10 @@ export default function OrdersPage() {
 
     pdfDoc.setFontSize(10);
     pdfDoc.text("Subtotal Produk:", leftMargin, finalY);
-    pdfDoc.text(formatCurrency(detailedOrder.subtotal), leftMargin + 40, finalY);
+    pdfDoc.text(formatCurrency(detailedOrder.subtotal || 0), leftMargin + 40, finalY);
 
     pdfDoc.text("Biaya Pengiriman:", leftMargin, finalY + 5);
-    pdfDoc.text(formatCurrency(detailedOrder.shippingFee), leftMargin + 40, finalY + 5);
+    pdfDoc.text(formatCurrency(detailedOrder.shippingFee || 0), leftMargin + 40, finalY + 5);
     
     pdfDoc.setFontSize(12);
     pdfDoc.setFont('helvetica', 'bold');
@@ -555,9 +555,9 @@ export default function OrdersPage() {
 
         pdf.setFontSize(10);
         pdf.text('Subtotal:', leftAlignX, finalY + 10);
-        pdf.text(formatCurrency(order.subtotal), leftAlignX + 40, finalY + 10);
+        pdf.text(formatCurrency(order.subtotal || 0), leftAlignX + 40, finalY + 10);
         pdf.text('Ongkir:', leftAlignX, finalY + 15);
-        pdf.text(formatCurrency(order.shippingFee), leftAlignX + 40, finalY + 15);
+        pdf.text(formatCurrency(order.shippingFee || 0), leftAlignX + 40, finalY + 15);
         
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
