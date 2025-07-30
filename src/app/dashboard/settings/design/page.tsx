@@ -43,7 +43,6 @@ import { ImagePlus, PlusCircle, Trash2, Loader2, ArrowLeft, Edit, GripVertical, 
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 
 
 interface Banner {
@@ -56,22 +55,6 @@ interface Banner {
   isActive: boolean;
   order: number;
 }
-
-// Wrapper to fix react-beautiful-dnd strict mode issue
-const StrictDroppable = ({ children, ...props }: any) => {
-    const [enabled, setEnabled] = useState(false);
-    useEffect(() => {
-        const animation = requestAnimationFrame(() => setEnabled(true));
-        return () => {
-            cancelAnimationFrame(animation);
-            setEnabled(false);
-        };
-    }, []);
-    if (!enabled) {
-        return null;
-    }
-    return <Droppable {...props}>{children}</Droppable>;
-};
 
 
 export default function DesignSettingsPage() {
@@ -93,18 +76,15 @@ export default function DesignSettingsPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const fetchBannersCallback = useCallback(async () => {
+  const fetchBanners = useCallback(async () => {
     setLoading(true);
     try {
       const q = query(collection(db, 'banners'), orderBy('order', 'asc'));
       const querySnapshot = await getDocs(q);
       const fetchedBanners = querySnapshot.docs.map(doc => {
-          const data = doc.data();
           return {
               id: doc.id,
-              ...data,
-              // Convert timestamp to a serializable format if it exists
-              createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null,
+              ...doc.data(),
           } as Banner
       });
       setBanners(fetchedBanners);
@@ -120,8 +100,8 @@ export default function DesignSettingsPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchBannersCallback();
-  }, [fetchBannersCallback]);
+    fetchBanners();
+  }, [fetchBanners]);
   
   const resetForm = () => {
       setFormData({
@@ -206,7 +186,7 @@ export default function DesignSettingsPage() {
         }
       
       setIsDialogOpen(false);
-      fetchBannersCallback(); // Refresh list
+      fetchBanners(); // Refresh list
     } catch (error) {
       console.error('Error saving banner: ', error);
       toast({ variant: 'destructive', title: 'Gagal Menyimpan Banner' });
@@ -221,34 +201,10 @@ export default function DesignSettingsPage() {
     try {
       await deleteDoc(doc(db, 'banners', id));
       toast({ title: 'Banner Berhasil Dihapus' });
-      fetchBannersCallback(); // Refresh list
+      fetchBanners(); // Refresh list
     } catch (error) {
       console.error('Error deleting banner: ', error);
       toast({ variant: 'destructive', title: 'Gagal Menghapus Banner' });
-    }
-  };
-
-  const onDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
-
-    const items = Array.from(banners);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-    
-    setBanners(items); // Optimistic update
-
-    try {
-        const batch = writeBatch(db);
-        items.forEach((banner, index) => {
-            const bannerRef = doc(db, 'banners', banner.id);
-            batch.update(bannerRef, { order: index });
-        });
-        await batch.commit();
-        toast({ title: 'Urutan banner berhasil disimpan' });
-    } catch (error) {
-        console.error("Error updating banner order:", error);
-        toast({ variant: 'destructive', title: 'Gagal menyimpan urutan baru' });
-        fetchBannersCallback(); // Revert optimistic update on error
     }
   };
 
@@ -268,7 +224,7 @@ export default function DesignSettingsPage() {
           <div>
             <CardTitle>Daftar Banner</CardTitle>
             <CardDescription>
-              Tambah, edit, atau hapus banner yang tampil di halaman reseller. Seret untuk mengubah urutan.
+              Tambah, edit, atau hapus banner yang tampil di halaman reseller.
             </CardDescription>
           </div>
           <Button onClick={() => handleOpenDialog()}>
@@ -280,50 +236,35 @@ export default function DesignSettingsPage() {
           {loading ? (
              <div className="text-center p-8 text-muted-foreground">Memuat data banner...</div>
           ) : banners.length > 0 ? (
-            <DragDropContext onDragEnd={onDragEnd}>
-              <StrictDroppable droppableId="banners">
-                {(provided: any) => (
-                  <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
-                    {banners.map((banner, index) => (
-                      <Draggable key={banner.id} draggableId={banner.id} index={index}>
-                        {(provided, snapshot) => (
-                           <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={`flex items-center justify-between rounded-lg border p-4 transition-shadow ${snapshot.isDragging ? 'shadow-lg' : ''}`}
-                          >
-                            <div className="flex items-center gap-4">
-                              <div {...provided.dragHandleProps}>
-                                <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab"/>
-                              </div>
-                              <Image src={banner.imageUrl} alt={banner.title} width={120} height={50} className="rounded-md object-cover aspect-video"/>
-                              <div>
-                                <p className="font-bold">{banner.title}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {banner.description}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                               <Badge variant={banner.isActive ? "default" : "secondary"}>
-                                  {banner.isActive ? "Aktif" : "Nonaktif"}
-                               </Badge>
-                               <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(banner)}>
-                                  <Edit className="h-4 w-4"/>
-                               </Button>
-                               <Button variant="ghost" size="icon" onClick={() => handleDeleteBanner(banner.id)}>
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                               </Button>
-                            </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
+            <div className="space-y-4">
+              {banners.map((banner, index) => (
+                 <div
+                    key={banner.id}
+                    className='flex items-center justify-between rounded-lg border p-4'
+                  >
+                    <div className="flex items-center gap-4">
+                      <Image src={banner.imageUrl} alt={banner.title} width={120} height={50} className="rounded-md object-cover aspect-video"/>
+                      <div>
+                        <p className="font-bold">{banner.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {banner.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <Badge variant={banner.isActive ? "default" : "secondary"}>
+                          {banner.isActive ? "Aktif" : "Nonaktif"}
+                       </Badge>
+                       <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(banner)}>
+                          <Edit className="h-4 w-4"/>
+                       </Button>
+                       <Button variant="ghost" size="icon" onClick={() => handleDeleteBanner(banner.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                       </Button>
+                    </div>
                   </div>
-                )}
-              </StrictDroppable>
-            </DragDropContext>
+              ))}
+            </div>
           ) : (
             <div className="text-center p-8 text-muted-foreground border-2 border-dashed rounded-lg">
                 <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground"/>
