@@ -699,7 +699,7 @@ export default function OrdersPage() {
                                       </DropdownMenuItem>
                                   )}
 
-                                  {order.status === 'Pending' && (
+                                  {(order.status === 'Pending' || order.status === 'Processing') && (
                                     <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleCancelOrder(order)}>
                                         <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
                                     </DropdownMenuItem>
