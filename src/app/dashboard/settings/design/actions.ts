@@ -11,15 +11,16 @@ export async function getBanners() {
         const banners = querySnapshot.docs.map(doc => {
             const data = doc.data();
             
-            // Safely handle the createdAt timestamp
-            const createdAt = data.createdAt;
-            if (createdAt && createdAt instanceof Timestamp) {
-                data.createdAt = createdAt.toDate().toISOString();
+            // Firestore Timestamps are not serializable, so we convert them to strings
+            // for the client component.
+            const serializedData: { [key: string]: any } = { ...data };
+            if (data.createdAt instanceof Timestamp) {
+                serializedData.createdAt = data.createdAt.toDate().toISOString();
             }
 
             return {
                 id: doc.id,
-                ...data
+                ...serializedData
             };
         });
         
