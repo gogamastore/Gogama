@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -331,7 +332,7 @@ export default function SalesReportPage() {
                     <TableRow key={order.id}>
                         <TableCell className="font-medium">{order.id}</TableCell>
                         <TableCell>{order.customerDetails?.name || order.customer}</TableCell>
-                        <TableCell>{format(new Date(order.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
+                        <TableCell>{format(new Date(order.date), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
                         <TableCell>
                         <Badge
                             variant="outline"
@@ -359,7 +360,7 @@ export default function SalesReportPage() {
                                     <DialogHeader>
                                         <DialogTitle>Faktur #{order.id}</DialogTitle>
                                         <DialogDescription>
-                                            Tanggal: {format(new Date(order.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}
+                                            Tanggal: {format(new Date(order.date), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="grid gap-4 py-4">

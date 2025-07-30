@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import Link from "next/link";
 import { format, startOfDay, endOfDay } from 'date-fns';
+import { id as dateFnsLocaleId } from "date-fns/locale";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { Input } from "@/components/ui/input";
@@ -411,7 +412,7 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-        const q = query(collection(db, "orders"), orderBy("date", "desc"));
+        const q = query(collection(db, "orders"), orderBy("date", "asc"));
         const querySnapshot = await getDocs(q);
         const ordersData = querySnapshot.docs.map(doc => {
              const data = doc.data();
@@ -458,7 +459,7 @@ export default function OrdersPage() {
     pdfDoc.text("Faktur Pesanan", 14, 22);
     pdfDoc.setFontSize(10);
     pdfDoc.text(`ID Pesanan: ${detailedOrder.id}`, 14, 32);
-    const orderDate = detailedOrder.date && detailedOrder.date.toDate ? format(detailedOrder.date.toDate(), 'dd MMM yyyy') : 'N/A';
+    const orderDate = detailedOrder.date && detailedOrder.date.toDate ? format(detailedOrder.date.toDate(), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId }) : 'N/A';
     pdfDoc.text(`Tanggal: ${orderDate}`, 14, 37);
 
     const customerInfo = detailedOrder.customerDetails;
@@ -704,7 +705,7 @@ export default function OrdersPage() {
                           {order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{order.date && order.date.toDate ? format(order.date.toDate(), 'dd MMM yyyy') : 'N/A'}</TableCell>
+                    <TableCell>{order.date && order.date.toDate ? format(order.date.toDate(), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId }) : 'N/A'}</TableCell>
                     <TableCell className="text-right">{order.total}</TableCell>
                     <TableCell className="text-center">
                         {isProcessing === order.id ? <Loader2 className="h-4 w-4 animate-spin mx-auto"/> : (
