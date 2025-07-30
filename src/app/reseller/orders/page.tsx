@@ -243,9 +243,12 @@ export default function OrderHistoryPage() {
         const orderRef = doc(db, "orders", order.id);
         batch.update(orderRef, { status: 'Cancelled' });
 
+        // Only return stock if the order was not already cancelled
         if (order.products && order.status !== 'Cancelled') {
             for (const item of order.products) {
                 const productRef = doc(db, "products", item.productId);
+                // We need to get the product doc inside the transaction to avoid race conditions, but for simplicity here we get it before.
+                // For a production app, use a Cloud Function for this kind of logic.
                 const productDoc = await getDoc(productRef);
                 if (productDoc.exists()) {
                     const currentStock = productDoc.data().stock || 0;
@@ -423,7 +426,7 @@ export default function OrderHistoryPage() {
                                     </div>
                                 </DialogContent>
                             </Dialog>
-                             {order.status !== 'Cancelled' && order.status !== 'Delivered' && order.status !== 'Shipped' && (
+                             {order.status === 'Pending' && (
                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleCancelOrder(order)}>
                                   <XCircle className="h-4 w-4" />
                                   <span className="sr-only">Batalkan Pesanan</span>
