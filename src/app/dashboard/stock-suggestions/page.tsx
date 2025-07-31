@@ -55,8 +55,8 @@ async function getSalesDataForProduct(productId: string, startDate: Date, endDat
         collection(db, "orders"),
         where("productIds", "array-contains", productId),
         where("status", "in", ["Shipped", "Delivered"]),
-        where("date", ">=", Timestamp.fromDate(startDate)),
-        where("date", "<=", Timestamp.fromDate(endDate))
+        where("date", ">=", startDate),
+        where("date", "<=", endDate)
     );
 
     const querySnapshot = await getDocs(ordersQuery);
