@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { getStockSuggestion, getSalesDataForProduct } from "./actions";
+import { getStockSuggestion } from "./actions";
 import { useToast } from "@/hooks/use-toast";
 import {
   Table,
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/table";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -39,6 +39,42 @@ interface Product {
   stock: number;
   image: string;
 }
+
+/**
+ * Fetches sales data for a specific product within a date range from Firestore.
+ * This query is optimized to only fetch orders containing the specific product.
+ * @param productId The ID of the product to fetch sales data for.
+ * @param startDate The start date of the period.
+ * @param endDate The end date of the period.
+ * @returns A promise that resolves to an array of sales data.
+ */
+async function getSalesDataForProduct(productId: string, startDate: Date, endDate: Date) {
+    const salesData: { orderDate: string; quantity: number }[] = [];
+    
+    const ordersQuery = query(
+        collection(db, "orders"),
+        where("productIds", "array-contains", productId),
+        where("status", "in", ["Shipped", "Delivered"]),
+        where("date", ">=", Timestamp.fromDate(startDate)),
+        where("date", "<=", Timestamp.fromDate(endDate))
+    );
+
+    const querySnapshot = await getDocs(ordersQuery);
+    querySnapshot.forEach(doc => {
+        const order = doc.data();
+        order.products?.forEach((product: any) => {
+            if (product.productId === productId) {
+                salesData.push({
+                    orderDate: format(order.date.toDate(), 'yyyy-MM-dd'),
+                    quantity: product.quantity
+                });
+            }
+        });
+    });
+
+    return salesData;
+}
+
 
 export default function StockSuggestionPage() {
   const [isPending, startTransition] = useTransition();
@@ -304,3 +340,5 @@ export default function StockSuggestionPage() {
     </div>
   );
 }
+
+    
