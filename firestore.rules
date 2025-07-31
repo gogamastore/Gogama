@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -6,72 +5,87 @@ service cloud.firestore {
 
     // Helper function to check if a user has the 'admin' role
     function isAdmin() {
-      // Check if user is authenticated and their document in 'user' collection has role 'admin'
       return request.auth != null && get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Helper function to check if the requester is the owner of the document
+    // Helper function to check if the user is the owner of the document
     function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    // Rules for user profiles and subcollections
+    // Rules for user data (profiles)
     match /user/{userId} {
-      // An authenticated user can read their own profile. Admins can read any profile.
-      allow read: if isOwner(userId) || isAdmin();
+      // Users can read/update their own profile. Admins can read any user.
+      allow read, update: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) || isAdmin(); // For registration and staff creation
       
-      // A user can create their own profile (on signup). Admins can create users too.
-      allow create: if isOwner(userId) || isAdmin();
-
-      // A user can update their own profile. Admins can update any user profile.
-      allow update: if isOwner(userId) || isAdmin();
-
-      // Only admins can delete user profiles.
+      // Admins can delete users from the database.
       allow delete: if isAdmin();
-
-      // Rules for user's addresses subcollection
+      
+      // Subcollection for user addresses
       match /addresses/{addressId} {
-        // A user can manage their own addresses.
-        allow read, write, create, delete: if isOwner(userId);
+        allow read, write, delete: if isOwner(userId);
       }
     }
 
-    // Rules for products collection
+    // Rules for 'products' collection
     match /products/{productId} {
-      // Anyone can read a single product or list products. This allows a public-facing gallery.
-      allow get, list: if true;
-
-      // Only admins can create, delete, or fully overwrite products.
-      allow create, delete, write: if isAdmin();
-      
-      // Authenticated users (resellers) can perform updates,
-      // specifically for decrementing stock during an order.
-      allow update: if request.auth != null;
+      // Anyone can read products.
+      allow read: if true;
+      // Only admins can create or delete products.
+      allow create, delete: if isAdmin();
+      // Admin can update anything. Resellers can only update stock (implicitly handled by order creation logic).
+      // We keep this open for authenticated users to allow stock decrements via transactions.
+      allow update: if request.auth != null; 
     }
 
-    // Rules for orders collection
+    // Rules for the 'orders' collection
     match /orders/{orderId} {
-        // Users can create their own orders.
-        allow create: if isOwner(request.resource.data.customerId);
-
-        // Users can read or update their own orders. Admins can manage any order.
-        // Update is necessary for cancellation or uploading payment proof.
-        allow read, update: if isOwner(resource.data.customerId) || isAdmin();
-
-        // Only admins can delete orders.
+        // A logged-in user can create an order.
+        allow create: if request.auth != null;
+        // The owner of the order or an admin can read or update it.
+        allow read, update: if isOwner(get(path).data.customerId) || isAdmin();
+        // Only an admin can delete an order.
         allow delete: if isAdmin();
     }
+    
+    // Admin-only collections
+    match /stock_adjustments/{adjustmentId} {
+      allow read, write: if isAdmin();
+    }
 
-    // Rules for admin-only collections
-    match /stock_adjustments/{adjustmentId} { allow read, write: if isAdmin(); }
-    match /purchase_transactions/{transactionId} { allow read, write: if isAdmin(); }
-    match /operational_expenses/{expenseId} { allow read, write: if isAdmin(); }
+    match /purchase_transactions/{transactionId} {
+      allow read, write: if isAdmin();
+    }
 
-    // Rules for public-read, admin-write collections
-    match /{collectionName}/{docId}
-      where collectionName in ['bank_accounts', 'whatsapp_contacts', 'banners', 'promotions', 'trending_products'] {
+    match /operational_expenses/{expenseId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Collections readable by all, writable only by admin
+    match /bank_accounts/{accountId} {
         allow read: if true;
         allow write: if isAdmin();
-      }
+    }
+    
+    match /whatsapp_contacts/{contactId} {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+
+    match /banners/{bannerId} {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /trending_products/{trendingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }
