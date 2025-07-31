@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Bot, Loader2 } from "lucide-react";
+import { useState, useTransition, useEffect } from "react";
+import { Bot, Loader2, Search, BarChart2, PackageCheck, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,9 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { getStockSuggestion } from "./actions";
-import { sampleOrderHistory, sampleProductDetails } from "@/lib/placeholder-data";
+import { getStockSuggestion, getSalesDataForProduct } from "./actions";
 import { useToast } from "@/hooks/use-toast";
 import {
   Table,
@@ -24,39 +22,111 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Input } from "@/components/ui/input";
+import Image from "next/image";
+import { subDays, format } from "date-fns";
+import type { SuggestOptimalStockLevelsOutput } from "@/ai/flows/suggest-optimal-stock-levels";
 
-type Suggestion = {
-    product_id: string;
-    suggested_quantity: number;
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  stock: number;
+  image: string;
 }
 
 export default function StockSuggestionPage() {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
-  const [orderHistory, setOrderHistory] = useState(sampleOrderHistory);
-  const [productDetails, setProductDetails] = useState(sampleProductDetails);
   
-  const [suggestion, setSuggestion] = useState<Suggestion[] | null>(null);
-  const [reasoning, setReasoning] = useState<string | null>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [analysisPeriod, setAnalysisPeriod] = useState("30");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loadingProducts, setLoadingProducts] = useState(true);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    startTransition(async () => {
+  const [result, setResult] = useState<SuggestOptimalStockLevelsOutput | null>(null);
+  
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoadingProducts(true);
       try {
-        const result = await getStockSuggestion({ orderHistory, productDetails });
-        setReasoning(result.reasoning);
-        const parsedSuggestions = JSON.parse(result.suggestedStockLevels);
-        setSuggestion(parsedSuggestions);
+        const querySnapshot = await getDocs(collection(db, "products"));
+        const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setAllProducts(productsData);
+        setFilteredProducts(productsData);
+      } catch (error) {
+        toast({ variant: "destructive", title: "Gagal memuat produk" });
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+    fetchProducts();
+  }, [toast]);
+  
+  useEffect(() => {
+    const lowercasedFilter = searchTerm.toLowerCase();
+    const results = allProducts.filter(product => {
+      const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
+      const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
+      return nameMatch || skuMatch;
+    });
+    setFilteredProducts(results);
+  }, [searchTerm, allProducts]);
 
-        toast({
-          title: "Success!",
-          description: "Stock suggestions generated successfully.",
+
+  const handleSubmit = async () => {
+    if (!selectedProduct) {
+      toast({ variant: "destructive", title: "Pilih produk terlebih dahulu" });
+      return;
+    }
+
+    startTransition(async () => {
+      setResult(null);
+      try {
+        const endDate = new Date();
+        const startDate = subDays(endDate, parseInt(analysisPeriod, 10));
+        
+        const salesData = await getSalesDataForProduct(selectedProduct.id, startDate, endDate);
+
+        if (salesData.length === 0) {
+            toast({
+                variant: "destructive",
+                title: "Tidak Ada Data Penjualan",
+                description: `Tidak ditemukan data penjualan untuk ${selectedProduct.name} dalam ${analysisPeriod} hari terakhir.`
+            });
+            return;
+        }
+
+        const suggestionResult = await getStockSuggestion({
+          productName: selectedProduct.name,
+          currentStock: selectedProduct.stock,
+          salesData: salesData,
+          analysisPeriod: `${analysisPeriod} days`,
         });
+        
+        setResult(suggestionResult);
+        toast({
+          title: "Analisis Selesai!",
+          description: `Saran stok untuk ${selectedProduct.name} telah dibuat.`,
+        });
+
       } catch (error) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to generate stock suggestions.",
+          description: "Gagal membuat saran stok. Coba lagi.",
         });
         console.error(error);
       }
@@ -64,121 +134,163 @@ export default function StockSuggestionPage() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Bot className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl font-headline">Saran Stok Cerdas</CardTitle>
-          </div>
-          <CardDescription>
-            Gunakan AI untuk menganalisis pola pesanan dan mendapatkan saran tingkat stok yang optimal untuk mencegah kekurangan.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-3">
+        <Card>
+            <CardHeader>
+            <div className="flex items-center gap-2">
+                <Bot className="h-6 w-6 text-primary" />
+                <CardTitle className="text-2xl font-headline">Saran Stok Cerdas</CardTitle>
+            </div>
+            <CardDescription>
+                Pilih produk dan periode analisis untuk mendapatkan saran stok optimal berdasarkan data penjualan historis.
+            </CardDescription>
+            </CardHeader>
+        </Card>
+      </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="lg:col-span-1 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Data Input</CardTitle>
-            <CardDescription>
-              Masukkan data riwayat pesanan dan detail produk dalam format JSON. Data sampel disediakan.
-            </CardDescription>
+            <CardTitle>1. Parameter Analisis</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid w-full gap-1.5">
-              <Label htmlFor="order-history">Riwayat Pesanan (JSON)</Label>
-              <Textarea
-                placeholder="Paste your order history JSON here..."
-                id="order-history"
-                rows={10}
-                value={orderHistory}
-                onChange={(e) => setOrderHistory(e.target.value)}
-                className="font-mono text-xs"
-              />
-            </div>
-            <div className="grid w-full gap-1.5">
-              <Label htmlFor="product-details">Detail Produk (JSON)</Label>
-              <Textarea
-                placeholder="Paste your product details JSON here..."
-                id="product-details"
-                rows={8}
-                value={productDetails}
-                onChange={(e) => setProductDetails(e.target.value)}
-                className="font-mono text-xs"
-              />
+             <div className="space-y-2">
+                <Label>Pilih Produk</Label>
+                <Card className="p-4">
+                    {selectedProduct ? (
+                        <div className="flex items-center gap-3">
+                            <Image src={selectedProduct.image} alt={selectedProduct.name} width={48} height={48} className="rounded-md"/>
+                            <div>
+                                <p className="font-semibold">{selectedProduct.name}</p>
+                                <p className="text-sm text-muted-foreground">Stok Saat Ini: {selectedProduct.stock}</p>
+                            </div>
+                        </div>
+                    ): (
+                        <p className="text-sm text-muted-foreground">Belum ada produk dipilih</p>
+                    )}
+                </Card>
+             </div>
+             <div className="space-y-2">
+                <Label htmlFor="analysis-period">Periode Analisis</Label>
+                <Select value={analysisPeriod} onValueChange={setAnalysisPeriod}>
+                    <SelectTrigger id="analysis-period">
+                        <SelectValue placeholder="Pilih periode..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="7">7 Hari Terakhir</SelectItem>
+                        <SelectItem value="30">30 Hari Terakhir</SelectItem>
+                        <SelectItem value="90">90 Hari Terakhir</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate Suggestion"
-              )}
+            <Button onClick={handleSubmit} disabled={isPending || !selectedProduct}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Generate Suggestion
             </Button>
           </CardFooter>
         </Card>
-      </form>
 
-      <div className="space-y-6">
         <Card>
+            <CardHeader>
+                <CardTitle>Daftar Produk</CardTitle>
+                <div className="relative pt-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Cari produk..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
+                </div>
+            </CardHeader>
+            <CardContent className="max-h-96 overflow-y-auto">
+                {loadingProducts ? <p>Memuat...</p> : (
+                    <Table>
+                        <TableBody>
+                            {filteredProducts.map(p => (
+                                <TableRow key={p.id} onClick={() => setSelectedProduct(p)} className="cursor-pointer" data-state={selectedProduct?.id === p.id ? 'selected' : ''}>
+                                    <TableCell className="font-medium">{p.name}</TableCell>
+                                    <TableCell className="text-right">{p.stock}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
+      </div>
+
+      <div className="lg:col-span-2 space-y-6">
+        <Card className="min-h-[500px]">
           <CardHeader>
-            <CardTitle>Hasil Analisis AI</CardTitle>
+            <CardTitle>2. Hasil Analisis & Rekomendasi</CardTitle>
             <CardDescription>
               AI akan memberikan saran jumlah stok dan alasan di baliknya di sini.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isPending && (
-                <div className="flex items-center justify-center p-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            {isPending ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">AI sedang menganalisis data penjualan...</p>
                 </div>
-            )}
-            
-            {suggestion && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Saran Stok</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead>Product ID</TableHead>
-                                <TableHead className="text-right">Saran Kuantitas</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {suggestion.map((item) => (
-                                <TableRow key={item.product_id}>
-                                    <TableCell className="font-medium">{item.product_id}</TableCell>
-                                    <TableCell className="text-right font-bold text-primary">{item.suggested_quantity}</TableCell>
-                                </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            )}
+            ) : result ? (
+                 <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-base text-muted-foreground">Saran Stok Bulan Depan</CardTitle>
+                                <PackageCheck className="mx-auto h-6 w-6 text-primary"/>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-4xl font-bold">{result.suggestion.nextPeriodStock}</p>
+                                <p className="text-sm text-muted-foreground">unit</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-base text-muted-foreground">Stok Pengaman</CardTitle>
+                                 <AlertTriangle className="mx-auto h-6 w-6 text-yellow-500"/>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-4xl font-bold">{result.suggestion.safetyStock}</p>
+                                <p className="text-sm text-muted-foreground">unit</p>
+                            </CardContent>
+                        </Card>
+                    </div>
 
-            {reasoning && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Alasan AI</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{reasoning}</p>
-                    </CardContent>
-                </Card>
-            )}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <BarChart2 className="h-5 w-5"/>
+                                <CardTitle>Ringkasan Analisis</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
+                                <li><strong>Total Terjual:</strong> {result.analysis.totalSold} unit dalam {analysisPeriod} hari terakhir.</li>
+                                <li><strong>Tren Penjualan:</strong> {result.analysis.salesTrend}</li>
+                                {result.analysis.peakDays.length > 0 && (
+                                     <li><strong>Periode Puncak:</strong> {result.analysis.peakDays.join(', ')}</li>
+                                )}
+                            </ul>
+                        </CardContent>
+                    </Card>
 
-            {!isPending && !suggestion && !reasoning && (
-                <div className="text-center text-muted-foreground p-8">
-                    Hasil akan muncul di sini setelah Anda menekan tombol "Generate Suggestion".
+                    <Card>
+                        <CardHeader>
+                           <div className="flex items-center gap-2">
+                                <Bot className="h-5 w-5"/>
+                                <CardTitle>Alasan AI</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{result.reasoning}</p>
+                        </CardContent>
+                    </Card>
+                 </div>
+            ) : (
+                <div className="text-center text-muted-foreground p-8 flex flex-col items-center justify-center min-h-[300px]">
+                    <Bot className="h-12 w-12 mb-4"/>
+                    <p>Hasil akan muncul di sini setelah Anda memilih produk dan menekan tombol "Generate Suggestion".</p>
                 </div>
             )}
           </CardContent>
