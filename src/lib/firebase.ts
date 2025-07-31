@@ -4,14 +4,12 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAQevbEKAkQfOSPF0VvdO6sSaCZynGGE1s",
-  authDomain: "gogama-store.firebaseapp.com",
-  databaseURL: "https://gogama-store-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "gogama-store",
-  storageBucket: "gogama-store.firebasestorage.app",
-  messagingSenderId: "1033847699277",
-  appId: "1:1033847699277:web:2b9aa64ead8673ba01a904",
-  measurementId: "G-9FNSHP53EK"
+  apiKey: "AIzaSyCThjETkAH8HpFoclhmXtgjm2lIr1506dg",
+  authDomain: "orderflow-r7jsk.firebaseapp.com",
+  projectId: "orderflow-r7jsk",
+  storageBucket: "orderflow-r7jsk.firebasestorage.app",
+  messagingSenderId: "954515661623",
+  appId: "1:954515661623:web:19d89bf3722600e02ef0b2"
 };
 
 // Inisialisasi Firebase hanya sekali
