@@ -138,7 +138,7 @@ export default function ProductSalesReportPage() {
   }, []);
 
   useEffect(() => {
-    if (dateRange.from && dateRange.to) {
+    if (dateRange && dateRange.from && dateRange.to) {
         generateReport(dateRange.from, dateRange.to);
     }
   }, [dateRange, generateReport]);
