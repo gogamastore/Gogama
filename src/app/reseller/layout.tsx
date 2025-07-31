@@ -36,7 +36,7 @@ export default function ResellerLayout({
         <main className="flex-1 bg-background">{children}</main>
         <footer className="bg-card border-t">
           <div className="container mx-auto p-4 text-center text-sm text-muted-foreground">
-              © {new Date().getFullYear()} OrderFlow. All rights reserved.
+              © {new Date().getFullYear()} Gogama Store. All rights reserved.
           </div>
         </footer>
         <ResellerChatTrigger />

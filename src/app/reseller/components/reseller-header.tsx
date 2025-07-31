@@ -40,7 +40,7 @@ function Logo() {
         <path d="m21 15-4-4" />
         <path d="m17 15 4-4" />
       </svg>
-      OrderFlow
+      Gogama Store
     </Link>
   );
 }

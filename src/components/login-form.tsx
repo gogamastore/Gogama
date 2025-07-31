@@ -133,7 +133,7 @@ export default function LoginForm() {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center items-center gap-2 mb-4">
             <Logo />
-            <CardTitle className="text-3xl font-bold font-headline">OrderFlow</CardTitle>
+            <CardTitle className="text-3xl font-bold font-headline">Gogama Store</CardTitle>
           </div>
           <CardDescription>
             Masukkan kredensial Anda untuk mengakses akun
