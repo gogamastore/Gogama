@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/carousel"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight, Search, ShoppingCart, Info, PackageX, Plus, Minus, Tags, Flame } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, ShoppingCart, Info, PackageX, Plus, Minus, Tags } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -44,8 +44,6 @@ interface Product {
   // Promo fields
   isPromo?: boolean;
   discountPrice?: string;
-  // Trending fields
-  totalSold?: number;
 }
 
 interface Banner {
@@ -186,7 +184,6 @@ export default function ResellerDashboard() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [promotions, setPromotions] = useState<Product[]>([]);
-  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -229,25 +226,6 @@ export default function ResellerDashboard() {
                 return product;
             });
             
-            // --- Trending Products Logic ---
-            const ordersQuery = query(collection(db, "orders"), where("status", "in", ["Delivered", "Shipped"]));
-            const ordersSnapshot = await getDocs(ordersQuery);
-            const salesCount = new Map<string, number>();
-            ordersSnapshot.forEach(orderDoc => {
-                const orderData = orderDoc.data();
-                orderData.products?.forEach((p: { productId: string; quantity: number; }) => {
-                    salesCount.set(p.productId, (salesCount.get(p.productId) || 0) + p.quantity);
-                });
-            });
-
-            const trendingProductsData = productsData
-                .map(p => ({...p, totalSold: salesCount.get(p.id) || 0}))
-                .sort((a, b) => b.totalSold - a.totalSold);
-            
-            setTrendingProducts(trendingProductsData.slice(0, 4)); // Get top 4 for homepage
-            // --- End Trending ---
-
-
             const promoProducts = productsData.filter(p => p.isPromo);
             setPromotions(promoProducts);
 
@@ -392,24 +370,6 @@ export default function ResellerDashboard() {
                  </div>
             </section>
         )}
-        
-        {trendingProducts.length > 0 && (
-            <section className="mb-12">
-                 <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                        <Flame className="h-6 w-6 text-primary"/>
-                        <h2 className="text-2xl font-bold font-headline">Produk Trending</h2>
-                    </div>
-                    <Button asChild variant="outline">
-                        <Link href="/reseller/trending">Lihat Semua</Link>
-                    </Button>
-                 </div>
-                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                     {trendingProducts.map(renderProductCard)}
-                 </div>
-            </section>
-        )}
-
 
         <section>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
