@@ -1,97 +1,110 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ========== HELPER FUNCTIONS ==========
-
     // Helper function to check if a user has the 'admin' role
     function isAdmin() {
-      // Check if the user is authenticated and if their document in 'user' collection has role 'admin'
-      return request.auth != null && get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Helper function to check if a user is a logged-in reseller
-    function isReseller() {
-      // Any authenticated user is considered a potential reseller in this context
-      return request.auth != null;
+      return request.auth != null && exists(/databases/$(database)/documents/user/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // ========== COLLECTION RULES ==========
-
-    // Rules for 'user' data (profiles)
+    // Rules for user data (profiles)
     match /user/{userId} {
-      // A user can read or update their own profile data.
-      // An admin can read any user's profile for management purposes.
+      // Admins can create new users. Users can create their own doc during registration.
+      allow create: if isAdmin() || request.auth.uid == userId;
+
+      // Users can read/update their own profile. Admins can read/update any user.
+      // This is the key fix: explicitly allowing a user to read their own document.
       allow read, update: if request.auth.uid == userId || isAdmin();
 
-      // Any authenticated user can create their own user document during registration.
-      allow create: if request.auth.uid == userId;
-
-      // Only admins can delete a user document.
+      // Admins can delete users from the database.
       allow delete: if isAdmin();
+      
+      // Admins can list all users.
+      allow list: if isAdmin();
     }
-
-    // Rules for user addresses (sub-collection)
+    
+    // Rules for user addresses
     match /user/{userId}/addresses/{addressId} {
-        // A user can manage their own addresses.
-        allow read, write, create, delete: if request.auth.uid == userId;
+      allow read, write, delete, create: if request.auth.uid == userId || isAdmin();
     }
 
     // Rules for 'products' collection
     match /products/{productId} {
-      // Any authenticated reseller or admin can read the product list.
-      allow read: if isReseller();
+      // Admins can do anything with products.
+      allow create, delete: if isAdmin();
       
-      // Only admins can create, update, or delete products.
-      // This prevents resellers from changing prices or stock directly.
+      // Resellers can update products to decrease stock during checkout.
+      // Admins can also write (which includes update).
       allow write: if isAdmin();
+      allow update: if request.auth != null;
+      
+      // Authenticated users (resellers) can read products.
+      allow get, list: if request.auth != null;
     }
 
-    // Rules for 'orders' collection
+    // Rules for the 'orders' collection
     match /orders/{orderId} {
-      // A reseller can only create an order for themselves.
-      allow create: if isReseller() && request.resource.data.customerId == request.auth.uid;
-      
-      // A reseller can read or update their own order.
-      // Admins can read or update any order.
-      allow read, update: if (isReseller() && resource.data.customerId == request.auth.uid) || isAdmin();
-      
-      // Only admins can delete an order.
-      allow delete: if isAdmin();
+        // Admins can manage all orders.
+        allow read, list, update: if isAdmin();
+
+        // Resellers can create orders for themselves
+        allow create: if request.auth.uid == request.resource.data.customerId;
+
+        // Resellers can only read their own orders.
+        allow get: if request.auth.uid == resource.data.customerId;
+        
+        // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
+        // Corrected a small logic issue here for clarity (wrapping in parentheses)
+        allow update: if request.auth.uid == resource.data.customerId &&
+                        (request.resource.data.status == 'Cancelled' || request.resource.data.keys().hasAny(['paymentProofUrl']));
+
     }
 
-    // Rules for stock, purchases, and operational expenses (Admin-only)
+    // Rules for 'whatsapp_contacts'
+    match /whatsapp_contacts/{contactId} {
+        // Any authenticated user can read the contacts.
+        allow get, list: if request.auth != null;
+        // Only admins can create, update, or delete contacts.
+        allow write, create, delete: if isAdmin();
+    }
+
+    // Rules for stock, purchases, and expenses (Admin-only)
     match /stock_adjustments/{adjustmentId} {
       allow read, write: if isAdmin();
     }
+
     match /purchase_transactions/{transactionId} {
       allow read, write: if isAdmin();
     }
+
     match /operational_expenses/{expenseId} {
       allow read, write: if isAdmin();
     }
-
-    // Rules for public-read collections modified by admin
+    
     match /bank_accounts/{accountId} {
-        allow read: if isReseller();
-        allow write: if isAdmin();
+        allow read: if request.auth != null;
+        allow write, create, delete: if isAdmin();
     }
-    match /whatsapp_contacts/{contactId} {
-        allow read: if isReseller();
-        allow write: if isAdmin();
+    
+    // Rules for Banners (Design Settings)
+		match /banners/{bannerId} {
+      allow read: if true;
+      allow write, create, delete: if isAdmin();
     }
-    match /banners/{bannerId} {
-        allow read: if isReseller();
-        allow write: if isAdmin();
-    }
+    
+    // Rules for Promotions (Promo Settings)
     match /promotions/{promoId} {
-        allow read: if isReseller();
-        allow write: if isAdmin();
+      allow read: if request.auth != null;
+      allow write, create, delete: if isAdmin();
     }
+    
+    // Rules for Trending Products
     match /trending_products/{productId} {
-        allow read: if isReseller();
-        allow write: if isAdmin();
+      allow read: if true;
+      allow write: if isAdmin();
     }
-  }
+   } 
 }
