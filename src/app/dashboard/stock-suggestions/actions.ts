@@ -1,3 +1,4 @@
+
 "use server";
 import { suggestOptimalStockLevels, SuggestOptimalStockLevelsInput, SuggestOptimalStockLevelsOutput } from '@/ai/flows/suggest-optimal-stock-levels';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
@@ -6,6 +7,7 @@ import { format } from 'date-fns';
 
 /**
  * Fetches sales data for a specific product within a date range from Firestore.
+ * This query is optimized to only fetch orders containing the specific product.
  * @param productId The ID of the product to fetch sales data for.
  * @param startDate The start date of the period.
  * @param endDate The end date of the period.
@@ -14,8 +16,11 @@ import { format } from 'date-fns';
 export async function getSalesDataForProduct(productId: string, startDate: Date, endDate: Date) {
     const salesData: { orderDate: string; quantity: number }[] = [];
     
+    // This query is much more efficient and secure.
+    // It requires a 'productIds' array field on each order document.
     const ordersQuery = query(
         collection(db, "orders"),
+        where("productIds", "array-contains", productId),
         where("status", "in", ["Shipped", "Delivered"]),
         where("date", ">=", Timestamp.fromDate(startDate)),
         where("date", "<=", Timestamp.fromDate(endDate))

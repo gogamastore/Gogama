@@ -211,6 +211,7 @@ export default function CheckoutPage() {
         
         // 1. Create a new order document reference in the batch
         const orderRef = doc(collection(db, "orders"));
+        const productIds = cart.map(item => item.id); // Create an array of product IDs for querying
         const orderData = {
             customer: customerDetails.name,
             customerDetails: customerDetails,
@@ -222,6 +223,7 @@ export default function CheckoutPage() {
                 quantity: item.quantity,
                 image: item.image,
             })),
+            productIds: productIds, // Add the productIds array
             total: formatCurrency(grandTotal),
             shippingFee: shippingFee,
             shippingMethod: shippingMethod,
