@@ -16,6 +16,7 @@ import {
   FileWarning,
   Scale,
   Warehouse,
+  Package,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -25,6 +26,12 @@ const reportCards = [
     description: "Analisis detail penjualan produk Anda.",
     icon: LineChart,
     href: "/dashboard/reports/sales",
+  },
+  {
+    title: "Laporan Penjualan Produk",
+    description: "Lihat produk terlaris berdasarkan periode.",
+    icon: Package,
+    href: "/dashboard/reports/product-sales",
   },
   {
     title: "Laporan Transaksi Pembelian",

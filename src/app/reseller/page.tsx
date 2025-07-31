@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/carousel"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight, Search, ShoppingCart, Info, PackageX, Plus, Minus, Tags } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search, ShoppingCart, Info, PackageX, Plus, Minus, Tags, TrendingUp } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -41,7 +41,6 @@ interface Product {
   'data-ai-hint': string;
   stock: number;
   description?: string;
-  // Promo fields
   isPromo?: boolean;
   discountPrice?: string;
 }
@@ -184,6 +183,7 @@ export default function ResellerDashboard() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [promotions, setPromotions] = useState<Product[]>([]);
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -197,6 +197,17 @@ export default function ResellerDashboard() {
     async function getPageData() {
         setLoading(true);
         try {
+            const productsSnapshot = await getDocs(collection(db, "products"));
+            const productsMap = new Map<string, Product>();
+            productsSnapshot.forEach(doc => {
+                productsMap.set(doc.id, { 
+                    id: doc.id, 
+                    ...doc.data(),
+                    stock: doc.data().stock || 0,
+                    description: doc.data().description || '',
+                } as Product);
+            });
+
             // Fetch Promotions
             const now = new Date();
             const promoQuery = query(collection(db, "promotions"), where("endDate", ">", now));
@@ -209,16 +220,7 @@ export default function ResellerDashboard() {
                  }
             });
 
-            // Fetch Products
-            const productsSnapshot = await getDocs(collection(db, "products"));
-            const productsData = productsSnapshot.docs.map(doc => {
-                const product = { 
-                    id: doc.id, 
-                    ...doc.data(),
-                    stock: doc.data().stock || 0,
-                    description: doc.data().description || '',
-                } as Product;
-                
+            const productsData = Array.from(productsMap.values()).map(product => {
                 if (activePromos.has(product.id)) {
                     product.isPromo = true;
                     product.discountPrice = formatCurrency(activePromos.get(product.id)!.discountPrice);
@@ -226,8 +228,12 @@ export default function ResellerDashboard() {
                 return product;
             });
             
-            const promoProducts = productsData.filter(p => p.isPromo);
-            setPromotions(promoProducts);
+            setPromotions(productsData.filter(p => p.isPromo));
+
+            // Fetch Trending Products
+            const trendingSnapshot = await getDocs(collection(db, "trending_products"));
+            const trendingProductIds = new Set(trendingSnapshot.docs.map(doc => doc.data().productId));
+            setTrendingProducts(productsData.filter(p => trendingProductIds.has(p.id)));
 
             setAllProducts(productsData);
             setFilteredProducts(productsData);
@@ -361,19 +367,38 @@ export default function ResellerDashboard() {
 
         {promotions.length > 0 && (
             <section className="mb-12">
-                 <div className="flex items-center gap-2 mb-4">
-                    <Tags className="h-6 w-6 text-primary"/>
-                    <h2 className="text-2xl font-bold font-headline">Produk Promo</h2>
+                 <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <Tags className="h-6 w-6 text-primary"/>
+                        <h2 className="text-2xl font-bold font-headline">Produk Promo</h2>
+                    </div>
                  </div>
                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                     {promotions.map(renderProductCard)}
+                     {promotions.slice(0, 4).map(renderProductCard)}
+                 </div>
+            </section>
+        )}
+        
+        {trendingProducts.length > 0 && (
+            <section className="mb-12">
+                 <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                        <TrendingUp className="h-6 w-6 text-primary"/>
+                        <h2 className="text-2xl font-bold font-headline">Produk Trending</h2>
+                    </div>
+                     <Button variant="outline" asChild>
+                        <Link href="/reseller/trending">Lihat Semua</Link>
+                    </Button>
+                 </div>
+                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                     {trendingProducts.slice(0, 4).map(renderProductCard)}
                  </div>
             </section>
         )}
 
         <section>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-             <h2 className="text-2xl font-bold font-headline">Galeri Produk</h2>
+             <h2 className="text-2xl font-bold font-headline">Semua Produk</h2>
              <div className="relative w-full sm:max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input

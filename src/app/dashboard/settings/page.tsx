@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Banknote, Users, Contact, LayoutTemplate, Percent } from "lucide-react";
+import { Banknote, Users, Contact, LayoutTemplate, Percent, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 
@@ -41,6 +41,12 @@ const settingsCards = [
     description: "Buat dan kelola diskon produk atau flash sale.",
     icon: Percent,
     href: "/dashboard/settings/promo",
+  },
+   {
+    title: "Produk Trending",
+    description: "Atur produk yang akan ditampilkan sebagai produk terlaris.",
+    icon: TrendingUp,
+    href: "/dashboard/settings/trending-products",
   },
 ];
 
