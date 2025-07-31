@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { Bot, Loader2, Search, BarChart2, PackageCheck, AlertTriangle } from "lucide-react";
+import { Bot, Loader2, Search, BarChart2, PackageCheck, AlertTriangle, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,13 +23,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/input";
@@ -51,9 +47,13 @@ export default function StockSuggestionPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [analysisPeriod, setAnalysisPeriod] = useState("30");
   const [searchTerm, setSearchTerm] = useState("");
   const [loadingProducts, setLoadingProducts] = useState(true);
+
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
+      from: subDays(new Date(), 30),
+      to: new Date()
+  });
 
   const [result, setResult] = useState<SuggestOptimalStockLevelsOutput | null>(null);
   
@@ -91,12 +91,16 @@ export default function StockSuggestionPage() {
       toast({ variant: "destructive", title: "Pilih produk terlebih dahulu" });
       return;
     }
+    if (!dateRange?.from || !dateRange?.to) {
+        toast({ variant: "destructive", title: "Pilih rentang tanggal terlebih dahulu" });
+        return;
+    }
 
     startTransition(async () => {
       setResult(null);
       try {
-        const endDate = new Date();
-        const startDate = subDays(endDate, parseInt(analysisPeriod, 10));
+        const { from: startDate, to: endDate } = dateRange;
+        const analysisPeriodInDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
         
         const salesData = await getSalesDataForProduct(selectedProduct.id, startDate, endDate);
 
@@ -104,7 +108,7 @@ export default function StockSuggestionPage() {
             toast({
                 variant: "destructive",
                 title: "Tidak Ada Data Penjualan",
-                description: `Tidak ditemukan data penjualan untuk ${selectedProduct.name} dalam ${analysisPeriod} hari terakhir.`
+                description: `Tidak ditemukan data penjualan untuk ${selectedProduct.name} dalam periode yang dipilih.`
             });
             return;
         }
@@ -113,7 +117,7 @@ export default function StockSuggestionPage() {
           productName: selectedProduct.name,
           currentStock: selectedProduct.stock,
           salesData: salesData,
-          analysisPeriod: `${analysisPeriod} days`,
+          analysisPeriod: `${analysisPeriodInDays} days`,
         });
         
         setResult(suggestionResult);
@@ -173,16 +177,17 @@ export default function StockSuggestionPage() {
              </div>
              <div className="space-y-2">
                 <Label htmlFor="analysis-period">Periode Analisis</Label>
-                <Select value={analysisPeriod} onValueChange={setAnalysisPeriod}>
-                    <SelectTrigger id="analysis-period">
-                        <SelectValue placeholder="Pilih periode..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="7">7 Hari Terakhir</SelectItem>
-                        <SelectItem value="30">30 Hari Terakhir</SelectItem>
-                        <SelectItem value="90">90 Hari Terakhir</SelectItem>
-                    </SelectContent>
-                </Select>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button id="date" variant={"outline"} className="w-full justify-start text-left font-normal">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange?.from ? (dateRange.to ? `${format(dateRange.from, "LLL dd, y")} - ${format(dateRange.to, "LLL dd, y")}` : format(dateRange.from, "LLL dd, y")) : (<span>Pilih rentang tanggal</span>)}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
+                    </PopoverContent>
+                </Popover>
             </div>
           </CardContent>
           <CardFooter>
@@ -266,7 +271,7 @@ export default function StockSuggestionPage() {
                         </CardHeader>
                         <CardContent>
                             <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
-                                <li><strong>Total Terjual:</strong> {result.analysis.totalSold} unit dalam {analysisPeriod} hari terakhir.</li>
+                                <li><strong>Total Terjual:</strong> {result.analysis.totalSold} unit dalam periode yang dipilih.</li>
                                 <li><strong>Tren Penjualan:</strong> {result.analysis.salesTrend}</li>
                                 {result.analysis.peakDays.length > 0 && (
                                      <li><strong>Periode Puncak:</strong> {result.analysis.peakDays.join(', ')}</li>
