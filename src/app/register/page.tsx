@@ -23,7 +23,7 @@ import Image from "next/image";
 
 function Logo() {
   return (
-    <Image src="https://firebasestorage.googleapis.com/v0/b/orderflow-r7jsk.firebasestorage.app/o/ic_gogama_logo.png?alt=media&token=c7caf8ae-553a-4cf8-a4ae-bce1446b599c" alt="Gogama Store Logo" width={32} height={32} />
+    <Image src="https://firebasestorage.googleapis.com/v0/b/orderflow-r7jsk.firebasestorage.app/o/ic_gogama_logo.png?alt=media&token=c7caf8ae-553a-4cf8-a4ae-bce1446b599c" alt="Gogama Store Logo" width={75} height={75} />
   );
 }
 
@@ -117,7 +117,7 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-2xl">
         <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center items-center gap-2 mb-4">
+          <div className="flex flex-col justify-center items-center gap-4 mb-4">
             <Logo />
             <CardTitle className="text-3xl font-bold font-headline">Daftar Reseller</CardTitle>
           </div>
