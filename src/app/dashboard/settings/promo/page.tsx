@@ -27,18 +27,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from '@/hooks/use-toast';
-import { Percent, PlusCircle, Trash2, Loader2, ArrowLeft, Tags, CalendarIcon } from 'lucide-react';
+import { Percent, PlusCircle, Trash2, Loader2, ArrowLeft, Tags, CalendarIcon, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { addDays, format } from 'date-fns';
 import { DateRange } from 'react-day-picker';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableRow, TableHeader, TableHead } from '@/components/ui/table';
 import { Badge } from "@/components/ui/badge";
 
 
@@ -48,6 +49,7 @@ interface Product {
   price: string;
   image: string;
   stock: number;
+  sku: string;
 }
 
 interface Promotion extends Product {
@@ -67,33 +69,134 @@ const formatCurrency = (amount: number | string) => {
 };
 
 
+function ProductSelectionDialog({ onProductSelect }: { onProductSelect: (product: Product) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const fetchProducts = async () => {
+        setLoading(true);
+        try {
+            const productsSnapshot = await getDocs(collection(db, "products"));
+            const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+            setAllProducts(productsData);
+            setFilteredProducts(productsData);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if(isOpen) fetchProducts();
+    }, [isOpen]);
+
+    useEffect(() => {
+        const lowercasedFilter = searchTerm.toLowerCase();
+        const results = allProducts.filter(p => {
+          const nameMatch = p.name.toLowerCase().includes(lowercasedFilter);
+          const skuMatch = String(p.sku || '').toLowerCase().includes(lowercasedFilter);
+          return nameMatch || skuMatch;
+        });
+        setFilteredProducts(results);
+    }, [searchTerm, allProducts]);
+
+    const handleSelect = (product: Product) => {
+        onProductSelect(product);
+        setIsOpen(false);
+    }
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">Pilih Produk</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl">
+                 <DialogHeader>
+                    <DialogTitle>Pilih Produk untuk Dipromosikan</DialogTitle>
+                    <div className="relative pt-2">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Cari produk berdasarkan nama atau SKU..."
+                            className="pl-8"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </DialogHeader>
+                 <div className="max-h-[60vh] overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Produk</TableHead>
+                                <TableHead>SKU</TableHead>
+                                <TableHead className="text-right">Harga</TableHead>
+                                <TableHead className="w-[100px] text-right">Aksi</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow><TableCell colSpan={4} className="text-center h-24">Memuat produk...</TableCell></TableRow>
+                            ) : filteredProducts.map(p => (
+                                <TableRow key={p.id}>
+                                    <TableCell className="font-medium flex items-center gap-2">
+                                        <Image src={p.image} alt={p.name} width={40} height={40} className="rounded-md object-cover"/>
+                                        {p.name}
+                                    </TableCell>
+                                    <TableCell>{p.sku}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button size="sm" onClick={() => handleSelect(p)}>Pilih</Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+
+}
+
+
 export default function PromoSettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [discountPrice, setDiscountPrice] = useState<number>(0);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
     to: addDays(new Date(), 7),
   });
+  
+  const resetForm = () => {
+    setSelectedProduct(null);
+    setDiscountPrice(0);
+    setDateRange({ from: new Date(), to: addDays(new Date(), 7) });
+  };
+
 
   const fetchPromotionsAndProductsCallback = useCallback(async () => {
     setLoading(true);
     try {
         const productsSnapshot = await getDocs(collection(db, 'products'));
         const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setProducts(productsData);
+        const productsMap = new Map<string, Product>();
+        productsData.forEach(p => productsMap.set(p.id, p));
 
         const promoSnapshot = await getDocs(query(collection(db, 'promotions'), orderBy('endDate', 'desc')));
         const promoData = promoSnapshot.docs.map(doc => {
             const data = doc.data();
-            const product = productsData.find(p => p.id === data.productId);
+            const product = productsMap.get(data.productId);
             if (!product) return null;
             
             return {
@@ -120,14 +223,14 @@ export default function PromoSettingsPage() {
   }, [fetchPromotionsAndProductsCallback]);
 
   const handleAddPromo = async () => {
-    if (!selectedProductId || !discountPrice || !dateRange?.from || !dateRange?.to) {
+    if (!selectedProduct || !discountPrice || !dateRange?.from || !dateRange?.to) {
         toast({ variant: 'destructive', title: 'Data tidak lengkap' });
         return;
     }
     setIsSubmitting(true);
     try {
         await addDoc(collection(db, 'promotions'), {
-            productId: selectedProductId,
+            productId: selectedProduct.id,
             discountPrice: discountPrice,
             startDate: dateRange.from,
             endDate: dateRange.to,
@@ -136,10 +239,7 @@ export default function PromoSettingsPage() {
         toast({ title: "Promo berhasil ditambahkan" });
         setIsDialogOpen(false);
         fetchPromotionsAndProductsCallback();
-        // Reset form
-        setSelectedProductId('');
-        setDiscountPrice(0);
-        setDateRange({ from: new Date(), to: addDays(new Date(), 7) });
+        resetForm();
     } catch (error) {
         console.error("Error adding promotion:", error);
         toast({ variant: 'destructive', title: 'Gagal menambahkan promo' });
@@ -179,52 +279,13 @@ export default function PromoSettingsPage() {
               Tambah, edit, atau hapus promo untuk produk tertentu.
             </CardDescription>
           </div>
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Tambah Promo
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-             <div className="text-center p-8 text-muted-foreground">Memuat data promo...</div>
-          ) : promotions.length > 0 ? (
-            <div className="space-y-4">
-              {promotions.map((promo) => (
-                <div key={promo.promoId} className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-4">
-                    <Image src={promo.image} alt={promo.name} width={64} height={64} className="rounded-md object-cover"/>
-                    <div>
-                      <p className="font-bold">{promo.name}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm text-muted-foreground line-through">{formatCurrency(promo.price)}</p>
-                        <p className="text-sm font-semibold text-primary">{formatCurrency(promo.discountPrice)}</p>
-                      </div>
-                      <p className='text-xs text-muted-foreground'>
-                        Berlaku hingga: {format(new Date(promo.endDate), 'dd MMM yyyy')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                     <Badge variant={new Date() > new Date(promo.endDate) ? "secondary" : "default"}>
-                        {new Date() > new Date(promo.endDate) ? "Berakhir" : "Aktif"}
-                     </Badge>
-                     <Button variant="ghost" size="icon" onClick={() => handleDeletePromo(promo.promoId)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                     </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center p-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                <Tags className="mx-auto h-12 w-12 text-muted-foreground"/>
-              <p className="mt-2">Belum ada promo yang ditambahkan.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      
-       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Tambah Promo
+                </Button>
+            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Tambah Promo Baru</DialogTitle>
@@ -232,21 +293,20 @@ export default function PromoSettingsPage() {
               <div className="grid gap-4 py-4">
                  <div className="space-y-2">
                     <Label>Pilih Produk</Label>
-                    <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Pilih produk yang akan dipromosikan" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {products.map(p => (
-                                <SelectItem key={p.id} value={p.id}>
-                                    <div className='flex items-center gap-2'>
-                                        <Image src={p.image} alt={p.name} width={24} height={24} className="rounded-sm"/>
-                                        <span>{p.name} ({formatCurrency(p.price)})</span>
-                                    </div>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-4 rounded-md border p-2">
+                        {selectedProduct ? (
+                            <div className='flex items-center gap-3 flex-1'>
+                                <Image src={selectedProduct.image} alt={selectedProduct.name} width={40} height={40} className="rounded-sm"/>
+                                <div>
+                                    <p className="font-semibold">{selectedProduct.name}</p>
+                                    <p className="text-xs text-muted-foreground">{formatCurrency(selectedProduct.price)}</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-sm text-muted-foreground flex-1">Belum ada produk dipilih</div>
+                        )}
+                        <ProductSelectionDialog onProductSelect={setSelectedProduct} />
+                    </div>
                  </div>
                  <div className="space-y-2">
                   <Label htmlFor="discountPrice">Harga Diskon (Rp)</Label>
@@ -290,7 +350,7 @@ export default function PromoSettingsPage() {
                 </div>
               </div>
               <DialogFooter>
-                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Batal</Button>
+                 <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>Batal</Button>
                 <Button onClick={handleAddPromo} disabled={isSubmitting}>
                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Simpan Promo
@@ -298,6 +358,46 @@ export default function PromoSettingsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+             <div className="text-center p-8 text-muted-foreground">Memuat data promo...</div>
+          ) : promotions.length > 0 ? (
+            <div className="space-y-4">
+              {promotions.map((promo) => (
+                <div key={promo.promoId} className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="flex items-center gap-4">
+                    <Image src={promo.image} alt={promo.name} width={64} height={64} className="rounded-md object-cover"/>
+                    <div>
+                      <p className="font-bold">{promo.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground line-through">{formatCurrency(promo.price)}</p>
+                        <p className="text-sm font-semibold text-primary">{formatCurrency(promo.discountPrice)}</p>
+                      </div>
+                      <p className='text-xs text-muted-foreground'>
+                        Berlaku hingga: {format(new Date(promo.endDate), 'dd MMM yyyy')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <Badge variant={new Date() > new Date(promo.endDate) ? "secondary" : "default"}>
+                        {new Date() > new Date(promo.endDate) ? "Berakhir" : "Aktif"}
+                     </Badge>
+                     <Button variant="ghost" size="icon" onClick={() => handleDeletePromo(promo.promoId)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                     </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center p-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                <Tags className="mx-auto h-12 w-12 text-muted-foreground"/>
+              <p className="mt-2">Belum ada promo yang ditambahkan.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 
