@@ -85,10 +85,12 @@ function AddTrendingProductDialog({ onProductAdded }: { onProductAdded: () => vo
     }, [isOpen]);
 
     useEffect(() => {
-        const results = allProducts.filter(p => 
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const lowercasedFilter = searchTerm.toLowerCase();
+        const results = allProducts.filter(p => {
+          const nameMatch = p.name.toLowerCase().includes(lowercasedFilter);
+          const skuMatch = String(p.sku || '').toLowerCase().includes(lowercasedFilter);
+          return nameMatch || skuMatch;
+        });
         setFilteredProducts(results);
     }, [searchTerm, allProducts]);
 
@@ -186,6 +188,7 @@ export default function TrendingProductsPage() {
         
         if (productIds.length === 0) {
             setTrendingProducts([]);
+            setLoading(false);
             return;
         }
 
