@@ -1,78 +1,96 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Fungsi helper untuk memeriksa apakah pengguna adalah admin
+    // ========== HELPER FUNCTIONS ==========
+
+    // Helper function to check if a user has the 'admin' role
     function isAdmin() {
+      // Check if the user is authenticated and if their document in 'user' collection has role 'admin'
       return request.auth != null && get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
-
-    // Fungsi helper untuk memeriksa apakah pengguna adalah pemilik dokumen
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+    
+    // Helper function to check if a user is a logged-in reseller
+    function isReseller() {
+      // Any authenticated user is considered a potential reseller in this context
+      return request.auth != null;
     }
 
-    // Aturan untuk Koleksi 'user'
+    // ========== COLLECTION RULES ==========
+
+    // Rules for 'user' data (profiles)
     match /user/{userId} {
-      allow read, update: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) || isAdmin();
+      // A user can read or update their own profile data.
+      // An admin can read any user's profile for management purposes.
+      allow read, update: if request.auth.uid == userId || isAdmin();
+
+      // Any authenticated user can create their own user document during registration.
+      allow create: if request.auth.uid == userId;
+
+      // Only admins can delete a user document.
       allow delete: if isAdmin();
-      allow list: if isAdmin();
     }
 
-    // Aturan untuk Alamat Pengguna (Sub-koleksi)
+    // Rules for user addresses (sub-collection)
     match /user/{userId}/addresses/{addressId} {
-        allow read, write, create, delete: if isOwner(userId) || isAdmin();
+        // A user can manage their own addresses.
+        allow read, write, create, delete: if request.auth.uid == userId;
     }
 
-    // Aturan untuk Koleksi 'products'
+    // Rules for 'products' collection
     match /products/{productId} {
-      allow get, list: if request.auth != null;
-      allow update: if request.auth != null; // For stock updates
-      allow create, write, delete: if isAdmin();
+      // Any authenticated reseller or admin can read the product list.
+      allow read: if isReseller();
+      
+      // Only admins can create, update, or delete products.
+      // This prevents resellers from changing prices or stock directly.
+      allow write: if isAdmin();
     }
 
-    // Aturan untuk Koleksi 'stock_adjustments', 'purchase_transactions', 'operational_expenses'
-    match /stock_adjustments/{docId} { allow read, write: if isAdmin(); }
-    match /purchase_transactions/{docId} { allow read, write: if isAdmin(); }
-    match /operational_expenses/{docId} { allow read, write: if isAdmin(); }
-
-    // Aturan untuk Koleksi 'orders'
+    // Rules for 'orders' collection
     match /orders/{orderId} {
-      allow create: if request.auth != null;
-      allow read, update: if isOwner(resource.data.customerId) || isAdmin();
+      // A reseller can only create an order for themselves.
+      allow create: if isReseller() && request.resource.data.customerId == request.auth.uid;
+      
+      // A reseller can read or update their own order.
+      // Admins can read or update any order.
+      allow read, update: if (isReseller() && resource.data.customerId == request.auth.uid) || isAdmin();
+      
+      // Only admins can delete an order.
       allow delete: if isAdmin();
     }
 
-    // Aturan untuk Koleksi 'bank_accounts'
+    // Rules for stock, purchases, and operational expenses (Admin-only)
+    match /stock_adjustments/{adjustmentId} {
+      allow read, write: if isAdmin();
+    }
+    match /purchase_transactions/{transactionId} {
+      allow read, write: if isAdmin();
+    }
+    match /operational_expenses/{expenseId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Rules for public-read collections modified by admin
     match /bank_accounts/{accountId} {
-        allow read: if request.auth != null;
-        allow write, create, delete: if isAdmin();
+        allow read: if isReseller();
+        allow write: if isAdmin();
     }
-
-    // Aturan untuk Koleksi 'whatsapp_contacts'
     match /whatsapp_contacts/{contactId} {
-        allow read: if true;
+        allow read: if isReseller();
         allow write: if isAdmin();
     }
-
-    // Aturan untuk Koleksi 'banners'
     match /banners/{bannerId} {
-        allow read: if true;
+        allow read: if isReseller();
         allow write: if isAdmin();
     }
-
-    // Aturan untuk Koleksi 'promotions'
     match /promotions/{promoId} {
-        allow read: if true;
+        allow read: if isReseller();
         allow write: if isAdmin();
     }
-
-    // Aturan untuk Koleksi 'trending_products'
-    match /trending_products/{trendingId} {
-        allow read: if true;
+    match /trending_products/{productId} {
+        allow read: if isReseller();
         allow write: if isAdmin();
     }
   }
