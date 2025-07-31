@@ -271,9 +271,25 @@ export default function ResellerDashboard() {
                         <Link href="/reseller/promo">Lihat Semua</Link>
                     </Button>
                  </div>
-                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                     {promotions.slice(0, 4).map(renderProductCard)}
-                 </div>
+                 <Carousel
+                    opts={{
+                        align: "start",
+                        loop: true,
+                    }}
+                    className="w-full"
+                >
+                    <CarouselContent>
+                        {promotions.slice(0, 6).map((product, index) => (
+                        <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/4">
+                            <div className="p-1">
+                                {renderProductCard(product)}
+                            </div>
+                        </CarouselItem>
+                        ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="hidden sm:flex" />
+                    <CarouselNext className="hidden sm:flex"/>
+                </Carousel>
             </section>
         )}
         
@@ -288,9 +304,25 @@ export default function ResellerDashboard() {
                         <Link href="/reseller/trending">Lihat Semua</Link>
                     </Button>
                  </div>
-                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                     {trendingProducts.slice(0, 4).map(renderProductCard)}
-                 </div>
+                  <Carousel
+                    opts={{
+                        align: "start",
+                        loop: true,
+                    }}
+                    className="w-full"
+                >
+                    <CarouselContent>
+                        {trendingProducts.slice(0, 6).map((product, index) => (
+                        <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/4">
+                            <div className="p-1">
+                                {renderProductCard(product)}
+                            </div>
+                        </CarouselItem>
+                        ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="hidden sm:flex" />
+                    <CarouselNext className="hidden sm:flex" />
+                </Carousel>
             </section>
         )}
 
