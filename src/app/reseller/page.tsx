@@ -280,7 +280,7 @@ export default function ResellerDashboard() {
                 >
                     <CarouselContent>
                         {promotions.slice(0, 6).map((product, index) => (
-                        <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/4">
+                        <CarouselItem key={index} className="basis-1/2 md:basis-1/3 lg:basis-1/4">
                             <div className="p-1">
                                 {renderProductCard(product)}
                             </div>
@@ -313,7 +313,7 @@ export default function ResellerDashboard() {
                 >
                     <CarouselContent>
                         {trendingProducts.slice(0, 6).map((product, index) => (
-                        <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/4">
+                        <CarouselItem key={index} className="basis-1/2 md:basis-1/3 lg:basis-1/4">
                             <div className="p-1">
                                 {renderProductCard(product)}
                             </div>
