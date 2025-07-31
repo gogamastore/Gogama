@@ -62,7 +62,7 @@ async function getSalesDataForProduct(productId: string, startDate: Date, endDat
     const querySnapshot = await getDocs(ordersQuery);
     querySnapshot.forEach(doc => {
         const order = doc.data();
-        order.products?.forEach((product: any) => {
+        order.products?.forEach((product: { productId: string; quantity: number; }) => {
             if (product.productId === productId) {
                 salesData.push({
                     orderDate: format(order.date.toDate(), 'yyyy-MM-dd'),
@@ -340,5 +340,3 @@ export default function StockSuggestionPage() {
     </div>
   );
 }
-
-    
