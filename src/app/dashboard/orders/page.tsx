@@ -590,6 +590,34 @@ export default function OrdersPage() {
       }
   };
 
+  const handleMarkAsPaid = async (order: Order) => {
+    setIsProcessing(order.id);
+    const orderRef = doc(db, "orders", order.id);
+    try {
+        const updates: Partial<Order> = { paymentStatus: 'Paid' };
+        // Only change status to 'Processing' if it's not already shipped/delivered
+        if (order.status !== 'Shipped' && order.status !== 'Delivered') {
+            updates.status = 'Processing';
+        }
+        
+        await updateDoc(orderRef, updates);
+        await fetchOrders();
+        toast({
+            title: "Status Pembayaran Diperbarui",
+            description: `Pesanan ${order.id.substring(0,7)}... telah ditandai lunas.`,
+        });
+
+    } catch (error) {
+        console.error("Error updating payment status: ", error);
+        toast({
+            variant: "destructive",
+            title: "Gagal Memperbarui Status",
+        });
+    } finally {
+        setIsProcessing(null);
+    }
+  };
+
   const handleCancelOrder = async (order: Order) => {
     setIsProcessing(order.id);
     const batch = writeBatch(db);
@@ -744,7 +772,7 @@ export default function OrdersPage() {
                                 <Separator />
                                 <div className="grid grid-cols-1 gap-2 py-2">
                                      {order.paymentStatus === 'Unpaid' && order.paymentMethod === 'bank_transfer' && (
-                                        <Button variant="outline" className="w-full justify-start" onClick={() => updateOrderStatus(order.id, { paymentStatus: 'Paid', status: 'Processing' })}>
+                                        <Button variant="outline" className="w-full justify-start" onClick={() => handleMarkAsPaid(order)}>
                                             <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
                                         </Button>
                                     )}
@@ -900,3 +928,5 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+    
