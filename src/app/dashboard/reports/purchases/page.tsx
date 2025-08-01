@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -30,6 +30,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -43,9 +44,25 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { DollarSign, Package, Calendar as CalendarIcon, FileText } from "lucide-react";
+import { DollarSign, Package, Calendar as CalendarIcon, FileText, Edit, Plus, Minus, Trash2, Loader2, Search, PlusCircle } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import Image from "next/image";
+
+
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  price: string;
+  stock: number;
+  image: string;
+  purchasePrice?: number;
+}
 
 interface PurchaseItem {
   productId: string;
@@ -91,6 +108,247 @@ const processPurchaseDataForChart = (transactions: PurchaseTransaction[]) => {
     })).sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime());
 };
 
+function AddProductToPurchaseDialog({ currentItems, onAddProduct }: { currentItems: PurchaseItem[], onAddProduct: (product: Product, quantity: number, purchasePrice: number) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [quantity, setQuantity] = useState(1);
+    const [purchasePrice, setPurchasePrice] = useState(0);
+
+    const fetchProducts = async () => {
+        setLoading(true);
+        const querySnapshot = await getDocs(collection(db, "products"));
+        const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setAllProducts(productsData);
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchProducts();
+        }
+    }, [isOpen]);
+    
+    useEffect(() => {
+        const currentProductIds = currentItems.map(p => p.productId);
+        const availableProducts = allProducts.filter(p => !currentProductIds.includes(p.id));
+        const results = availableProducts.filter(p => 
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setFilteredProducts(results);
+    }, [searchTerm, allProducts, currentItems]);
+
+    const handleAddClick = (product: Product) => {
+        onAddProduct(product, quantity, purchasePrice || product.purchasePrice || 0);
+        setIsOpen(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Tambah Produk</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>Tambah Produk ke Transaksi Pembelian</DialogTitle>
+                    <DialogDescription>Cari dan pilih produk yang ingin ditambahkan.</DialogDescription>
+                </DialogHeader>
+                 <div className="relative pt-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Cari produk..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </div>
+                <div className="max-h-[50vh] overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Produk</TableHead>
+                                <TableHead>Stok</TableHead>
+                                <TableHead className="w-[180px]">Harga Beli</TableHead>
+                                <TableHead className="w-[120px]">Jumlah</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow><TableCell colSpan={5} className="text-center">Memuat produk...</TableCell></TableRow>
+                            ) : filteredProducts.map(p => (
+                                <TableRow key={p.id}>
+                                    <TableCell className="font-medium">{p.name}</TableCell>
+                                    <TableCell>{p.stock}</TableCell>
+                                    <TableCell>
+                                        <Input type="number" defaultValue={p.purchasePrice || 0} onChange={(e) => setPurchasePrice(Number(e.target.value))} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Input type="number" defaultValue={1} min={1} onChange={(e) => setQuantity(Number(e.target.value))} />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button onClick={() => handleAddClick(p)}>Tambah</Button>
+                                    </TableCell>
+                                </TableRow>
+                            )) }
+                        </TableBody>
+                    </Table>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
+function EditPurchaseDialog({ transaction, onPurchaseUpdated }: { transaction: PurchaseTransaction, onPurchaseUpdated: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [editableItems, setEditableItems] = useState<PurchaseItem[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (transaction) {
+            setEditableItems(JSON.parse(JSON.stringify(transaction.items || [])));
+        }
+    }, [transaction]);
+
+    const handleQuantityChange = (productId: string, newQuantity: number) => {
+        if (newQuantity < 0) return; // Allow 0 to remove item implicitly
+        setEditableItems(items =>
+            items.map(p => p.productId === productId ? { ...p, quantity: newQuantity } : p)
+        );
+    };
+    
+    const handleRemoveItem = (productId: string) => {
+        setEditableItems(items => items.filter(p => p.productId !== productId));
+    };
+
+    const handleAddProduct = (product: Product, quantity: number, purchasePrice: number) => {
+        const newItem: PurchaseItem = {
+            productId: product.id,
+            productName: product.name,
+            quantity: quantity,
+            purchasePrice: purchasePrice
+        };
+        setEditableItems(prev => [...prev, newItem]);
+    };
+    
+    const newTotal = useMemo(() => {
+        return editableItems.reduce((sum, item) => sum + (item.purchasePrice * item.quantity), 0);
+    }, [editableItems]);
+
+    const handleSaveChanges = async () => {
+        setIsSaving(true);
+        const batch = writeBatch(db);
+
+        try {
+            const originalItems = transaction.items || [];
+            const stockAdjustments = new Map<string, number>();
+
+            // Calculate stock adjustments
+            const allProductIds = new Set([...originalItems.map(i => i.productId), ...editableItems.map(i => i.productId)]);
+
+            for (const productId of allProductIds) {
+                const originalItem = originalItems.find(i => i.productId === productId);
+                const newItem = editableItems.find(i => i.productId === productId);
+                const originalQty = originalItem?.quantity || 0;
+                const newQty = newItem?.quantity || 0;
+                const diff = newQty - originalQty;
+
+                if (diff !== 0) {
+                    stockAdjustments.set(productId, diff);
+                }
+            }
+            
+            // Apply stock updates
+            for (const [productId, adjustment] of stockAdjustments.entries()) {
+                const productRef = doc(db, "products", productId);
+                const productDoc = await getDoc(productRef);
+                if (productDoc.exists()) {
+                    const currentStock = productDoc.data().stock || 0;
+                    batch.update(productRef, { stock: currentStock + adjustment });
+                }
+            }
+
+            // Update the purchase transaction
+            const purchaseRef = doc(db, "purchase_transactions", transaction.id);
+            batch.update(purchaseRef, {
+                items: editableItems.filter(i => i.quantity > 0), // remove items with 0 quantity
+                totalAmount: newTotal,
+            });
+            
+            await batch.commit();
+            toast({ title: "Transaksi Pembelian Diperbarui", description: "Stok produk telah disesuaikan." });
+            onPurchaseUpdated();
+            setIsOpen(false);
+        } catch (error) {
+            console.error("Error updating purchase:", error);
+            toast({ variant: "destructive", title: "Gagal Menyimpan Perubahan" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Edit className="mr-2 h-4 w-4" /> Edit Transaksi</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-4xl">
+                 <DialogHeader className="flex-row justify-between items-center">
+                    <div>
+                        <DialogTitle>Edit Transaksi Pembelian #{transaction.id.substring(0, 7)}...</DialogTitle>
+                        <DialogDescription>Ubah jumlah, hapus, atau tambah item baru.</DialogDescription>
+                    </div>
+                    <AddProductToPurchaseDialog currentItems={editableItems} onAddProduct={handleAddProduct} />
+                </DialogHeader>
+                <div className="max-h-[50vh] overflow-y-auto p-1">
+                     <div className="relative w-full overflow-auto">
+                        <Table>
+                             <TableHeader>
+                                <TableRow>
+                                    <TableHead>Produk</TableHead>
+                                    <TableHead className="w-[150px]">Jumlah</TableHead>
+                                    <TableHead className="text-right">Harga Beli</TableHead>
+                                    <TableHead className="text-right">Subtotal</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {editableItems.map(item => (
+                                     <TableRow key={item.productId}>
+                                        <TableCell className="font-medium">{item.productName}</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-1">
+                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}><Minus className="h-3 w-3" /></Button>
+                                                <Input type="number" value={item.quantity} onChange={(e) => handleQuantityChange(item.productId, parseInt(e.target.value, 10))} className="w-14 h-7 text-center" min="0"/>
+                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}><Plus className="h-3 w-3" /></Button>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-right">{formatCurrency(item.purchasePrice)}</TableCell>
+                                        <TableCell className="text-right font-semibold">{formatCurrency(item.purchasePrice * item.quantity)}</TableCell>
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(item.productId)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                     <Separator className="my-4"/>
+                    <div className="text-right font-bold text-lg pr-4">Total Baru: {formatCurrency(newTotal)}</div>
+                </div>
+                 <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
+                    <Button onClick={handleSaveChanges} disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Simpan Perubahan
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export default function PurchasesReportPage() {
   const [allTransactions, setAllTransactions] = useState<PurchaseTransaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<PurchaseTransaction[]>([]);
@@ -112,11 +370,9 @@ export default function PurchasesReportPage() {
     });
   }, []);
 
-  useEffect(() => {
-    const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
       setLoading(true);
       try {
-        // Assuming purchase transactions are stored in a "purchase_transactions" collection
         const querySnapshot = await getDocs(collection(db, "purchase_transactions"));
         const transactionsData = querySnapshot.docs.map(doc => {
             const data = doc.data();
@@ -127,17 +383,20 @@ export default function PurchasesReportPage() {
             } as PurchaseTransaction;
         });
         setAllTransactions(transactionsData);
-        const todayTransactions = filterTransactionsByDate(transactionsData, startOfDay(new Date()), endOfDay(new Date()));
-        setFilteredTransactions(todayTransactions);
+        // Apply initial date filter
+        const initialFiltered = filterTransactionsByDate(transactionsData, dateRange.from, dateRange.to);
+        setFilteredTransactions(initialFiltered);
       } catch (error) {
         console.error("Error fetching purchase transactions: ", error);
       } finally {
         setLoading(false);
       }
-    };
+    }, [filterTransactionsByDate, dateRange]);
 
+
+  useEffect(() => {
     fetchTransactions();
-  }, [filterTransactionsByDate]);
+  }, [fetchTransactions]);
   
   const handleFilter = () => {
     const { from, to } = dateRange;
@@ -164,7 +423,7 @@ export default function PurchasesReportPage() {
     };
   }, [filteredTransactions]);
 
-  if (loading) {
+  if (loading && allTransactions.length === 0) {
     return (
         <div className="text-center p-8">
             <p>Memuat data laporan pembelian...</p>
@@ -288,10 +547,12 @@ export default function PurchasesReportPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {filteredTransactions.length > 0 ? (
+                {loading && filteredTransactions.length === 0 ? (
+                     <TableRow><TableCell colSpan={5} className="text-center h-24">Memuat transaksi...</TableCell></TableRow>
+                ) : filteredTransactions.length > 0 ? (
                     filteredTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
-                        <TableCell className="font-medium">{transaction.id}</TableCell>
+                        <TableCell className="font-medium">{transaction.id.substring(0,7)}...</TableCell>
                         <TableCell>{format(new Date(transaction.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
                         <TableCell>{transaction.supplier || 'N/A'}</TableCell>
                         <TableCell className="text-right">
@@ -346,6 +607,9 @@ export default function PurchasesReportPage() {
                                             Total Pembelian: {formatCurrency(transaction.totalAmount)}
                                         </div>
                                     </div>
+                                    <DialogFooter>
+                                        <EditPurchaseDialog transaction={transaction} onPurchaseUpdated={fetchTransactions} />
+                                    </DialogFooter>
                                 </DialogContent>
                             </Dialog>
                         </TableCell>
@@ -366,5 +630,3 @@ export default function PurchasesReportPage() {
     </div>
   );
 }
-
-    
