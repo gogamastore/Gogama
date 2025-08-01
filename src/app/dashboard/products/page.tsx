@@ -483,6 +483,12 @@ function ImageViewer({ src, alt }: { src: string, alt: string }) {
             />
         </DialogTrigger>
         <DialogContent className="max-w-xl">
+             <DialogHeader>
+                <DialogTitle>{alt}</DialogTitle>
+                <DialogDescription>
+                    Pratinjau gambar produk ukuran penuh.
+                </DialogDescription>
+            </DialogHeader>
             <Image
                 alt={alt}
                 className="rounded-lg object-contain"
