@@ -40,6 +40,7 @@ import { Calendar as CalendarIcon, Search, Package, Loader2, ArrowUp, ArrowDown 
 import { format, startOfDay, endOfDay, parseISO } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
+import { Label } from "@/components/ui/label";
 
 // Interfaces
 interface Product {
