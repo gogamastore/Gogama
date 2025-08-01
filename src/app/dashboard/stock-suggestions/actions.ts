@@ -1,6 +1,7 @@
 
 "use server";
-import { suggestOptimalStockLevels, SuggestOptimalStockLevelsInput, SuggestOptimalStockLevelsOutput } from '@/ai/flows/suggest-optimal-stock-levels';
+import { suggestOptimalStockLevels } from '@/ai/flows/suggest-optimal-stock-levels';
+import type { SuggestOptimalStockLevelsInput, SuggestOptimalStockLevelsOutput } from '@/ai/schemas/stock-suggestion-schemas';
 
 /**
  * Calls the Genkit AI flow to get stock suggestions.

@@ -30,7 +30,7 @@ import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { subDays, format } from "date-fns";
-import type { SuggestOptimalStockLevelsOutput } from "@/ai/flows/suggest-optimal-stock-levels";
+import type { SuggestOptimalStockLevelsOutput } from "@/ai/schemas/stock-suggestion-schemas";
 
 interface Product {
   id: string;
@@ -340,4 +340,3 @@ export default function StockSuggestionPage() {
     </div>
   );
 }
-
