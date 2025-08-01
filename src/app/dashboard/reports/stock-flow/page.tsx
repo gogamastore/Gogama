@@ -53,7 +53,7 @@ interface Product {
 
 interface StockMovement {
     date: Date;
-    type: 'Penjualan' | 'Pembelian' | 'Penyesuaian Masuk' | 'Penyesuaian Keluar' | 'Pesanan Batal';
+    type: 'Penjualan' | 'Pembelian' | 'Penyesuaian Masuk' | 'Penyesuaian Keluar' | 'Pesanan Dibatalkan';
     quantityChange: number;
     relatedInfo: string;
     description: string;
@@ -83,31 +83,33 @@ function StockHistoryDialog({ product, dateRange }: { product: Product, dateRang
         const startDate = startOfDay(from);
         const endDate = endOfDay(to);
 
-        // 1. Fetch Sales (Shipped or Delivered)
-        const salesQuery = query(
+        // 1. Fetch ALL Orders (as stock out)
+        const allOrdersQuery = query(
             collection(db, "orders"),
             where("productIds", "array-contains", productId),
-            where("status", "in", ["Shipped", "Delivered"]),
             where("date", ">=", startDate),
             where("date", "<=", endDate)
         );
-        const salesSnapshot = await getDocs(salesQuery);
-        salesSnapshot.forEach(doc => {
+        const allOrdersSnapshot = await getDocs(allOrdersQuery);
+        allOrdersSnapshot.forEach(doc => {
             const orderData = doc.data();
-            orderData.products?.forEach((item: { productId: string, quantity: number }) => {
-                if (item.productId === productId) {
-                    movements.push({
-                        date: orderData.date.toDate(),
-                        type: 'Penjualan',
-                        quantityChange: -item.quantity,
-                        relatedInfo: `Order #${doc.id.substring(0, 7)}`,
-                        description: `Pelanggan: ${orderData.customer}`
-                    });
-                }
-            });
+            // Don't log a stock out for an order that was immediately cancelled in the same period
+            if (orderData.status !== 'Cancelled') {
+                 orderData.products?.forEach((item: { productId: string, quantity: number }) => {
+                    if (item.productId === productId) {
+                        movements.push({
+                            date: orderData.date.toDate(),
+                            type: 'Penjualan',
+                            quantityChange: -item.quantity,
+                            relatedInfo: `Order #${doc.id.substring(0, 7)}`,
+                            description: `Pelanggan: ${orderData.customer}`
+                        });
+                    }
+                });
+            }
         });
-
-        // 2. Fetch Cancelled Orders (Stock Return)
+        
+        // 2. Fetch Cancelled Orders (as stock IN)
         const cancelledQuery = query(
             collection(db, "orders"),
             where("productIds", "array-contains", productId),
@@ -122,10 +124,10 @@ function StockHistoryDialog({ product, dateRange }: { product: Product, dateRang
                 if (item.productId === productId) {
                     movements.push({
                         date: orderData.date.toDate(),
-                        type: 'Pesanan Batal',
+                        type: 'Pesanan Dibatalkan',
                         quantityChange: item.quantity, // Positive change
                         relatedInfo: `Order #${doc.id.substring(0, 7)}`,
-                        description: `Stok dikembalikan dari pesanan pelanggan: ${orderData.customer}`
+                        description: `Stok dikembalikan dari pesanan: ${orderData.customer}`
                     });
                 }
             });
