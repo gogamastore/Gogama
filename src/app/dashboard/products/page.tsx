@@ -470,9 +470,34 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
     );
 }
 
+function ImageViewer({ src, alt }: { src: string, alt: string }) {
+  return (
+    <Dialog>
+        <DialogTrigger asChild>
+            <Image
+                alt={alt}
+                className="aspect-square rounded-md object-cover cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                height="64"
+                src={src || 'https://placehold.co/64x64.png'}
+                width="64"
+            />
+        </DialogTrigger>
+        <DialogContent className="max-w-xl">
+            <Image
+                alt={alt}
+                className="rounded-lg object-contain"
+                height="800"
+                src={src || 'https://placehold.co/800x800.png'}
+                width="800"
+            />
+        </DialogContent>
+    </Dialog>
+  );
+}
+
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
@@ -506,24 +531,34 @@ export default function ProductsPage() {
     fetchProducts();
   }, [fetchProducts]);
 
-  useEffect(() => {
+  const filteredAllProducts = useMemo(() => {
     const lowercasedFilter = searchTerm.toLowerCase();
-    const results = products.filter(product => {
+    if (!lowercasedFilter) return products;
+    return products.filter(product => {
       const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
       const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
       return nameMatch || skuMatch;
     });
-    setFilteredProducts(results);
-    setCurrentPage(1); // Reset to first page on new search
   }, [searchTerm, products]);
   
+  const filteredLowStockProducts = useMemo(() => {
+    const lowercasedFilter = searchTerm.toLowerCase();
+    if (!lowercasedFilter) return lowStockProducts;
+    return lowStockProducts.filter(product => {
+      const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
+      const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
+      return nameMatch || skuMatch;
+    });
+  }, [searchTerm, lowStockProducts]);
+
+
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return filteredProducts.slice(startIndex, endIndex);
-  }, [currentPage, itemsPerPage, filteredProducts]);
+    return filteredAllProducts.slice(startIndex, endIndex);
+  }, [currentPage, itemsPerPage, filteredAllProducts]);
 
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredAllProducts.length / itemsPerPage);
 
 
   const handleEditClick = (product: Product) => {
@@ -558,7 +593,7 @@ export default function ProductsPage() {
 
   return (
     <>
-    <Tabs defaultValue="all">
+    <Tabs defaultValue="all" onValueChange={() => setSearchTerm('')}>
         <div className="flex items-center">
             <TabsList>
                 <TabsTrigger value="all">Daftar Produk</TabsTrigger>
@@ -592,7 +627,7 @@ export default function ProductsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                <TableHead className="hidden w-[100px] sm:table-cell">
+                                <TableHead className="w-[100px] sm:table-cell">
                                     <span className="sr-only">Image</span>
                                 </TableHead>
                                 <TableHead>Nama</TableHead>
@@ -610,15 +645,8 @@ export default function ProductsPage() {
                                     </TableRow>
                                 ) : paginatedProducts.map((product) => (
                                 <TableRow key={product.id}>
-                                    <TableCell className="hidden sm:table-cell">
-                                    <Image
-                                        alt="Product image"
-                                        className="aspect-square rounded-md object-cover"
-                                        height="64"
-                                        src={product.image || 'https://placehold.co/64x64.png'}
-                                        width="64"
-                                        data-ai-hint={product['data-ai-hint']}
-                                    />
+                                    <TableCell className="sm:table-cell">
+                                        <ImageViewer src={product.image} alt={product.name}/>
                                     </TableCell>
                                     <TableCell className="font-medium">{product.name}</TableCell>
                                     <TableCell>{product.sku}</TableCell>
@@ -676,7 +704,7 @@ export default function ProductsPage() {
                  <CardFooter>
                     <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
                        <div className="flex-1">
-                           Menampilkan {paginatedProducts.length} dari {filteredProducts.length} produk.
+                           Menampilkan {paginatedProducts.length} dari {filteredAllProducts.length} produk.
                        </div>
                        <div className="flex items-center gap-4">
                            <div className="flex items-center gap-2">
@@ -733,12 +761,22 @@ export default function ProductsPage() {
                     <CardDescription>
                         Produk dengan jumlah stok 5 atau kurang. Segera restock!
                     </CardDescription>
+                     <div className="relative pt-2">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Cari produk..."
+                            className="w-full pl-8 sm:w-1/2 md:w-1/3"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                 </CardHeader>
                 <CardContent>
                      <div className="relative w-full overflow-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead className="w-[100px] sm:table-cell">Gambar</TableHead>
                                     <TableHead>Nama Produk</TableHead>
                                     <TableHead>SKU</TableHead>
                                     <TableHead className="text-right">Stok Tersisa</TableHead>
@@ -748,10 +786,13 @@ export default function ProductsPage() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">Memuat produk...</TableCell>
+                                        <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
-                                ) : lowStockProducts.length > 0 ? lowStockProducts.map((product) => (
+                                ) : filteredLowStockProducts.length > 0 ? filteredLowStockProducts.map((product) => (
                                     <TableRow key={product.id}>
+                                        <TableCell className="sm:table-cell">
+                                            <ImageViewer src={product.image} alt={product.name}/>
+                                        </TableCell>
                                         <TableCell className="font-medium">{product.name}</TableCell>
                                         <TableCell>{product.sku}</TableCell>
                                         <TableCell className="text-right">
@@ -763,7 +804,7 @@ export default function ProductsPage() {
                                     </TableRow>
                                 )) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">Tidak ada produk dengan stok menipis.</TableCell>
+                                        <TableCell colSpan={5} className="h-24 text-center">Tidak ada produk dengan stok menipis.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
@@ -779,12 +820,22 @@ export default function ProductsPage() {
                     <CardDescription>
                         Lakukan penyesuaian stok untuk produk Anda dan lihat riwayat perubahan.
                     </CardDescription>
+                     <div className="relative pt-2">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Cari produk..."
+                            className="w-full pl-8 sm:w-1/2 md:w-1/3"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                 </CardHeader>
                 <CardContent>
                      <div className="relative w-full overflow-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead className="w-[100px] sm:table-cell">Gambar</TableHead>
                                     <TableHead>Nama Produk</TableHead>
                                     <TableHead>SKU</TableHead>
                                     <TableHead className="text-center">Stok Saat Ini</TableHead>
@@ -794,10 +845,13 @@ export default function ProductsPage() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">Memuat produk...</TableCell>
+                                        <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
-                                ) : products.map((product) => (
+                                ) : filteredAllProducts.map((product) => (
                                     <TableRow key={product.id}>
+                                        <TableCell className="sm:table-cell">
+                                            <ImageViewer src={product.image} alt={product.name}/>
+                                        </TableCell>
                                         <TableCell className="font-medium">{product.name}</TableCell>
                                         <TableCell>{product.sku}</TableCell>
                                         <TableCell className="text-center font-bold">{product.stock}</TableCell>
@@ -822,4 +876,3 @@ export default function ProductsPage() {
     </>
   )
 }
-
