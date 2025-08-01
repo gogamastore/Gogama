@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Image from "next/image"
@@ -92,7 +91,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { id, value } = e.target;
-        const numericFields = ['purchasePrice', 'price'];
+        const numericFields = ['purchasePrice', 'price', 'stock'];
         setFormData(prev => ({ ...prev, [id]: numericFields.includes(id) ? Number(value) : value }));
     };
 
@@ -145,7 +144,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
             }
 
 
-            if (product) { // Editing existing product
+            if (product) { // Editing existing product - stock is not updated here
                 const productRef = doc(db, "products", product.id);
                 await updateDoc(productRef, dataToSave);
                 toast({
@@ -155,7 +154,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
             } else { // Adding new product
                 await addDoc(collection(db, "products"), {
                     ...dataToSave,
-                    stock: 0, // New products start with 0 stock
+                    stock: formData.stock || 0, // Use stock from form for new products
                     createdAt: serverTimestamp(),
                 });
                 toast({
@@ -210,10 +209,16 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                     <Input id="price" type="number" value={formData.price} onChange={handleInputChange} className="col-span-3" placeholder="Harga yang akan tampil di toko" />
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">Stok</Label>
-                    <div className="col-span-3">
-                        <Input value={product ? product.stock : '0 (Atur via Manajemen Stok)'} disabled />
-                    </div>
+                    <Label htmlFor="stock" className="text-right">Stok Awal</Label>
+                     <Input 
+                        id="stock" 
+                        type="number" 
+                        value={formData.stock}
+                        onChange={handleInputChange} 
+                        className="col-span-3" 
+                        disabled={!!product} // Disable if editing existing product
+                        placeholder={product ? "Atur via Manajemen Stok" : "Jumlah stok awal"}
+                    />
                 </div>
                 <div className="grid grid-cols-4 items-start gap-4">
                     <Label htmlFor="description" className="text-right pt-2">Deskripsi</Label>
@@ -817,3 +822,4 @@ export default function ProductsPage() {
     </>
   )
 }
+
