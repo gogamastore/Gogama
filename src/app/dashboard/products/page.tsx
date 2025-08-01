@@ -50,8 +50,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch, query, where, deleteDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
@@ -118,7 +118,6 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
             let imageUrl = formData.image;
 
             if (imageFile) {
-                const storage = getStorage();
                 const storageRef = ref(storage, `product_images/${Date.now()}_${imageFile.name}`);
                 await uploadBytes(storageRef, imageFile);
                 imageUrl = await getDownloadURL(storageRef);
@@ -882,5 +881,3 @@ export default function ProductsPage() {
     </>
   )
 }
-
-    
