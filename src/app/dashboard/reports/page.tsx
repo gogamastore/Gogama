@@ -17,6 +17,7 @@ import {
   Scale,
   Warehouse,
   Package,
+  Replace,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -44,6 +45,12 @@ const reportCards = [
     description: "Lacak semua pengeluaran operasional.",
     icon: Landmark,
     href: "/dashboard/reports/operational-expenses",
+  },
+  {
+    title: "Laporan Arus Stok",
+    description: "Lacak riwayat pergerakan stok produk.",
+    icon: Replace,
+    href: "/dashboard/reports/stock-flow",
   },
   {
     title: "Laporan Piutang",
