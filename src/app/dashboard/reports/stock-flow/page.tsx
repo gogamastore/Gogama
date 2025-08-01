@@ -53,7 +53,7 @@ interface Product {
 
 interface StockMovement {
     date: Date;
-    type: 'Penjualan' | 'Pembelian' | 'Penyesuaian Masuk' | 'Penyesuaian Keluar';
+    type: 'Penjualan' | 'Pembelian' | 'Penyesuaian Masuk' | 'Penyesuaian Keluar' | 'Pesanan Batal';
     quantityChange: number;
     relatedInfo: string;
     description: string;
@@ -83,10 +83,11 @@ function StockHistoryDialog({ product, dateRange }: { product: Product, dateRang
         const startDate = startOfDay(from);
         const endDate = endOfDay(to);
 
-        // 1. Fetch Sales
+        // 1. Fetch Sales (Shipped or Delivered)
         const salesQuery = query(
             collection(db, "orders"),
             where("productIds", "array-contains", productId),
+            where("status", "in", ["Shipped", "Delivered"]),
             where("date", ">=", startDate),
             where("date", "<=", endDate)
         );
@@ -105,8 +106,32 @@ function StockHistoryDialog({ product, dateRange }: { product: Product, dateRang
                 }
             });
         });
+
+        // 2. Fetch Cancelled Orders (Stock Return)
+        const cancelledQuery = query(
+            collection(db, "orders"),
+            where("productIds", "array-contains", productId),
+            where("status", "==", "Cancelled"),
+            where("date", ">=", startDate),
+            where("date", "<=", endDate)
+        );
+        const cancelledSnapshot = await getDocs(cancelledQuery);
+        cancelledSnapshot.forEach(doc => {
+            const orderData = doc.data();
+            orderData.products?.forEach((item: { productId: string, quantity: number }) => {
+                if (item.productId === productId) {
+                    movements.push({
+                        date: orderData.date.toDate(),
+                        type: 'Pesanan Batal',
+                        quantityChange: item.quantity, // Positive change
+                        relatedInfo: `Order #${doc.id.substring(0, 7)}`,
+                        description: `Stok dikembalikan dari pesanan pelanggan: ${orderData.customer}`
+                    });
+                }
+            });
+        });
         
-        // 2. Fetch Purchases
+        // 3. Fetch Purchases
         const purchasesQuery = query(
             collection(db, "purchase_transactions"),
             where("date", ">=", startDate),
@@ -127,7 +152,7 @@ function StockHistoryDialog({ product, dateRange }: { product: Product, dateRang
             })
         });
 
-        // 3. Fetch Adjustments
+        // 4. Fetch Adjustments
         const adjustmentsQuery = query(
             collection(db, "stock_adjustments"),
             where("productId", "==", productId),
@@ -148,14 +173,17 @@ function StockHistoryDialog({ product, dateRange }: { product: Product, dateRang
             });
         });
 
-        // Sort all movements by date
+        // Sort all movements by date, descending (most recent first)
         const sortedMovements = movements.sort((a,b) => b.date.getTime() - a.date.getTime());
 
         // Calculate stock after each movement (running total in reverse)
-        let currentStock = product.stock;
+        let runningStock = product.stock;
         const finalHistory = sortedMovements.map(movement => {
-            const stockAfter = currentStock;
-            currentStock -= movement.quantityChange; // Reverse calculation
+            const stockAfter = runningStock;
+            // To find the stock before this movement, we reverse the operation.
+            // If it was a sale (-5), we add 5 to get the previous stock.
+            // If it was a purchase (+10), we subtract 10.
+            runningStock = runningStock - movement.quantityChange; 
             return { ...movement, stockAfter };
         });
 
