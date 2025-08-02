@@ -2,7 +2,6 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { useAuth } from './use-auth';
 
 interface CartItem {
   id: string;
@@ -16,7 +15,7 @@ interface CartItem {
 
 interface PurchaseCartContextType {
   cart: CartItem[];
-  addToCart: (item: CartItem) => void;
+  addToCart: (item: Omit<CartItem, 'quantity'> & { quantity: number }) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
   totalItems: number;
@@ -24,79 +23,6 @@ interface PurchaseCartContextType {
 }
 
 const PurchaseCartContext = createContext<PurchaseCartContextType | undefined>(undefined);
-
-export const PurchaseCartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const { user } = useAuth(); // Use auth to potentially scope carts per user if needed
-
-  // Load cart from sessionStorage on component mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-        try {
-            const savedCart = window.sessionStorage.getItem('purchase-cart');
-            if (savedCart) {
-                setCart(JSON.parse(savedCart));
-            }
-        } catch (error) {
-            console.error("Failed to load purchase cart from sessionStorage", error);
-        }
-    }
-  }, []);
-
-  // Save cart to sessionStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-        try {
-            window.sessionStorage.setItem('purchase-cart', JSON.stringify(cart));
-        } catch (error) {
-            console.error("Failed to save purchase cart to sessionStorage", error);
-        }
-    }
-  }, [cart]);
-
-  const addToCart = (newItem: CartItem) => {
-    setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.id === newItem.id);
-      if (existingItem) {
-        return prevCart.map(item =>
-          item.id === newItem.id
-            ? { ...item, quantity: item.quantity + newItem.quantity, purchasePrice: newItem.purchasePrice }
-            : item
-        );
-      }
-      return [...prevCart, newItem];
-    });
-  };
-
-  const removeFromCart = (productId: string) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== productId));
-  };
-
-  const clearCart = useCallback(() => {
-    setCart([]);
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem('purchase-cart');
-    }
-  }, []);
-
-  const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
-  const totalPurchase = cart.reduce((total, item) => total + (item.purchasePrice * item.quantity), 0);
-  
-  const value = {
-      cart,
-      addToCart,
-      removeFromCart,
-      clearCart,
-      totalItems,
-      totalPurchase
-  };
-
-  return (
-    <PurchaseCartContext.Provider value={value}>
-      {children}
-    </PurchaseCartContext.Provider>
-  );
-};
 
 export const usePurchaseCart = (): PurchaseCartContextType => {
   const context = useContext(PurchaseCartContext);
@@ -106,4 +32,5 @@ export const usePurchaseCart = (): PurchaseCartContextType => {
   return context;
 };
 
-    
+// The PurchaseCartProvider component has been moved to src/app/dashboard/layout.tsx
+// to resolve the build error caused by JSX in a .ts file.

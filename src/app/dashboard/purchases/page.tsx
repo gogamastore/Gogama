@@ -35,7 +35,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { PlusCircle, Search, ShoppingCart, Trash2, XCircle, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { usePurchaseCart } from "@/hooks/use-purchase-cart";
+import { usePurchaseCartFromLayout } from "@/app/dashboard/layout"; // Updated import
 import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -124,7 +124,7 @@ export default function PurchaseTransactionPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const { cart, addToCart, removeFromCart, clearCart, totalPurchase } = usePurchaseCart();
+  const { cart, addToCart, removeFromCart, clearCart, totalPurchase } = usePurchaseCartFromLayout(); // Updated hook
   const { toast } = useToast();
   const router = useRouter();
   
@@ -371,5 +371,3 @@ export default function PurchaseTransactionPage() {
     </div>
   );
 }
-
-    

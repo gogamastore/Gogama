@@ -11,9 +11,111 @@ import { Search, Menu } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback, createContext } from "react";
 import Image from "next/image";
-import { PurchaseCartProvider } from "@/hooks/use-purchase-cart";
+
+// Define the types for the purchase cart
+interface CartItem {
+  id: string;
+  name: string;
+  price: string;
+  image: string;
+  stock: number;
+  purchasePrice: number;
+  quantity: number;
+}
+
+interface PurchaseCartContextType {
+  cart: CartItem[];
+  addToCart: (item: CartItem) => void;
+  removeFromCart: (productId: string) => void;
+  clearCart: () => void;
+  totalItems: number;
+  totalPurchase: number;
+}
+
+// Create the context
+const PurchaseCartContext = createContext<PurchaseCartContextType | undefined>(undefined);
+
+// Export the provider as a named export
+export const PurchaseCartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [cart, setCart] = useState<CartItem[]>([]);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        try {
+            const savedCart = window.sessionStorage.getItem('purchase-cart');
+            if (savedCart) {
+                setCart(JSON.parse(savedCart));
+            }
+        } catch (error) {
+            console.error("Failed to load purchase cart from sessionStorage", error);
+        }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        try {
+            window.sessionStorage.setItem('purchase-cart', JSON.stringify(cart));
+        } catch (error) {
+            console.error("Failed to save purchase cart to sessionStorage", error);
+        }
+    }
+  }, [cart]);
+
+  const addToCart = (newItem: CartItem) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.id === newItem.id);
+      if (existingItem) {
+        return prevCart.map(item =>
+          item.id === newItem.id
+            ? { ...item, quantity: item.quantity + newItem.quantity, purchasePrice: newItem.purchasePrice }
+            : item
+        );
+      }
+      return [...prevCart, newItem];
+    });
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== productId));
+  };
+
+  const clearCart = useCallback(() => {
+    setCart([]);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('purchase-cart');
+    }
+  }, []);
+
+  const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+  const totalPurchase = cart.reduce((total, item) => total + (item.purchasePrice * item.quantity), 0);
+  
+  const value = {
+      cart,
+      addToCart,
+      removeFromCart,
+      clearCart,
+      totalItems,
+      totalPurchase
+  };
+
+  return (
+    <PurchaseCartContext.Provider value={value}>
+      {children}
+    </PurchaseCartContext.Provider>
+  );
+};
+
+// Export the hook as a named export from the layout file itself
+export const usePurchaseCartFromLayout = () => {
+    const context = useContext(PurchaseCartContext);
+    if (context === undefined) {
+        throw new Error('usePurchaseCartFromLayout must be used within a PurchaseCartProvider in the layout');
+    }
+    return context;
+};
 
 function Logo() {
   return (
@@ -105,5 +207,3 @@ export default function DashboardLayout({
     </PurchaseCartProvider>
   );
 }
-
-    
