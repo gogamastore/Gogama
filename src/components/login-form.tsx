@@ -35,12 +35,6 @@ export default function LoginForm() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-        // Redirect logic moved to handleLogin to check for roles
-    }
-  }, [user, authLoading, router]);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -104,14 +98,6 @@ export default function LoginForm() {
     }
   }
   
-  if (authLoading || user) {
-    return (
-        <div className="flex h-screen items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-    )
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-2xl">
@@ -144,8 +130,8 @@ export default function LoginForm() {
               </div>
               <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={loading || authLoading}>
+              {(loading || authLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? 'Memproses...' : 'Login'}
             </Button>
           </form>
