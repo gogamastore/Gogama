@@ -48,20 +48,23 @@ import {
 import { DollarSign, Package, Calendar as CalendarIcon, FileText } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
-import Link from "next/link";
+import Image from "next/image";
 
 interface OrderProduct {
   productId: string;
   name: string;
   quantity: number;
   price: number;
+  image: string;
 }
 interface Order {
   id: string;
   customer: string;
   customerDetails?: { name: string; address: string; whatsapp: string };
-  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending';
+  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
   total: number;
+  subtotal: number;
+  shippingFee: number;
   date: string; // Should be ISO 8601 string
   products: OrderProduct[];
 }
@@ -97,6 +100,74 @@ const processSalesDataForChart = (orders: Order[]) => {
         total: salesByDate[date]
     })).sort((a, b) => new Date(a.name).getTime() - new Date(b.name).getTime());
 };
+
+
+function OrderDetailDialog({ order }: { order: Order }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="link" className="p-0 h-auto font-medium">
+          {order.id}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Faktur #{order.id}</DialogTitle>
+          <DialogDescription>
+            Tanggal: {format(new Date(order.date), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informasi Pelanggan</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm space-y-1">
+              <p><strong>Nama:</strong> {order.customerDetails?.name || order.customer}</p>
+              <p><strong>Alamat:</strong> {order.customerDetails?.address || 'N/A'}</p>
+              <p><strong>WhatsApp:</strong> {order.customerDetails?.whatsapp || 'N/A'}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Rincian Produk</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produk</TableHead>
+                    <TableHead>Jumlah</TableHead>
+                    <TableHead className="text-right">Harga Satuan</TableHead>
+                    <TableHead className="text-right">Subtotal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {order.products?.map(p => (
+                    <TableRow key={p.productId}>
+                      <TableCell className="flex items-center gap-2">
+                        <Image src={p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
+                        {p.name}
+                      </TableCell>
+                      <TableCell>{p.quantity}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(p.quantity * p.price)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <div className="space-y-2 text-right text-sm">
+            <p>Subtotal Produk: <span className="font-medium">{formatCurrency(order.subtotal)}</span></p>
+            <p>Biaya Pengiriman: <span className="font-medium">{formatCurrency(order.shippingFee)}</span></p>
+            <p className="font-bold text-base border-t pt-2 mt-2">Total: <span className="text-primary">{formatCurrency(order.total)}</span></p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 
 export default function SalesReportPage() {
@@ -145,6 +216,9 @@ export default function SalesReportPage() {
                 id: orderDoc.id, 
                 ...data, 
                 total,
+                subtotal: data.subtotal || 0,
+                shippingFee: data.shippingFee || 0,
+                products: data.products || [],
                 date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(), // Handle Firestore Timestamp
                 customerDetails 
             } as Order;
@@ -324,17 +398,14 @@ export default function SalesReportPage() {
                     <TableHead>Tanggal</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-center">Aksi</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
                 {filteredOrders.length > 0 ? (
                     filteredOrders.map((order) => (
                     <TableRow key={order.id}>
-                        <TableCell className="font-medium">
-                             <Button variant="link" asChild className="p-0 h-auto">
-                                <Link href="/dashboard/orders">{order.id}</Link>
-                            </Button>
+                        <TableCell>
+                           <OrderDetailDialog order={order} />
                         </TableCell>
                         <TableCell>{order.customerDetails?.name || order.customer}</TableCell>
                         <TableCell>{format(new Date(order.date), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
@@ -353,73 +424,11 @@ export default function SalesReportPage() {
                         <TableCell className="text-right">
                         {formatCurrency(order.total)}
                         </TableCell>
-                        <TableCell className="text-center">
-                        <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                        <FileText className="h-4 w-4" />
-                                        <span className="sr-only">Lihat Faktur</span>
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-2xl">
-                                    <DialogHeader>
-                                        <DialogTitle>Faktur #{order.id}</DialogTitle>
-                                        <DialogDescription>
-                                            Tanggal: {format(new Date(order.date), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="grid gap-4 py-4">
-                                        <Card>
-                                            <CardHeader>
-                                                <CardTitle>Informasi Pelanggan</CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="text-sm space-y-1">
-                                                <p><strong>Nama:</strong> {order.customerDetails?.name || order.customer}</p>
-                                                <p><strong>Alamat:</strong> {order.customerDetails?.address || 'N/A'}</p>
-                                                <p><strong>WhatsApp:</strong> {order.customerDetails?.whatsapp || 'N/A'}</p>
-                                            </CardContent>
-                                        </Card>
-                                        <Card>
-                                            <CardHeader>
-                                                <CardTitle>Rincian Produk</CardTitle>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className="overflow-auto">
-                                                    <Table>
-                                                        <TableHeader>
-                                                            <TableRow>
-                                                                <TableHead>Produk</TableHead>
-                                                                <TableHead>Jumlah</TableHead>
-                                                                <TableHead className="text-right">Harga Satuan</TableHead>
-                                                                <TableHead className="text-right">Subtotal</TableHead>
-                                                            </TableRow>
-                                                        </TableHeader>
-                                                        <TableBody>
-                                                            {order.products?.map(p => (
-                                                                <TableRow key={p.productId}>
-                                                                    <TableCell>{p.name}</TableCell>
-                                                                    <TableCell>{p.quantity}</TableCell>
-                                                                    <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
-                                                                    <TableCell className="text-right">{formatCurrency(p.quantity * p.price)}</TableCell>
-                                                                </TableRow>
-                                                            ))}
-                                                        </TableBody>
-                                                    </Table>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                        <div className="text-right font-bold text-lg">
-                                            Total: {formatCurrency(order.total)}
-                                        </div>
-                                    </div>
-                                </DialogContent>
-                            </Dialog>
-                        </TableCell>
                     </TableRow>
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={6} className="text-center h-24">
+                    <TableCell colSpan={5} className="text-center h-24">
                         Tidak ada data penjualan untuk rentang tanggal ini.
                     </TableCell>
                     </TableRow>

@@ -38,7 +38,6 @@ import {
 import { Calendar as CalendarIcon, Users, FileText, ShoppingCart, DollarSign } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
-import Link from "next/link";
 
 interface Order {
   id: string;
@@ -240,9 +239,9 @@ export default function CustomersReportPage() {
                                                                 {customer.orders.map(order => (
                                                                     <TableRow key={order.id}>
                                                                         <TableCell className="font-medium">
-                                                                            <Button variant="link" asChild className="p-0 h-auto">
-                                                                                <Link href="/dashboard/orders">{order.id}</Link>
-                                                                            </Button>
+                                                                             <Button variant="link" asChild className="p-0 h-auto">
+                                                                                 <span className="cursor-pointer">{order.id}</span>
+                                                                             </Button>
                                                                         </TableCell>
                                                                         <TableCell>{format(new Date(order.date), "dd MMM yyyy")}</TableCell>
                                                                         <TableCell><Badge variant="outline">{order.status}</Badge></TableCell>
