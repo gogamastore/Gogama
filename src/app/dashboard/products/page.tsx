@@ -482,12 +482,6 @@ function ImageViewer({ src, alt }: { src: string, alt: string }) {
             />
         </DialogTrigger>
         <DialogContent className="max-w-xl">
-            <DialogHeader>
-                <DialogTitle>{alt}</DialogTitle>
-                <DialogDescription>
-                    Pratinjau gambar produk ukuran penuh.
-                </DialogDescription>
-            </DialogHeader>
             <Image
                 alt={alt}
                 className="rounded-lg object-contain"
@@ -638,7 +632,7 @@ export default function ProductsPage() {
                                 <TableHead>Nama</TableHead>
                                 <TableHead className="hidden sm:table-cell">SKU</TableHead>
                                 <TableHead>Stok</TableHead>
-                                <TableHead className="text-right">Harga Beli</TableHead>
+                                <TableHead className="text-right hidden sm:table-cell">Harga Beli</TableHead>
                                 <TableHead className="text-right">Harga Jual</TableHead>
                                 <TableHead className="w-[50px] text-right">Aksi</TableHead>
                                 </TableRow>
@@ -658,7 +652,7 @@ export default function ProductsPage() {
                                     <TableCell>
                                     <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock}` : 'Habis'}</Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
+                                    <TableCell className="text-right hidden sm:table-cell">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
                                     <TableCell className="text-right">{product.price}</TableCell>
                                     <TableCell className="text-right">
                                         <Dialog>
@@ -672,6 +666,30 @@ export default function ProductsPage() {
                                                 <DialogHeader>
                                                     <DialogTitle>Aksi untuk: {product.name}</DialogTitle>
                                                 </DialogHeader>
+                                                
+                                                <div className="py-4 space-y-2 text-sm">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">SKU</span>
+                                                        <span className="font-medium">{product.sku}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Kategori</span>
+                                                        <span className="font-medium">{product.category}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Harga Beli</span>
+                                                        <span className="font-medium">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</span>
+                                                    </div>
+                                                     <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Harga Jual</span>
+                                                        <span className="font-medium">{product.price}</span>
+                                                    </div>
+                                                     <div className="space-y-1">
+                                                        <span className="text-muted-foreground">Deskripsi</span>
+                                                        <p className="font-medium p-2 bg-muted rounded-md">{product.description || 'Tidak ada deskripsi.'}</p>
+                                                    </div>
+                                                </div>
+
                                                 <Separator />
                                                 <div className="grid grid-cols-1 gap-2 py-2">
                                                     <Button variant="outline" className="w-full justify-start" onClick={() => handleEditClick(product)}>
