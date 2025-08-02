@@ -577,13 +577,11 @@ export default function PurchasesReportPage() {
                                 <DialogContent className="sm:max-w-2xl">
                                     <DialogHeader>
                                         <DialogTitle>Faktur Pembelian #{transaction.id}</DialogTitle>
-                                        <DialogDescription>
-                                            <div className="flex items-center gap-4 text-sm mt-1">
-                                                <span>Tanggal: {format(new Date(transaction.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
-                                                <Separator orientation="vertical" className="h-4"/>
-                                                <span>Supplier: {transaction.supplierName || 'N/A'}</span>
-                                            </div>
-                                        </DialogDescription>
+                                        <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
+                                            <span>Tanggal: {format(new Date(transaction.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
+                                            <Separator orientation="vertical" className="h-4"/>
+                                            <span>Supplier: {transaction.supplierName || 'N/A'}</span>
+                                        </div>
                                     </DialogHeader>
                                     <div className="grid gap-4 py-4">
                                         <Card>
