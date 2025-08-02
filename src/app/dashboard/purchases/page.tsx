@@ -148,7 +148,7 @@ export default function PurchaseTransactionPage() {
   useEffect(() => {
     const results = products.filter((product) => {
         const nameMatch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const skuMatch = product.sku ? product.sku.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+        const skuMatch = product.sku ? String(product.sku).toLowerCase().includes(searchTerm.toLowerCase()) : false;
         return nameMatch || skuMatch;
     });
     setFilteredProducts(results);
