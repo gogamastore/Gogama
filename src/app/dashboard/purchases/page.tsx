@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
-import { collection, getDocs, addDoc, writeBatch, doc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,22 +33,21 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Search, ShoppingCart, Trash2, XCircle } from "lucide-react";
+import { PlusCircle, Search, ShoppingCart, Trash2, XCircle, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { usePurchaseCart } from "@/hooks/use-purchase-cart";
+import { useRouter } from "next/navigation";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 interface Product {
   id: string;
   name: string;
   sku: string;
-  price: string; // This is selling price, we need purchase price
+  price: string;
   stock: number;
   image: string;
   purchasePrice?: number;
-}
-
-interface CartItem extends Product {
-  purchasePrice: number;
-  quantity: number;
 }
 
 const formatCurrency = (amount: number) => {
@@ -123,124 +122,64 @@ function AddToCartDialog({ product, onAddToCart }: { product: Product, onAddToCa
 
 export default function PurchaseTransactionPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { cart, addToCart, removeFromCart, clearCart, totalPurchase } = usePurchaseCart();
   const { toast } = useToast();
+  const router = useRouter();
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  const fetchProducts = async () => {
+
+  useEffect(() => {
+    const fetchProducts = async () => {
       setLoading(true);
       const querySnapshot = await getDocs(collection(db, "products"));
       const productsData = querySnapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as Product)
       );
       setProducts(productsData);
-      setFilteredProducts(productsData);
       setLoading(false);
-  };
-
-  useEffect(() => {
+    };
     fetchProducts();
   }, []);
 
-  useEffect(() => {
-    const results = products.filter((product) => {
-        const nameMatch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const skuMatch = product.sku ? String(product.sku).toLowerCase().includes(searchTerm.toLowerCase()) : false;
+  const filteredProducts = useMemo(() => {
+    const lowercasedFilter = searchTerm.toLowerCase();
+    if (!lowercasedFilter) return products;
+    return products.filter((product) => {
+        const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
+        const skuMatch = product.sku ? String(product.sku).toLowerCase().includes(lowercasedFilter) : false;
         return nameMatch || skuMatch;
     });
-    setFilteredProducts(results);
   }, [searchTerm, products]);
   
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [currentPage, itemsPerPage, filteredProducts]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+
   const handleAddToCart = (product: Product, quantity: number, purchasePrice: number) => {
-    setCart(prevCart => {
-        const existingItem = prevCart.find(item => item.id === product.id);
-        if (existingItem) {
-            // Update quantity and price of existing item
-            return prevCart.map(item => 
-                item.id === product.id 
-                ? { ...item, quantity: item.quantity + quantity, purchasePrice: purchasePrice } 
-                : item
-            );
-        }
-        // Add new item
-        return [...prevCart, { ...product, quantity, purchasePrice }];
-    });
+    addToCart({ ...product, quantity, purchasePrice });
      toast({
         title: "Produk Ditambahkan",
         description: `${product.name} telah ditambahkan ke keranjang.`,
     });
   };
-  
-  const handleRemoveFromCart = (productId: string) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== productId));
-  };
-  
-  const handleClearCart = () => {
-    setCart([]);
+
+  const handleProceedToPayment = () => {
+      if(cart.length === 0) {
+          toast({ variant: 'destructive', title: 'Keranjang Kosong', description: 'Silakan tambahkan produk terlebih dahulu.'});
+          return;
+      }
+      router.push('/dashboard/purchases/process-payment');
   }
-
-  const totalPurchase = useMemo(() => {
-    return cart.reduce((total, item) => total + (item.purchasePrice * item.quantity), 0);
-  }, [cart]);
-
-  const handleProcessTransaction = async () => {
-    if (cart.length === 0) {
-        toast({ variant: "destructive", title: "Keranjang Kosong", description: "Tambahkan produk terlebih dahulu." });
-        return;
-    }
-    setIsProcessing(true);
-    const batch = writeBatch(db);
-
-    try {
-        // 1. Create a new purchase transaction document
-        const purchaseTransactionRef = doc(collection(db, "purchase_transactions"));
-        batch.set(purchaseTransactionRef, {
-            date: serverTimestamp(),
-            totalAmount: totalPurchase,
-            items: cart.map(item => ({
-                productId: item.id,
-                productName: item.name,
-                quantity: item.quantity,
-                purchasePrice: item.purchasePrice,
-            })),
-            supplier: "Supplier Umum", // Placeholder
-        });
-
-        // 2. Update stock for each product in the cart
-        for (const item of cart) {
-            const productRef = doc(db, "products", item.id);
-            const newStock = item.stock + item.quantity;
-            batch.update(productRef, { stock: newStock, purchasePrice: item.purchasePrice });
-        }
-
-        // 3. Commit the batch
-        await batch.commit();
-
-        toast({
-            title: "Transaksi Berhasil",
-            description: "Transaksi pembelian telah disimpan dan stok produk telah diperbarui.",
-        });
-
-        // 4. Clear cart and refresh product list
-        setCart([]);
-        fetchProducts();
-
-    } catch (error) {
-        console.error("Error processing transaction:", error);
-        toast({
-            variant: "destructive",
-            title: "Transaksi Gagal",
-            description: "Terjadi kesalahan saat menyimpan transaksi.",
-        });
-    } finally {
-        setIsProcessing(false);
-    }
-  };
-
-
+  
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Product List */}
@@ -276,8 +215,8 @@ export default function PurchaseTransactionPage() {
                             <TableRow>
                                 <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
                             </TableRow>
-                        ) : filteredProducts.length > 0 ? (
-                            filteredProducts.map((product) => (
+                        ) : paginatedProducts.length > 0 ? (
+                            paginatedProducts.map((product) => (
                                 <TableRow key={product.id}>
                                     <TableCell className="hidden sm:table-cell">
                                         <Image
@@ -308,6 +247,57 @@ export default function PurchaseTransactionPage() {
                 </Table>
             </div>
           </CardContent>
+           <CardFooter>
+            <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+                <div className="flex-1">
+                    Menampilkan {paginatedProducts.length} dari {filteredProducts.length} produk.
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <p>Baris per halaman</p>
+                        <Select
+                            value={`${itemsPerPage}`}
+                            onValueChange={(value) => {
+                                setItemsPerPage(Number(value));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={`${itemsPerPage}`} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 20].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>Halaman {currentPage} dari {totalPages}</div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+          </CardFooter>
         </Card>
       </div>
 
@@ -320,7 +310,7 @@ export default function PurchaseTransactionPage() {
                     <CardTitle>Keranjang Pembelian</CardTitle>
                     <CardDescription>Daftar produk yang akan dibeli.</CardDescription>
                 </div>
-                 <Button variant="ghost" size="icon" onClick={handleClearCart} disabled={cart.length === 0}>
+                 <Button variant="ghost" size="icon" onClick={clearCart} disabled={cart.length === 0}>
                     <XCircle className="h-5 w-5" />
                     <span className="sr-only">Kosongkan Keranjang</span>
                  </Button>
@@ -350,7 +340,7 @@ export default function PurchaseTransactionPage() {
                                         {formatCurrency(item.quantity * item.purchasePrice)}
                                     </TableCell>
                                     <TableCell>
-                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveFromCart(item.id)}>
+                                        <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}>
                                             <Trash2 className="h-4 w-4 text-destructive" />
                                         </Button>
                                     </TableCell>
@@ -371,8 +361,9 @@ export default function PurchaseTransactionPage() {
                 <span>Total</span>
                 <span>{formatCurrency(totalPurchase)}</span>
             </div>
-            <Button onClick={handleProcessTransaction} disabled={cart.length === 0 || isProcessing}>
-                {isProcessing ? "Memproses..." : "Proses Transaksi Pembelian"}
+            <Button onClick={handleProceedToPayment} disabled={cart.length === 0}>
+                Lanjutkan ke Pembayaran
+                <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </CardFooter>
         </Card>
@@ -380,3 +371,5 @@ export default function PurchaseTransactionPage() {
     </div>
   );
 }
+
+    
