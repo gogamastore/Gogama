@@ -107,22 +107,15 @@ export default function BalanceSheetPage() {
              return sum + parseFloat(totalString);
         }, 0);
         
-        // 2. Inventory Value (Nilai Persediaan) at end of month
+        // 2. Inventory Value (Nilai Persediaan) - Simplified and Optimized
+        // The value is calculated based on the purchase price stored in each product document.
         const productsSnapshot = await getDocs(collection(db, "products"));
-        const purchasePrices = new Map<string, number>();
-        const purchasesSnapshot = await getDocs(collection(db, "purchase_transactions"));
-        purchasesSnapshot.docs.forEach(doc => {
-            doc.data().items.forEach((item: { productId: string; purchasePrice: number; }) => {
-                 purchasePrices.set(item.productId, item.purchasePrice);
-            });
-        });
-
-        let totalInventoryValue = 0;
-        productsSnapshot.docs.forEach(doc => {
+        const totalInventoryValue = productsSnapshot.docs.reduce((sum, doc) => {
             const product = doc.data();
-            const purchasePrice = purchasePrices.get(doc.id) || 0;
-            totalInventoryValue += (product.stock || 0) * purchasePrice;
-        });
+            const stock = product.stock || 0;
+            const purchasePrice = product.purchasePrice || 0;
+            return sum + (stock * purchasePrice);
+        }, 0);
 
         // --- CALCULATE LIABILITIES & EQUITY ---
         
