@@ -41,6 +41,7 @@ import { format, startOfDay, endOfDay, parseISO } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 // Interfaces
 interface Product {
@@ -71,6 +72,21 @@ interface FullOrder {
   products: OrderProduct[];
 }
 
+interface PurchaseItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  purchasePrice: number;
+}
+interface FullPurchaseTransaction {
+  id: string;
+  date: any; // Firestore Timestamp
+  totalAmount: number;
+  items: PurchaseItem[];
+  supplierName?: string;
+  paymentMethod?: 'cash' | 'bank_transfer' | 'credit';
+}
+
 interface StockMovement {
     date: Date;
     type: 'Penjualan' | 'Pembelian' | 'Penyesuaian Masuk' | 'Penyesuaian Keluar' | 'Pesanan Dibatalkan';
@@ -87,6 +103,97 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 0,
   }).format(amount);
 };
+
+
+function PurchaseDetailDialog({ transactionId }: { transactionId: string }) {
+    const [transaction, setTransaction] = useState<FullPurchaseTransaction | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+
+    const fetchTransaction = useCallback(async () => {
+        if (!isOpen) return;
+        setLoading(true);
+        try {
+            const docRef = doc(db, "purchase_transactions", transactionId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setTransaction({ id: docSnap.id, ...docSnap.data() } as FullPurchaseTransaction);
+            }
+        } catch (error) {
+            console.error("Failed to fetch purchase transaction", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [transactionId, isOpen]);
+
+    useEffect(() => {
+        fetchTransaction();
+    }, [fetchTransaction]);
+    
+    return (
+         <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="link" asChild className="p-0 h-auto">
+                    <span className="cursor-pointer">Faktur #{transactionId.substring(0, 7)}</span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Faktur Pembelian #{transaction?.id}</DialogTitle>
+                    {transaction && (
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
+                            <span>Tanggal: {format(transaction.date.toDate(), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
+                            <Separator orientation="vertical" className="h-4"/>
+                            <span>Supplier: {transaction.supplierName || 'N/A'}</span>
+                        </div>
+                    )}
+                </DialogHeader>
+                 {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : transaction ? (
+                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Rincian Produk Dibeli</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="overflow-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Produk</TableHead>
+                                                <TableHead>Jumlah</TableHead>
+                                                <TableHead className="text-right">Harga Beli Satuan</TableHead>
+                                                <TableHead className="text-right">Subtotal</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {transaction.items?.map(item => (
+                                                <TableRow key={item.productId}>
+                                                    <TableCell>{item.productName}</TableCell>
+                                                    <TableCell>{item.quantity}</TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(item.purchasePrice)}</TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(item.quantity * item.purchasePrice)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Separator/>
+                        <div className="flex justify-between items-center text-sm px-2">
+                            <div className="text-muted-foreground">
+                                Metode Pembayaran: <span className="font-medium text-foreground capitalize">{transaction.paymentMethod?.replace('_', ' ')}</span>
+                            </div>
+                            <div className="text-right font-bold text-lg">
+                                Total Pembelian: {formatCurrency(transaction.totalAmount)}
+                            </div>
+                        </div>
+                    </div>
+                ) : <p>Transaksi tidak ditemukan.</p>}
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 function OrderDetailDialog({ orderId }: { orderId: string }) {
     const [order, setOrder] = useState<FullOrder | null>(null);
@@ -270,8 +377,8 @@ function StockHistoryDialog({ product, dateRange }: { product: Product, dateRang
                         date: doc.data().date.toDate(),
                         type: 'Pembelian',
                         quantityChange: item.quantity,
-                        relatedInfo: `Faktur #${doc.id.substring(0, 7)}`,
-                        description: `Supplier: ${doc.data().supplier || 'Umum'}`
+                        relatedInfo: doc.id,
+                        description: `Supplier: ${doc.data().supplierName || 'Umum'}`
                     })
                 }
             })
@@ -360,6 +467,8 @@ function StockHistoryDialog({ product, dateRange }: { product: Product, dateRang
                                             <div className="font-medium">
                                                 {item.type === 'Penjualan' || item.type === 'Pesanan Dibatalkan' ? (
                                                      <OrderDetailDialog orderId={item.relatedInfo} />
+                                                ) : item.type === 'Pembelian' ? (
+                                                     <PurchaseDetailDialog transactionId={item.relatedInfo} />
                                                 ) : (
                                                     item.relatedInfo
                                                 )}
@@ -504,5 +613,3 @@ export default function StockFlowReportPage() {
     </div>
   );
 }
-
-    
