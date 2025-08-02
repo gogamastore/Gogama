@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from "@/components/ui/tooltip"
-import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive, ClipboardList, Settings, ChevronDown, Banknote, Users, Contact, Building, Receipt, FileWarning, DollarSign, ArrowUpRight, Scale, Warehouse, Replace } from "lucide-react"
+import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive, ClipboardList, Settings, ChevronDown, Banknote, Users, Contact, Building, Receipt, FileWarning, DollarSign, ArrowUpRight, Scale, Warehouse, Replace, Landmark } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Button } from "./ui/button"
 
