@@ -119,7 +119,17 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
             <DialogContent className="sm:max-w-3xl">
                  <DialogHeader>
                     <DialogTitle>Faktur #{order?.id}</DialogTitle>
-                    {order && <DialogDescription>Tanggal: {format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</DialogDescription>}
+                    {order && (
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span>{format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</span>
+                            <Badge variant="outline" className={
+                                order.status === 'Delivered' ? 'text-green-600 border-green-600' :
+                                order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
+                                order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
+                                order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
+                            }>{order.status}</Badge>
+                        </div>
+                    )}
                 </DialogHeader>
                 {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : order ? (
                      <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
@@ -357,3 +367,5 @@ export default function ProductSalesReportPage() {
     </div>
   )
 }
+
+    
