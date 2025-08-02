@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -8,6 +9,7 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -27,10 +29,29 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+  } from "@/components/ui/dropdown-menu";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Banknote, PlusCircle, Trash2, Loader2, ArrowLeft } from 'lucide-react';
+import { Banknote, PlusCircle, Trash2, Loader2, ArrowLeft, Edit, MoreHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface BankAccount {
@@ -39,6 +60,90 @@ interface BankAccount {
   accountHolder: string;
   accountNumber: string;
 }
+
+function EditAccountDialog({ account, onAccountUpdated }: { account: BankAccount, onAccountUpdated: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [formData, setFormData] = useState({
+        bankName: '',
+        accountHolder: '',
+        accountNumber: '',
+    });
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (account) {
+            setFormData({
+                bankName: account.bankName,
+                accountHolder: account.accountHolder,
+                accountNumber: account.accountNumber,
+            });
+        }
+    }, [account]);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { id, value } = e.target;
+        setFormData((prev) => ({ ...prev, [id]: value }));
+    };
+
+    const handleUpdate = async () => {
+        if (!formData.bankName || !formData.accountHolder || !formData.accountNumber) {
+            toast({ variant: 'destructive', title: 'Data tidak lengkap' });
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const accountDocRef = doc(db, 'bank_accounts', account.id);
+            await updateDoc(accountDocRef, formData);
+            toast({ title: 'Rekening Berhasil Diperbarui' });
+            onAccountUpdated();
+            setIsOpen(false);
+        } catch (error) {
+            console.error('Error updating account:', error);
+            toast({ variant: 'destructive', title: 'Gagal Memperbarui Rekening' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                 <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                    <Edit className="mr-2 h-4 w-4"/>
+                    <span>Edit Rekening</span>
+                </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Edit Rekening: {account.bankName}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="bankName" className="text-right">Nama Bank</Label>
+                        <Input id="bankName" value={formData.bankName} onChange={handleInputChange} className="col-span-3" />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="accountHolder" className="text-right">Nama Pemilik</Label>
+                        <Input id="accountHolder" value={formData.accountHolder} onChange={handleInputChange} className="col-span-3" />
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="accountNumber" className="text-right">Nomor Rekening</Label>
+                        <Input id="accountNumber" value={formData.accountNumber} onChange={handleInputChange} className="col-span-3" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
+                    <Button onClick={handleUpdate} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Simpan Perubahan
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 export default function BankAccountsPage() {
   const { toast } = useToast();
@@ -75,6 +180,7 @@ export default function BankAccountsPage() {
 
   useEffect(() => {
     fetchBankAccounts();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,9 +225,6 @@ export default function BankAccountsPage() {
   };
 
   const handleDeleteAccount = async (id: string) => {
-     if (!confirm('Apakah Anda yakin ingin menghapus rekening ini?')) {
-      return;
-    }
     try {
       await deleteDoc(doc(db, 'bank_accounts', id));
       toast({
@@ -234,13 +337,41 @@ export default function BankAccountsPage() {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteAccount(account.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                   <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Buka menu</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                        <DropdownMenuSeparator/>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <EditAccountDialog account={account} onAccountUpdated={fetchBankAccounts} />
+                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                             <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-destructive hover:text-destructive-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4"/>
+                                <span>Hapus</span>
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tindakan ini akan menghapus rekening <span className='font-bold'>{account.bankName} - {account.accountNumber}</span> secara permanen.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Batal</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteAccount(account.id)} className="bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))}
             </div>
