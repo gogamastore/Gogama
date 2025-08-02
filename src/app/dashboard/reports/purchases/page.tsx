@@ -52,6 +52,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
+import { Badge } from "@/components/ui/badge";
 
 
 interface Product {
@@ -75,7 +76,8 @@ interface PurchaseTransaction {
   date: string; // ISO 8601 string
   totalAmount: number;
   items: PurchaseItem[];
-  supplier?: string;
+  supplierName?: string;
+  paymentMethod?: 'cash' | 'bank_transfer' | 'credit';
 }
 
 // Helper function to format currency
@@ -542,19 +544,25 @@ export default function PurchasesReportPage() {
                     <TableHead>ID Transaksi</TableHead>
                     <TableHead>Tanggal</TableHead>
                     <TableHead>Supplier</TableHead>
+                    <TableHead>Status Pembayaran</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="text-center">Aksi</TableHead>
                 </TableRow>
                 </TableHeader>
                 <TableBody>
                 {loading && filteredTransactions.length === 0 ? (
-                     <TableRow><TableCell colSpan={5} className="text-center h-24">Memuat transaksi...</TableCell></TableRow>
+                     <TableRow><TableCell colSpan={6} className="text-center h-24">Memuat transaksi...</TableCell></TableRow>
                 ) : filteredTransactions.length > 0 ? (
                     filteredTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                         <TableCell className="font-medium">{transaction.id.substring(0,7)}...</TableCell>
                         <TableCell>{format(new Date(transaction.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
-                        <TableCell>{transaction.supplier || 'N/A'}</TableCell>
+                        <TableCell>{transaction.supplierName || 'N/A'}</TableCell>
+                        <TableCell>
+                            <Badge variant={transaction.paymentMethod === 'credit' ? 'destructive' : 'default'}>
+                                {transaction.paymentMethod === 'credit' ? 'Kredit' : 'Lunas'}
+                            </Badge>
+                        </TableCell>
                         <TableCell className="text-right">
                         {formatCurrency(transaction.totalAmount)}
                         </TableCell>
@@ -570,7 +578,11 @@ export default function PurchasesReportPage() {
                                     <DialogHeader>
                                         <DialogTitle>Faktur Pembelian #{transaction.id}</DialogTitle>
                                         <DialogDescription>
-                                            Tanggal: {format(new Date(transaction.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}
+                                            <div className="flex items-center gap-4 text-sm mt-1">
+                                                <span>Tanggal: {format(new Date(transaction.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
+                                                <Separator orientation="vertical" className="h-4"/>
+                                                <span>Supplier: {transaction.supplierName || 'N/A'}</span>
+                                            </div>
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="grid gap-4 py-4">
@@ -603,8 +615,14 @@ export default function PurchasesReportPage() {
                                                 </div>
                                             </CardContent>
                                         </Card>
-                                        <div className="text-right font-bold text-lg">
-                                            Total Pembelian: {formatCurrency(transaction.totalAmount)}
+                                        <Separator/>
+                                        <div className="flex justify-between items-center text-sm px-2">
+                                            <div className="text-muted-foreground">
+                                                Metode Pembayaran: <span className="font-medium text-foreground capitalize">{transaction.paymentMethod?.replace('_', ' ')}</span>
+                                            </div>
+                                            <div className="text-right font-bold text-lg">
+                                                Total Pembelian: {formatCurrency(transaction.totalAmount)}
+                                            </div>
                                         </div>
                                     </div>
                                     <DialogFooter>
@@ -617,7 +635,7 @@ export default function PurchasesReportPage() {
                     ))
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24">
+                    <TableCell colSpan={6} className="text-center h-24">
                         Tidak ada data pembelian untuk rentang tanggal ini.
                     </TableCell>
                     </TableRow>
