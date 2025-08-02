@@ -6,22 +6,24 @@ import { useRouter } from "next/navigation";
 import { usePurchaseCartFromLayout } from "@/app/dashboard/layout"; // Updated import
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
-import { addDoc, collection, doc, serverTimestamp, writeBatch, getDocs } from "firebase/firestore";
+import { addDoc, collection, doc, serverTimestamp, writeBatch, getDocs, query, orderBy } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { ArrowLeft, Banknote, CreditCard, DollarSign, Loader2, PlusCircle, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, Banknote, CreditCard, DollarSign, Loader2, PlusCircle, Building, Users } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 interface Supplier {
     id: string;
     name: string;
-    contact?: string;
+    address?: string;
+    whatsapp?: string;
 }
 
 const formatCurrency = (amount: number) => {
@@ -34,21 +36,28 @@ function SupplierDialog({ onSelectSupplier }: { onSelectSupplier: (supplier: Sup
     const [isAdding, setIsAdding] = useState(false);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [loading, setLoading] = useState(false);
-    const [newSupplier, setNewSupplier] = useState({ name: "", contact: "" });
+    const [newSupplier, setNewSupplier] = useState({ name: "", address: "", whatsapp: "" });
     const { toast } = useToast();
 
     const fetchSuppliers = async () => {
         setLoading(true);
-        const snapshot = await getDocs(collection(db, 'suppliers'));
-        setSuppliers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supplier)));
-        setLoading(false);
+        try {
+            const q = query(collection(db, 'suppliers'), orderBy('name', 'asc'));
+            const snapshot = await getDocs(q);
+            setSuppliers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supplier)));
+        } catch (error) {
+            console.error("Error fetching suppliers:", error);
+            toast({ variant: 'destructive', title: 'Gagal memuat supplier' });
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && !isAdding) {
             fetchSuppliers();
         }
-    }, [isOpen]);
+    }, [isOpen, isAdding]);
 
     const handleAddSupplier = async () => {
         if (!newSupplier.name) {
@@ -58,11 +67,11 @@ function SupplierDialog({ onSelectSupplier }: { onSelectSupplier: (supplier: Sup
         try {
             const docRef = await addDoc(collection(db, 'suppliers'), { ...newSupplier, createdAt: serverTimestamp() });
             const addedSupplier = { id: docRef.id, ...newSupplier };
-            setSuppliers(prev => [...prev, addedSupplier]);
             onSelectSupplier(addedSupplier); // Auto-select the new supplier
             toast({ title: "Supplier berhasil ditambahkan" });
             setIsAdding(false);
-            setNewSupplier({ name: "", contact: "" });
+            setNewSupplier({ name: "", address: "", whatsapp: "" });
+            setIsOpen(false);
         } catch (error) {
             toast({ variant: 'destructive', title: 'Gagal menambah supplier' });
         }
@@ -71,31 +80,52 @@ function SupplierDialog({ onSelectSupplier }: { onSelectSupplier: (supplier: Sup
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline"><Users className="mr-2 h-4 w-4"/>Pilih Supplier</Button>
+                <Button variant="outline"><Building className="mr-2 h-4 w-4"/>Pilih Supplier</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Pilih atau Tambah Supplier</DialogTitle>
                 </DialogHeader>
-                <div className="max-h-60 overflow-y-auto">
-                    {loading ? <p>Memuat...</p> : suppliers.map(s => (
-                        <div key={s.id} onClick={() => { onSelectSupplier(s); setIsOpen(false); }}
-                            className="p-2 hover:bg-muted rounded-md cursor-pointer">
-                            <p className="font-semibold">{s.name}</p>
-                            <p className="text-sm text-muted-foreground">{s.contact}</p>
+                 {isAdding ? (
+                    <div className="space-y-4 p-2 border rounded-md">
+                        <h3 className="font-semibold">Tambah Supplier Baru</h3>
+                        <div className="space-y-2">
+                            <Label htmlFor="supplier-name">Nama Supplier</Label>
+                            <Input id="supplier-name" placeholder="Nama Perusahaan / Toko" value={newSupplier.name} onChange={(e) => setNewSupplier(p => ({...p, name: e.target.value}))}/>
                         </div>
-                    ))}
-                </div>
-                <Separator/>
-                 <Button variant="ghost" onClick={() => setIsAdding(!isAdding)} className="w-full justify-start">
-                     <PlusCircle className="mr-2 h-4 w-4"/> {isAdding ? 'Batal' : 'Tambah Supplier Baru'}
-                </Button>
-                {isAdding && (
-                    <div className="space-y-2 p-2 border rounded-md">
-                        <Input placeholder="Nama Supplier" value={newSupplier.name} onChange={(e) => setNewSupplier(p => ({...p, name: e.target.value}))}/>
-                        <Input placeholder="Kontak (opsional)" value={newSupplier.contact} onChange={(e) => setNewSupplier(p => ({...p, contact: e.target.value}))}/>
-                        <Button onClick={handleAddSupplier} size="sm">Simpan Supplier</Button>
+                        <div className="space-y-2">
+                             <Label htmlFor="supplier-whatsapp">Kontak (WhatsApp)</Label>
+                            <Input id="supplier-whatsapp" placeholder="Nomor WhatsApp (opsional)" value={newSupplier.whatsapp} onChange={(e) => setNewSupplier(p => ({...p, whatsapp: e.target.value}))}/>
+                        </div>
+                        <div className="space-y-2">
+                             <Label htmlFor="supplier-address">Alamat</Label>
+                            <Textarea id="supplier-address" placeholder="Alamat supplier (opsional)" value={newSupplier.address} onChange={(e) => setNewSupplier(p => ({...p, address: e.target.value}))}/>
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="ghost" onClick={() => setIsAdding(false)}>Batal</Button>
+                            <Button onClick={handleAddSupplier} size="sm">Simpan Supplier</Button>
+                        </div>
                     </div>
+                ) : (
+                    <>
+                        <div className="max-h-80 overflow-y-auto">
+                            {loading ? <p>Memuat...</p> : suppliers.length > 0 ? suppliers.map(s => (
+                                <div key={s.id} onClick={() => { onSelectSupplier(s); setIsOpen(false); }}
+                                    className="p-3 hover:bg-muted rounded-md cursor-pointer border-b">
+                                    <p className="font-semibold">{s.name}</p>
+                                    <p className="text-sm text-muted-foreground">{s.whatsapp}</p>
+                                    <p className="text-xs text-muted-foreground">{s.address}</p>
+                                </div>
+                            )) : <p className="text-sm text-muted-foreground text-center p-4">Belum ada supplier. Silakan tambah baru.</p>}
+                        </div>
+                        <Separator/>
+                        <DialogFooter>
+                            <Button variant="secondary" onClick={() => setIsAdding(true)} className="w-full justify-start">
+                                <PlusCircle className="mr-2 h-4 w-4"/> Tambah Supplier Baru
+                            </Button>
+                        </DialogFooter>
+                    </>
                 )}
             </DialogContent>
         </Dialog>
@@ -137,7 +167,8 @@ export default function ProcessPaymentPage() {
                     quantity: item.quantity,
                     purchasePrice: item.purchasePrice,
                 })),
-                supplier: selectedSupplier?.name || "Supplier Umum",
+                supplierId: selectedSupplier?.id || null,
+                supplierName: selectedSupplier?.name || "Supplier Umum",
                 paymentMethod: paymentMethod,
             });
     

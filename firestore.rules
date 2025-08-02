@@ -1,69 +1,82 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Aturan default untuk menolak semua akses
+  
+    // Helper function to check if a user has a specific role
+    function hasRole(role) {
+      return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == role;
+    }
+    
+    // Admins can read/write all data for management purposes
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if hasRole('owner') || hasRole('admin');
     }
 
-    // Mengizinkan pengguna terautentikasi membaca dan menulis data mereka sendiri
+    // Rules for User collection
     match /user/{userId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+      // Any authenticated user can create their own user document (for registration)
       allow create: if request.auth != null;
-      // Aturan untuk subkoleksi alamat
-      match /addresses/{addressId} {
-        allow read, write, delete: if request.auth != null && request.auth.uid == userId;
-      }
+      // Users can only read or update their own data
+      allow read, update: if request.auth.uid == userId;
+      // Admins can manage all user documents
+      allow list, delete: if hasRole('owner') || hasRole('admin');
     }
 
-    // Mengizinkan semua pengguna terautentikasi (admin/staf) untuk mengelola produk
+    // Rules for Reseller-specific collections
     match /products/{productId} {
-      allow read, write, delete: if request.auth != null;
-    }
-
-    // Mengizinkan semua pengguna terautentikasi (admin/staf) untuk mengelola pesanan
-    match /orders/{orderId} {
-        allow read, write, delete: if request.auth != null;
+      allow read: if request.auth != null; // All authenticated users can read products
     }
     
-    // Mengizinkan semua pengguna terautentikasi (admin/staf) untuk mengelola transaksi pembelian
-    match /purchase_transactions/{transactionId} {
-        allow read, write, delete: if request.auth != null;
-    }
-
-    // Mengizinkan semua pengguna terautentikasi (admin/staf) untuk mengelola biaya operasional
-    match /operational_expenses/{expenseId} {
-        allow read, write, delete: if request.auth != null;
-    }
-
-    // Mengizinkan semua pengguna terautentikasi (admin/staf) untuk mengelola penyesuaian stok
-    match /stock_adjustments/{adjustmentId} {
-        allow read, write, delete: if request.auth != null;
-    }
-    
-    // Mengizinkan semua pengguna terautentikasi untuk membaca data banner, kontak, dan rekening
     match /banners/{bannerId} {
-      allow read: if request.auth != null;
-      // Hanya admin yang bisa mengubah
-      allow write, delete: if request.auth != null; // Nanti bisa diperketat ke role admin
-    }
-    match /whatsapp_contacts/{contactId} {
-       allow read: if request.auth != null;
-       allow write, delete: if request.auth != null; 
-    }
-    match /bank_accounts/{accountId} {
-       allow read: if request.auth != null;
-       allow write, delete: if request.auth != null;
+       allow read: if request.auth != null; // All authenticated users can read banners
     }
 
-    // Mengizinkan pengguna terautentikasi untuk mengelola promo dan produk trending
     match /promotions/{promoId} {
-      allow read, write, delete: if request.auth != null;
+       allow read: if request.auth != null; // All authenticated users can read promotions
     }
-     match /trending_products/{trendingId} {
-      allow read, write, delete: if request.auth != null;
+
+    match /trending_products/{trendingId} {
+       allow read: if request.auth != null; // All authenticated users can read trending products
+    }
+
+    match /whatsapp_contacts/{contactId} {
+        allow read: if request.auth != null; // All authenticated users can read contacts
+    }
+    
+    match /bank_accounts/{accountId} {
+      // Resellers need to read this for checkout
+      allow read: if request.auth != null;
+    }
+
+    // Orders can be created by resellers, but only managed by admins
+    match /orders/{orderId} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if hasRole('owner') || hasRole('admin');
+      // A user can read their own orders
+      allow read: if request.auth.uid == resource.data.customerId;
+    }
+    
+    // Resellers can manage their own addresses
+    match /user/{userId}/addresses/{addressId} {
+        allow read, write: if request.auth.uid == userId;
+    }
+    
+    // Rules for Admin-only collections
+    match /purchase_transactions/{transactionId} {
+      allow read, write: if hasRole('owner') || hasRole('admin');
+    }
+    
+    match /suppliers/{supplierId} {
+       allow read, write: if hasRole('owner') || hasRole('admin');
+    }
+    
+    match /operational_expenses/{expenseId} {
+       allow read, write: if hasRole('owner') || hasRole('admin');
+    }
+    
+    match /stock_adjustments/{adjustmentId} {
+       allow read, write: if hasRole('owner') || hasRole('admin');
     }
   }
 }
