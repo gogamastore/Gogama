@@ -482,6 +482,9 @@ function ImageViewer({ src, alt }: { src: string, alt: string }) {
             />
         </DialogTrigger>
         <DialogContent className="max-w-xl">
+            <DialogHeader>
+                <DialogTitle className="sr-only">{alt}</DialogTitle>
+            </DialogHeader>
             <Image
                 alt={alt}
                 className="rounded-lg object-contain"
@@ -630,8 +633,7 @@ export default function ProductsPage() {
                                     <span className="sr-only">Image</span>
                                 </TableHead>
                                 <TableHead>Nama</TableHead>
-                                <TableHead className="hidden sm:table-cell">SKU</TableHead>
-                                <TableHead>Stok</TableHead>
+                                <TableHead className="hidden md:table-cell">Stok</TableHead>
                                 <TableHead className="text-right hidden sm:table-cell">Harga Beli</TableHead>
                                 <TableHead className="text-right">Harga Jual</TableHead>
                                 <TableHead className="w-[50px] text-right">Aksi</TableHead>
@@ -648,8 +650,7 @@ export default function ProductsPage() {
                                         <ImageViewer src={product.image} alt={product.name}/>
                                     </TableCell>
                                     <TableCell className="font-medium">{product.name}</TableCell>
-                                    <TableCell className="hidden sm:table-cell">{product.sku}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="hidden md:table-cell">
                                     <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock}` : 'Habis'}</Badge>
                                     </TableCell>
                                     <TableCell className="text-right hidden sm:table-cell">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
