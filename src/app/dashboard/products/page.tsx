@@ -482,9 +482,9 @@ function ImageViewer({ src, alt }: { src: string, alt: string }) {
             />
         </DialogTrigger>
         <DialogContent className="max-w-xl">
-            <DialogHeader>
+             <DialogHeader>
                 <DialogTitle className="sr-only">{alt}</DialogTitle>
-            </DialogHeader>
+             </DialogHeader>
             <Image
                 alt={alt}
                 className="rounded-lg object-contain"
