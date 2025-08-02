@@ -1,32 +1,23 @@
 rules_version = '2';
 
-// Dokumentasi: https://firebase.google.com/docs/storage/security
 service firebase.storage {
-  // Cocokkan dengan bucket penyimpanan proyek Anda
   match /b/{bucket}/o {
-    
-    // Aturan untuk gambar produk
+    // Allow public read access for all files.
+    // This is generally safe for public assets like product images.
+    match /{allPaths=**} {
+      allow read;
+    }
+
+    // Restrict write access to authenticated users only.
+    // This prevents unauthenticated users from uploading files.
     match /product_images/{allPaths=**} {
-      // Izinkan siapa saja untuk membaca gambar (diperlukan untuk menampilkannya di aplikasi)
-      allow read;
-      // Hanya izinkan pengguna yang terautentikasi (admin) untuk menulis (mengunggah, mengubah, menghapus)
       allow write: if request.auth != null;
     }
-
-    // Aturan untuk gambar banner
-    match /banners/{allPaths=**} {
-      // Izinkan siapa saja untuk membaca gambar
-      allow read;
-      // Hanya izinkan pengguna yang terautentikasi (admin) untuk menulis
-      allow write: if request.auth != null;
-    }
-
-    // Aturan untuk bukti pembayaran
     match /payment_proofs/{allPaths=**} {
-        // Izinkan siapa saja untuk membaca gambar
-        allow read;
-        // Hanya izinkan pengguna yang terautentikasi (reseller/admin) untuk menulis
-        allow write: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+     match /banners/{allPaths=**} {
+      allow write: if request.auth != null;
     }
   }
 }

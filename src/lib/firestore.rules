@@ -1,75 +1,107 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Fungsi untuk memeriksa apakah pengguna adalah admin melalui Custom Claims.
-    // Ini adalah cara yang benar dan efisien.
+
+    // Helper function to check if a user has the 'admin' role
     function isAdmin() {
-      return request.auth.token.admin == true;
+      return exists(/databases/$(database)/documents/user/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Rules for user data (profiles)
+    match /user/{userId} {
+      // Users can read/update their own profile. Admins can manage any user.
+      allow read, update: if request.auth.uid == userId || isAdmin();
+      
+      // Admins can create new users (staff/resellers).
+      // Users can also create their own user document during registration.
+      allow create: if isAdmin() || request.auth.uid == userId;
+
+      // Admins can delete users from the database.
+      allow delete: if isAdmin();
+      
+      // Admins can list all users.
+      allow list: if isAdmin();
     }
 
-    // Aturan untuk Koleksi 'user'
-    match /user/{userId} {
-      // Admin dapat membaca dan menulis data pengguna mana pun.
-      allow read, write: if isAdmin();
+    // Rules for 'products' collection
+    match /products/{productId} {
+      // Admins can do anything with products.
+      allow read, write, create, delete: if isAdmin();
       
-      // Pengguna hanya dapat membaca dan memperbarui data profil mereka sendiri.
-      allow get, update: if request.auth.uid == userId;
+      // Authenticated users (resellers) can read and update products (e.g., for stock changes).
+      allow get, list, update: if request.auth != null;
+    }
+
+     // Rules for the 'orders' collection
+    match /orders/{orderId} {
+        // Admins can manage all orders. This includes listing them for reports.
+        allow read, delete: if isAdmin();
+
+        // Resellers can create orders for themselves
+        allow create: if request.auth.uid == request.resource.data.customerId;
+
+        // Resellers can only read their own orders.
+        allow get, list: if request.auth.uid == resource.data.customerId;
+        
+        // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
+        allow update: if isAdmin() || (request.auth.uid == resource.data.customerId &&
+                        (request.resource.data.status == 'Cancelled' || 
+                         request.resource.data.paymentProofUrl != resource.data.paymentProofUrl));
+    }
+
+    // Rules for 'whatsapp_contacts'
+    match /whatsapp_contacts/{contactId} {
+        // Any authenticated user can read the contacts.
+        allow get, list: if request.auth != null;
+        // Only admins can create, update, or delete contacts.
+        allow write, create, delete: if isAdmin();
+    }
+
+    // Rules for stock, purchases, and expenses (Admin-only)
+    match /stock_adjustments/{adjustmentId} {
+      allow read, write, create, delete, list: if isAdmin();
+    }
+
+    match /purchase_transactions/{transactionId} {
+      allow read, write: if isAdmin();
+    }
+    
+    match /suppliers/{supplierId} {
+        allow read, write: if isAdmin();
+    }
+
+    match /operational_expenses/{expenseId} {
+      allow read, write, create, delete, list: if isAdmin();
+    }
+    
+    match /bank_accounts/{accountId} {
+        allow read: if request.auth != null;
+        allow write, create, delete: if isAdmin();
     }
     
     match /user/{userId}/addresses/{addressId} {
-        // Pengguna hanya dapat mengelola alamat mereka sendiri.
-      allow read, write, delete: if request.auth.uid == userId;
-    }
-
-    // Aturan untuk Koleksi 'products'
-    match /products/{productId} {
-      // Admin dapat mengelola produk.
-      allow read, write: if isAdmin();
-      
-      // Reseller (pengguna terautentikasi) hanya dapat membaca produk.
-      allow get, list: if request.auth != null;
-    }
-
-    // Aturan untuk Koleksi 'orders'
-    match /orders/{orderId} {
-      // Admin dapat mengelola semua pesanan.
-      allow read, write: if isAdmin();
-      
-      // Pengguna hanya dapat membuat pesanan untuk diri mereka sendiri
-      // dan membaca/memperbarui pesanan mereka sendiri.
-      allow create: if request.auth.uid == request.resource.data.customerId;
-      allow get, update: if request.auth.uid == resource.data.customerId;
-      allow list: if request.auth.uid == request.query.customerId;
-    }
-
-    // Aturan untuk Koleksi 'purchase_transactions'
-    match /purchase_transactions/{transactionId} {
-      // Hanya admin yang bisa mengelola transaksi pembelian.
-      allow read, write: if isAdmin();
+        // A user can manage their own addresses.
+        allow read, write, delete, create: if request.auth.uid == userId;
     }
     
-    // Aturan untuk Koleksi 'operational_expenses'
-    match /operational_expenses/{expenseId} {
-       // Hanya admin yang bisa mengelola biaya operasional.
-       allow read, write: if isAdmin();
-    }
-
-    // Aturan untuk Koleksi 'stock_adjustments'
-    match /stock_adjustments/{adjustmentId} {
-      // Hanya admin yang bisa mengelola penyesuaian stok.
-      allow read, write: if isAdmin();
+    // Rules for Banners (Design Settings)
+	match /banners/{bannerId} {
+  		allow read: if true;
+      	allow write, create, delete: if isAdmin();
     }
     
-    // Aturan untuk Koleksi 'whatsapp_contacts'
-    match /whatsapp_contacts/{contactId} {
-        // Admin dapat mengelola kontak.
-        allow write, delete: if isAdmin();
-        
-        // Semua pengguna yang terautentikasi dapat membaca daftar kontak.
-        allow get, list: if request.auth != null;
+    // Rules for Promotions (Promo Settings)
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write, create, delete: if isAdmin();
     }
-  }
+    
+    // Rules for Trending Products
+    match /trending_products/{trendingId} {
+      allow read: if true;
+      allow write, create, delete: if isAdmin();
+    }
+  } 
 }
