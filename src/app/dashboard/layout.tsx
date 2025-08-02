@@ -11,7 +11,7 @@ import { Search, Menu } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback, createContext } from "react";
+import { useEffect, useState, useCallback, createContext, useContext } from "react";
 import Image from "next/image";
 
 // Define the types for the purchase cart
