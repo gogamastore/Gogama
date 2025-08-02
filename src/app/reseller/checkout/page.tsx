@@ -51,6 +51,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 
 const formatCurrency = (amount: number) => {
@@ -496,5 +497,3 @@ export default function CheckoutPage() {
     </div>
   )
 }
-
-    
