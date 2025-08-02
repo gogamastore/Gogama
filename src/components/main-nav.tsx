@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from "next/link"
@@ -10,7 +11,7 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from "@/components/ui/tooltip"
-import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive, ClipboardList, Settings, ChevronDown, Banknote, Users, Contact, Building, Receipt } from "lucide-react"
+import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive, ClipboardList, Settings, ChevronDown, Banknote, Users, Contact, Building, Receipt, FileWarning, DollarSign, ArrowUpRight, Scale, Warehouse, Replace } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Button } from "./ui/button"
 
@@ -23,10 +24,18 @@ const navItems = [
 ]
 
 const reportsSubMenu = [
-    { href: "/dashboard/reports/sales", label: "Penjualan" },
-    { href: "/dashboard/reports/purchases", label: "Pembelian" },
-    { href: "/dashboard/reports/profit-loss", label: "Laba-Rugi" },
-    { href: "/dashboard/reports/balance-sheet", label: "Neraca" },
+    { href: "/dashboard/reports/sales", label: "Penjualan", icon: LineChart },
+    { href: "/dashboard/reports/product-sales", label: "Penjualan Produk", icon: Package },
+    { href: "/dashboard/reports/purchases", label: "Pembelian", icon: Archive },
+    { href: "/dashboard/reports/operational-expenses", label: "Beban Operasional", icon: Landmark },
+    { href: "/dashboard/reports/stock-flow", label: "Arus Stok", icon: Replace },
+    { href: "/dashboard/reports/receivables", label: "Piutang Usaha", icon: FileWarning },
+    { href: "/dashboard/reports/accounts-payable", label: "Utang Dagang", icon: Receipt },
+    { href: "/dashboard/reports/profit-loss", label: "Laba-Rugi", icon: DollarSign },
+    { href: "/dashboard/reports/net-income", label: "Pendapatan Bersih", icon: ArrowUpRight },
+    { href: "/dashboard/reports/customers", label: "Pelanggan", icon: Users },
+    { href: "/dashboard/reports/balance-sheet", label: "Neraca", icon: Scale },
+    { href: "/dashboard/reports/inventory-valuation", label: "Modal Produk", icon: Warehouse },
 ]
 
 const settingsSubMenu = [
@@ -41,8 +50,23 @@ const settingsSubMenu = [
 
 export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname()
-  const isSettingsOpen = pathname.startsWith('/dashboard/settings');
   const isReportsOpen = pathname.startsWith('/dashboard/reports');
+  const isSettingsOpen = pathname.startsWith('/dashboard/settings');
+
+  const renderSubMenuItem = (item: { href: string; label: string; icon?: React.ElementType }) => {
+    const Icon = item.icon;
+    const isActive = pathname.startsWith(item.href);
+    return (
+        <Link 
+            key={item.href}
+            href={item.href} 
+            className={cn("flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground", isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground")}
+        >
+           {Icon && <Icon className="h-4 w-4" />}
+           <span>{item.label}</span>
+        </Link>
+    );
+  };
   
 
   return (
@@ -79,31 +103,33 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
         })}
 
         <Collapsible defaultOpen={isReportsOpen} className="w-full">
-           <CollapsibleTrigger asChild>
-                <Link href="/dashboard/reports" className={cn(
-                    "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md",
-                    isReportsOpen ? "text-accent-foreground" : "text-muted-foreground",
-                     "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center"
-                )}>
-                    <LineChart className="h-5 w-5" />
-                    <span className="group-[.collapsed]:hidden flex-1 text-left">Laporan</span>
-                    <ChevronDown className="h-4 w-4 group-[.collapsed]:hidden transition-transform [&[data-state=open]]:rotate-180" />
-                </Link>
-            </CollapsibleTrigger>
+            <div className={cn( "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md", isReportsOpen ? "text-accent-foreground" : "text-muted-foreground", "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center" )}>
+                <LineChart className="h-5 w-5" />
+                <Link href="/dashboard/reports" className="group-[.collapsed]:hidden flex-1 text-left">Laporan</Link>
+                <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-5 w-5 group-[.collapsed]:hidden">
+                       <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180" />
+                    </Button>
+                </CollapsibleTrigger>
+            </div>
+            <CollapsibleContent className="pl-8 pr-2 space-y-1">
+                {reportsSubMenu.map(renderSubMenuItem)}
+            </CollapsibleContent>
         </Collapsible>
         
         <Collapsible defaultOpen={isSettingsOpen} className="w-full">
-           <CollapsibleTrigger asChild>
-                <Link href="/dashboard/settings" className={cn(
-                    "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md",
-                    isSettingsOpen ? "text-accent-foreground" : "text-muted-foreground",
-                     "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center"
-                )}>
-                    <Settings className="h-5 w-5" />
-                    <span className="group-[.collapsed]:hidden flex-1 text-left">Pengaturan</span>
-                    <ChevronDown className="h-4 w-4 group-[.collapsed]:hidden transition-transform [&[data-state=open]]:rotate-180" />
-                </Link>
-            </CollapsibleTrigger>
+             <div className={cn( "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md", isSettingsOpen ? "text-accent-foreground" : "text-muted-foreground", "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center" )}>
+                <Settings className="h-5 w-5" />
+                <Link href="/dashboard/settings" className="group-[.collapsed]:hidden flex-1 text-left">Pengaturan</Link>
+                 <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-5 w-5 group-[.collapsed]:hidden">
+                       <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180" />
+                    </Button>
+                </CollapsibleTrigger>
+            </div>
+             <CollapsibleContent className="pl-8 pr-2 space-y-1">
+                {settingsSubMenu.map(renderSubMenuItem)}
+            </CollapsibleContent>
         </Collapsible>
 
         <Tooltip>
