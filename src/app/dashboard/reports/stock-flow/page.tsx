@@ -41,6 +41,7 @@ import { format, startOfDay, endOfDay, parseISO } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 
 // Interfaces
 interface Product {
@@ -234,7 +235,15 @@ function StockHistoryDialog({ product, dateRange }: { product: Product, dateRang
                                             <Badge variant={item.quantityChange > 0 ? "default" : "destructive"}>{item.type}</Badge>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="font-medium">{item.relatedInfo}</div>
+                                            <div className="font-medium">
+                                                {item.relatedInfo.startsWith('Order') ? (
+                                                     <Button variant="link" asChild className="p-0 h-auto">
+                                                        <Link href="/dashboard/orders">{item.relatedInfo}</Link>
+                                                     </Button>
+                                                ) : (
+                                                    item.relatedInfo
+                                                )}
+                                            </div>
                                             <div className="text-xs text-muted-foreground">{item.description}</div>
                                         </TableCell>
                                         <TableCell>

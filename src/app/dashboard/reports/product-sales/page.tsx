@@ -39,6 +39,7 @@ import { Calendar as CalendarIcon, Package, FileText, Loader2 } from "lucide-rea
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
+import Link from "next/link";
 
 interface OrderProduct {
   productId: string;
@@ -226,7 +227,11 @@ export default function ProductSalesReportPage() {
                                                         <TableBody>
                                                             {product.relatedOrders.map(order => (
                                                                 <TableRow key={order.orderId}>
-                                                                    <TableCell>...{order.orderId.slice(-6)}</TableCell>
+                                                                    <TableCell>
+                                                                        <Button variant="link" asChild className="p-0 h-auto">
+                                                                            <Link href="/dashboard/orders">...{order.orderId.slice(-6)}</Link>
+                                                                        </Button>
+                                                                    </TableCell>
                                                                     <TableCell>{order.customer}</TableCell>
                                                                     <TableCell>{format(order.date.toDate(), 'dd MMM yyyy')}</TableCell>
                                                                     <TableCell className="text-right">{order.quantity}</TableCell>

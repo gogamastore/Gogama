@@ -48,6 +48,7 @@ import {
 import { DollarSign, Package, Calendar as CalendarIcon, FileText } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
+import Link from "next/link";
 
 interface OrderProduct {
   productId: string;
@@ -330,7 +331,11 @@ export default function SalesReportPage() {
                 {filteredOrders.length > 0 ? (
                     filteredOrders.map((order) => (
                     <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.id}</TableCell>
+                        <TableCell className="font-medium">
+                             <Button variant="link" asChild className="p-0 h-auto">
+                                <Link href="/dashboard/orders">{order.id}</Link>
+                            </Button>
+                        </TableCell>
                         <TableCell>{order.customerDetails?.name || order.customer}</TableCell>
                         <TableCell>{format(new Date(order.date), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
                         <TableCell>

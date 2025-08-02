@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -37,6 +38,7 @@ import {
 import { Calendar as CalendarIcon, Users, FileText, ShoppingCart, DollarSign } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
+import Link from "next/link";
 
 interface Order {
   id: string;
@@ -237,7 +239,11 @@ export default function CustomersReportPage() {
                                                             <TableBody>
                                                                 {customer.orders.map(order => (
                                                                     <TableRow key={order.id}>
-                                                                        <TableCell className="font-medium">{order.id}</TableCell>
+                                                                        <TableCell className="font-medium">
+                                                                            <Button variant="link" asChild className="p-0 h-auto">
+                                                                                <Link href="/dashboard/orders">{order.id}</Link>
+                                                                            </Button>
+                                                                        </TableCell>
                                                                         <TableCell>{format(new Date(order.date), "dd MMM yyyy")}</TableCell>
                                                                         <TableCell><Badge variant="outline">{order.status}</Badge></TableCell>
                                                                         <TableCell><Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>{order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}</Badge></TableCell>
