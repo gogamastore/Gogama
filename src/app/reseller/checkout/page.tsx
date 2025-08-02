@@ -144,6 +144,17 @@ export default function CheckoutPage() {
     }
   }, [cart, authLoading, router, toast]);
 
+  // Logic to disable COD for expedition
+  useEffect(() => {
+    if (shippingMethod === "expedition" && paymentMethod === "cod") {
+      setPaymentMethod("bank_transfer");
+      toast({
+        title: "Metode Pembayaran Disesuaikan",
+        description: "COD tidak tersedia untuk pengiriman via ekspedisi.",
+      });
+    }
+  }, [shippingMethod, paymentMethod, toast]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setCustomerDetails(prev => ({ ...prev, [id]: value }));
@@ -416,14 +427,17 @@ export default function CheckoutPage() {
                                     </div>
                                 )}
                             </div>
-                             <div className="flex items-center space-x-2 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary">
-                                <RadioGroupItem value="cod" id="cod" />
-                                <Label htmlFor="cod" className="flex-1 cursor-pointer">
+                             <div className="flex items-center space-x-2 p-4 border rounded-md has-[:checked]:bg-muted has-[:checked]:border-primary"
+                                  aria-disabled={shippingMethod === 'expedition'}
+                             >
+                                <RadioGroupItem value="cod" id="cod" disabled={shippingMethod === 'expedition'} />
+                                <Label htmlFor="cod" className={cn("flex-1", shippingMethod === 'expedition' ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer")}>
                                     <div className="flex items-center gap-4">
                                         <Banknote className="h-6 w-6"/>
                                         <div>
                                             <p className="font-semibold">COD (Bayar di Tempat)</p>
-                                            <p className="text-sm text-muted-foreground">Siapkan uang pas saat kurir tiba.</p>
+                                            <p className="text-sm">Siapkan uang pas saat kurir tiba.</p>
+                                            {shippingMethod === 'expedition' && <p className="text-xs text-destructive">(Tidak tersedia untuk ekspedisi)</p>}
                                         </div>
                                     </div>
                                 </Label>
@@ -482,3 +496,5 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
+    
