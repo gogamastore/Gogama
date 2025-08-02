@@ -2,81 +2,87 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check if a user has a specific role
-    function hasRole(role) {
-      return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == role;
-    }
-    
-    // Admins can read/write all data for management purposes
-    match /{document=**} {
-      allow read, write: if hasRole('owner') || hasRole('admin');
+
+    // Helper functions
+    function isAuth() {
+      return request.auth != null;
     }
 
-    // Rules for User collection
+    function getRole() {
+      return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuth() && getRole() == 'admin';
+    }
+
+    function isReseller() {
+      return isAuth() && getRole() == 'reseller';
+    }
+
+    // User collection:
+    // - Users can read and update their own data.
+    // - New users can create their own document during registration.
+    // - Only admins can delete user documents.
     match /user/{userId} {
-      // Any authenticated user can create their own user document (for registration)
-      allow create: if request.auth != null;
-      // Users can only read or update their own data
-      allow read, update: if request.auth.uid == userId;
-      // Admins can manage all user documents
-      allow list, delete: if hasRole('owner') || hasRole('admin');
-    }
-
-    // Rules for Reseller-specific collections
-    match /products/{productId} {
-      allow read: if request.auth != null; // All authenticated users can read products
+      allow read, update: if isAuth() && request.auth.uid == userId;
+      allow create: if isAuth(); // For registration
+      allow delete: if isAdmin();
     }
     
-    match /banners/{bannerId} {
-       allow read: if request.auth != null; // All authenticated users can read banners
-    }
-
-    match /promotions/{promoId} {
-       allow read: if request.auth != null; // All authenticated users can read promotions
-    }
-
-    match /trending_products/{trendingId} {
-       allow read: if request.auth != null; // All authenticated users can read trending products
-    }
-
-    match /whatsapp_contacts/{contactId} {
-        allow read: if request.auth != null; // All authenticated users can read contacts
-    }
-    
-    match /bank_accounts/{accountId} {
-      // Resellers need to read this for checkout
-      allow read: if request.auth != null;
-    }
-
-    // Orders can be created by resellers, but only managed by admins
-    match /orders/{orderId} {
-      allow create: if request.auth != null;
-      allow read, update, delete: if hasRole('owner') || hasRole('admin');
-      // A user can read their own orders
-      allow read: if request.auth.uid == resource.data.customerId;
-    }
-    
-    // Resellers can manage their own addresses
+    // User subcollection for addresses: only the user can manage their own addresses.
     match /user/{userId}/addresses/{addressId} {
-        allow read, write: if request.auth.uid == userId;
+        allow read, write, delete: if isAuth() && request.auth.uid == userId;
     }
-    
-    // Rules for Admin-only collections
-    match /purchase_transactions/{transactionId} {
-      allow read, write: if hasRole('owner') || hasRole('admin');
+
+    // Products & Stock Adjustments:
+    // - All authenticated users can read products.
+    // - Only admins can create, update, or delete products and their stock adjustments.
+    match /products/{productId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
     }
-    
-    match /suppliers/{supplierId} {
-       allow read, write: if hasRole('owner') || hasRole('admin');
-    }
-    
-    match /operational_expenses/{expenseId} {
-       allow read, write: if hasRole('owner') || hasRole('admin');
-    }
-    
     match /stock_adjustments/{adjustmentId} {
-       allow read, write: if hasRole('owner') || hasRole('admin');
+      allow read, write: if isAdmin();
+    }
+
+    // Orders:
+    // - Resellers can create their own orders.
+    // - Resellers can read and update (cancel/upload proof) their own orders.
+    // - Admins can read and write all orders.
+    match /orders/{orderId} {
+      allow create: if isReseller() && request.resource.data.customerId == request.auth.uid;
+      allow read, update: if (isReseller() && resource.data.customerId == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Admin-only collections (banners, contacts, bank accounts, suppliers, expenses, purchases)
+    // - Only admins can read and write to these collections.
+    match /banners/{bannerId} {
+        allow read, write: if isAdmin();
+    }
+    match /whatsapp_contacts/{contactId} {
+        allow read, write: if isAdmin();
+    }
+    match /bank_accounts/{accountId} {
+        allow read, write: if isAdmin();
+    }
+    match /suppliers/{supplierId} {
+        allow read, write: if isAdmin();
+    }
+     match /promotions/{promoId} {
+        allow read: if isAuth();
+        allow write: if isAdmin();
+    }
+    match /trending_products/{trendingId} {
+        allow read: if isAuth();
+        allow write: if isAdmin();
+    }
+    match /purchase_transactions/{transactionId} {
+      allow read, write: if isAdmin();
+    }
+    match /operational_expenses/{expenseId} {
+      allow read, write: if isAdmin();
     }
   }
 }
