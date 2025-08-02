@@ -10,10 +10,13 @@ interface Product {
   price: string;
   image: string;
   'data-ai-hint': string;
+  isPromo?: boolean;
+  discountPrice?: string;
 }
 
 interface CartItem extends Product {
   quantity: number;
+  finalPrice: number;
 }
 
 interface CartContextType {
@@ -85,12 +88,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const addToCart = (product: Product, quantity: number = 1) => {
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.id === product.id);
+      const priceToUse = (product.isPromo && product.discountPrice) ? parseCurrency(product.discountPrice) : parseCurrency(product.price);
+
       if (existingItem) {
         return prevCart.map(item =>
           item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
         );
       }
-      return [...prevCart, { ...product, quantity }];
+      return [...prevCart, { ...product, quantity, finalPrice: priceToUse }];
     });
   };
 
@@ -116,7 +121,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
-  const totalAmount = cart.reduce((total, item) => total + (parseCurrency(item.price) * item.quantity), 0);
+  const totalAmount = cart.reduce((total, item) => total + (item.finalPrice * item.quantity), 0);
   
   const value = {
       cart, 

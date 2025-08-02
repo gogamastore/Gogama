@@ -70,6 +70,8 @@ export function ProductDetailDialog({ product, children }: { product: Product, c
         setIsOpen(false);
     }
 
+    const displayPrice = (product.isPromo && product.discountPrice) ? product.discountPrice : product.price;
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>

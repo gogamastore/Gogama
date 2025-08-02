@@ -61,10 +61,6 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-const parseCurrency = (value: string): number => {
-  return Number(value.replace(/[^0-9]/g, ""));
-};
-
 interface BankAccount {
     id: string;
     bankName: string;
@@ -219,7 +215,7 @@ export default function CheckoutPage() {
             products: cart.map(item => ({
                 productId: item.id,
                 name: item.name,
-                price: parseCurrency(item.price),
+                price: item.finalPrice,
                 quantity: item.quantity,
                 image: item.image,
             })),
@@ -452,10 +448,10 @@ export default function CheckoutPage() {
                                         <Image src={item.image} alt={item.name} width={48} height={48} className="rounded-md"/>
                                         <div>
                                             <p className="font-medium text-sm">{item.name}</p>
-                                            <p className="text-xs text-muted-foreground">{item.quantity} x {item.price}</p>
+                                            <p className="text-xs text-muted-foreground">{item.quantity} x {formatCurrency(item.finalPrice)}</p>
                                         </div>
                                     </div>
-                                    <p className="text-sm font-medium">{formatCurrency(parseCurrency(item.price) * item.quantity)}</p>
+                                    <p className="text-sm font-medium">{formatCurrency(item.finalPrice * item.quantity)}</p>
                                 </div>
                             ))}
                         </div>

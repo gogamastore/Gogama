@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -23,10 +24,6 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 0,
   }).format(amount);
 };
-
-const parseCurrency = (value: string): number => {
-    return Number(value.replace(/[^0-9]/g, ''));
-}
 
 
 export default function CartPage() {
@@ -99,9 +96,9 @@ export default function CartPage() {
                                         </Button>
                                     </div>
                                 </TableCell>
-                                <TableCell className="text-right">{item.price}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(item.finalPrice)}</TableCell>
                                 <TableCell className="text-right font-semibold">
-                                    {formatCurrency(parseCurrency(item.price) * item.quantity)}
+                                    {formatCurrency(item.finalPrice * item.quantity)}
                                 </TableCell>
                                  <TableCell>
                                     <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}>
