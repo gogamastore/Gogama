@@ -632,14 +632,14 @@ export default function ProductsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                <TableHead className="w-[100px] sm:table-cell">
+                                <TableHead className="w-[64px]">
                                     <span className="sr-only">Image</span>
                                 </TableHead>
                                 <TableHead>Nama</TableHead>
-                                <TableHead>SKU</TableHead>
+                                <TableHead className="hidden md:table-cell">SKU</TableHead>
                                 <TableHead>Stok</TableHead>
-                                <TableHead className="text-right">Harga Beli</TableHead>
-                                <TableHead className="text-right">Harga Jual</TableHead>
+                                <TableHead className="hidden md:table-cell text-right">Harga Beli</TableHead>
+                                <TableHead className="hidden sm:table-cell text-right">Harga Jual</TableHead>
                                 <TableHead className="w-[50px] text-right">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -650,16 +650,16 @@ export default function ProductsPage() {
                                     </TableRow>
                                 ) : paginatedProducts.map((product) => (
                                 <TableRow key={product.id}>
-                                    <TableCell className="sm:table-cell">
+                                    <TableCell>
                                         <ImageViewer src={product.image} alt={product.name}/>
                                     </TableCell>
                                     <TableCell className="font-medium">{product.name}</TableCell>
-                                    <TableCell>{product.sku}</TableCell>
+                                    <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
                                     <TableCell>
-                                    <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock} in stock` : 'Out of Stock'}</Badge>
+                                    <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock}` : 'Habis'}</Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
-                                    <TableCell className="text-right">{product.price}</TableCell>
+                                    <TableCell className="hidden md:table-cell text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
+                                    <TableCell className="hidden sm:table-cell text-right">{product.price}</TableCell>
                                     <TableCell className="text-right">
                                         <Dialog>
                                             <DialogTrigger asChild>
@@ -781,9 +781,9 @@ export default function ProductsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[100px] sm:table-cell">Gambar</TableHead>
+                                    <TableHead className="w-[64px]">Gambar</TableHead>
                                     <TableHead>Nama Produk</TableHead>
-                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="hidden md:table-cell">SKU</TableHead>
                                     <TableHead className="text-right">Stok Tersisa</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
@@ -795,11 +795,11 @@ export default function ProductsPage() {
                                     </TableRow>
                                 ) : filteredLowStockProducts.length > 0 ? filteredLowStockProducts.map((product) => (
                                     <TableRow key={product.id}>
-                                        <TableCell className="sm:table-cell">
+                                        <TableCell>
                                             <ImageViewer src={product.image} alt={product.name}/>
                                         </TableCell>
                                         <TableCell className="font-medium">{product.name}</TableCell>
-                                        <TableCell>{product.sku}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
                                         <TableCell className="text-right">
                                           <Badge variant="destructive">{product.stock}</Badge>
                                         </TableCell>
@@ -840,9 +840,9 @@ export default function ProductsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[100px] sm:table-cell">Gambar</TableHead>
+                                    <TableHead className="w-[64px]">Gambar</TableHead>
                                     <TableHead>Nama Produk</TableHead>
-                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="hidden md:table-cell">SKU</TableHead>
                                     <TableHead className="text-center">Stok Saat Ini</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
@@ -854,11 +854,11 @@ export default function ProductsPage() {
                                     </TableRow>
                                 ) : filteredAllProducts.map((product) => (
                                     <TableRow key={product.id}>
-                                        <TableCell className="sm:table-cell">
+                                        <TableCell>
                                             <ImageViewer src={product.image} alt={product.name}/>
                                         </TableCell>
                                         <TableCell className="font-medium">{product.name}</TableCell>
-                                        <TableCell>{product.sku}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
                                         <TableCell className="text-center font-bold">{product.stock}</TableCell>
                                         <TableCell className="text-right">
                                             <AdjustStockDialog product={product} onStockAdjusted={fetchProducts} />

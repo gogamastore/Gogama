@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyCThjETkAH8HpFoclhmXtgjm2lIr1506dg",
   authDomain: "orderflow-r7jsk.firebaseapp.com",
   projectId: "orderflow-r7jsk",
-  storageBucket: "orderflow-r7jsk.appspot.com",
+  storageBucket: "orderflow-r7jsk.firebasestorage.app",
   messagingSenderId: "954515661623",
   appId: "1:954515661623:web:19d89bf3722600e02ef0b2"
 };
