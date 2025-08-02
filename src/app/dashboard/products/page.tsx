@@ -482,7 +482,7 @@ function ImageViewer({ src, alt }: { src: string, alt: string }) {
             />
         </DialogTrigger>
         <DialogContent className="max-w-xl">
-             <DialogHeader>
+            <DialogHeader>
                 <DialogTitle>{alt}</DialogTitle>
                 <DialogDescription>
                     Pratinjau gambar produk ukuran penuh.
@@ -636,10 +636,10 @@ export default function ProductsPage() {
                                     <span className="sr-only">Image</span>
                                 </TableHead>
                                 <TableHead>Nama</TableHead>
-                                <TableHead className="hidden md:table-cell">SKU</TableHead>
+                                <TableHead className="hidden sm:table-cell">SKU</TableHead>
                                 <TableHead>Stok</TableHead>
-                                <TableHead className="hidden md:table-cell text-right">Harga Beli</TableHead>
-                                <TableHead className="hidden sm:table-cell text-right">Harga Jual</TableHead>
+                                <TableHead className="text-right">Harga Beli</TableHead>
+                                <TableHead className="text-right">Harga Jual</TableHead>
                                 <TableHead className="w-[50px] text-right">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -654,12 +654,12 @@ export default function ProductsPage() {
                                         <ImageViewer src={product.image} alt={product.name}/>
                                     </TableCell>
                                     <TableCell className="font-medium">{product.name}</TableCell>
-                                    <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
+                                    <TableCell className="hidden sm:table-cell">{product.sku}</TableCell>
                                     <TableCell>
                                     <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock}` : 'Habis'}</Badge>
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
-                                    <TableCell className="hidden sm:table-cell text-right">{product.price}</TableCell>
+                                    <TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
+                                    <TableCell className="text-right">{product.price}</TableCell>
                                     <TableCell className="text-right">
                                         <Dialog>
                                             <DialogTrigger asChild>
