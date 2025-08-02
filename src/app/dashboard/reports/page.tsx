@@ -18,6 +18,7 @@ import {
   Warehouse,
   Package,
   Replace,
+  Receipt,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -53,10 +54,16 @@ const reportCards = [
     href: "/dashboard/reports/stock-flow",
   },
   {
-    title: "Laporan Piutang",
+    title: "Laporan Piutang Usaha",
     description: "Lacak pesanan yang belum dibayar.",
     icon: FileWarning,
     href: "/dashboard/reports/receivables",
+  },
+  {
+    title: "Laporan Utang Dagang",
+    description: "Lacak pembelian kredit yang belum lunas.",
+    icon: Receipt,
+    href: "/dashboard/reports/accounts-payable",
   },
   {
     title: "Laporan Laba-Rugi",
