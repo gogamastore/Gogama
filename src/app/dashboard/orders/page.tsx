@@ -750,19 +750,19 @@ export default function OrdersPage() {
         case 'unpaid':
             return (
                 <Button size="sm" onClick={() => handleMarkAsPaid(order)}>
-                    Proses (Lunas)
+                    Proses
                 </Button>
             );
         case 'toShip':
             return (
                 <Button size="sm" onClick={() => updateOrderStatus(order.id, { status: 'Shipped' })}>
-                    Kirim Pesanan
+                    Atur Pengiriman
                 </Button>
             );
         case 'shipped':
             return (
                  <Button size="sm" onClick={() => updateOrderStatus(order.id, { status: 'Delivered' })}>
-                    Tandai Selesai
+                    Selesai
                 </Button>
             );
         case 'delivered':
@@ -978,7 +978,7 @@ export default function OrdersPage() {
       </CardHeader>
       <CardContent>
           <Tabs defaultValue="toShip">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+            <TabsList className="h-auto p-1.5 w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
                 <TabsTrigger value="unpaid">
                     Belum Bayar <Badge className="ml-2">{filteredOrders.unpaid.length}</Badge>
                 </TabsTrigger>
@@ -1015,3 +1015,5 @@ export default function OrdersPage() {
     </Card>
   )
 }
+
+

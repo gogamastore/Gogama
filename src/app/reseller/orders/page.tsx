@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -446,7 +447,7 @@ export default function OrderHistoryPage() {
         </CardHeader>
         <CardContent>
            <Tabs defaultValue="processing">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+            <TabsList className="h-auto p-1.5 w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
                 <TabsTrigger value="unpaid">
                     Belum Bayar <Badge className="ml-2">{filteredOrders.unpaid.length}</Badge>
                 </TabsTrigger>
@@ -484,3 +485,4 @@ export default function OrderHistoryPage() {
     </div>
   );
 }
+
