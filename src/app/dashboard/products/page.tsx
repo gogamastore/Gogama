@@ -151,6 +151,19 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                     description: `${formData.name} telah diperbarui.`,
                 });
             } else { // Adding new product
+                 // Check for existing SKU
+                const q = query(collection(db, "products"), where("sku", "==", formData.sku));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    toast({
+                        variant: "destructive",
+                        title: "SKU Sudah Ada",
+                        description: "Produk dengan SKU ini sudah terdaftar. Harap gunakan SKU lain.",
+                    });
+                    setLoading(false);
+                    return;
+                }
+
                 await addDoc(collection(db, "products"), {
                     ...dataToSave,
                     stock: formData.stock || 0, // Use stock from form for new products
@@ -190,7 +203,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="sku" className="text-right">SKU</Label>
-                    <Input id="sku" value={formData.sku} onChange={handleInputChange} className="col-span-3" />
+                    <Input id="sku" value={formData.sku} onChange={handleInputChange} className="col-span-3" disabled={!!product} />
                 </div>
                  <div className="grid grid-cols-4 items-start gap-4">
                     <Label htmlFor="image" className="text-right pt-2">Gambar</Label>
@@ -389,12 +402,22 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
                 
                 if (json.length === 0) throw new Error("File Excel kosong atau format salah.");
 
+                // Fetch existing SKUs to prevent duplicates
+                const productsSnapshot = await getDocs(collection(db, "products"));
+                const existingSkus = new Set(productsSnapshot.docs.map(doc => doc.data().sku));
+                let skippedCount = 0;
+                let addedCount = 0;
+
                 const batch = writeBatch(db);
                 json.forEach((row) => {
-                    if (!row.name || !row.sku || !row.price) {
-                        // Skip rows with missing required fields
+                    // Skip if required fields are missing or SKU already exists
+                    if (!row.name || !row.sku || !row.price || existingSkus.has(row.sku)) {
+                        if (existingSkus.has(row.sku)) {
+                            skippedCount++;
+                        }
                         return;
                     }
+                    
                     const productRef = doc(collection(db, "products"));
                     batch.set(productRef, {
                         name: row.name,
@@ -408,11 +431,19 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
                         'data-ai-hint': 'product item',
                         createdAt: serverTimestamp(),
                     });
+                    addedCount++;
+                    existingSkus.add(row.sku); // Add to set to handle duplicates within the same file
                 });
                 
-                await batch.commit();
+                if (addedCount > 0) {
+                    await batch.commit();
+                }
 
-                toast({ title: 'Impor Berhasil', description: `${json.length} produk telah berhasil ditambahkan.` });
+                toast({ 
+                    title: 'Impor Selesai', 
+                    description: `${addedCount} produk berhasil ditambahkan. ${skippedCount} produk dilewati karena SKU sudah ada.`
+                });
+
                 onImportSuccess();
                 setIsOpen(false);
                 setFile(null);
@@ -439,7 +470,7 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
                 <DialogHeader>
                     <DialogTitle>Impor Produk Massal</DialogTitle>
                     <DialogDescription>
-                        Tambah banyak produk sekaligus menggunakan file Excel. Ikuti langkah-langkah di bawah ini.
+                        Tambah banyak produk sekaligus menggunakan file Excel. Produk dengan SKU yang sudah ada akan dilewati.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
