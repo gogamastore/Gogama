@@ -29,12 +29,12 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Download, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon, Eye, DollarSign, MessageSquare, MoreHorizontal, Package, User, ExternalLink } from "lucide-react"
-import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import Link from "next/link";
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -91,6 +91,7 @@ interface Order {
   shippingFee: number;
   shippingMethod?: string;
   date: any; // Allow for Firestore Timestamp object
+  shippedAt?: any;
   products: OrderProduct[];
 }
 
@@ -432,7 +433,29 @@ export default function OrdersPage() {
                 subtotal: data.subtotal || 0,
             } as Order
         });
-        setAllOrders(ordersData);
+
+        // Auto-complete logic
+        const fourDaysAgo = subDays(new Date(), 4);
+        const batch = writeBatch(db);
+        let updatedInBatch = false;
+
+        const updatedOrders = ordersData.map(order => {
+            if (order.status === 'Shipped' && order.shippedAt && order.shippedAt.toDate() < fourDaysAgo) {
+                const orderRef = doc(db, "orders", order.id);
+                batch.update(orderRef, { status: 'Delivered' });
+                updatedInBatch = true;
+                return { ...order, status: 'Delivered' };
+            }
+            return order;
+        });
+        
+        if (updatedInBatch) {
+            await batch.commit();
+            toast({ title: "Status Pesanan Diperbarui", description: "Beberapa pesanan yang dikirim telah ditandai selesai secara otomatis."});
+        }
+        
+        setAllOrders(updatedOrders);
+
     } catch (error) {
         console.error("Error fetching orders: ", error);
         toast({
@@ -561,7 +584,7 @@ export default function OrdersPage() {
         pdf.text('Subtotal:', leftAlignX, finalY + 10);
         pdf.text(formatCurrency(order.subtotal || 0), leftAlignX + 40, finalY + 10);
         pdf.text('Ongkir:', leftAlignX, finalY + 15);
-        pdfDoc.text(formatCurrency(order.shippingFee || 0), leftAlignX + 40, finalY + 15);
+        pdf.text(formatCurrency(order.shippingFee || 0), leftAlignX + 40, finalY + 15);
         
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
@@ -577,6 +600,9 @@ export default function OrdersPage() {
       setIsProcessing(orderId);
       const orderRef = doc(db, "orders", orderId);
       try {
+          if(updates.status === 'Shipped') {
+              updates.shippedAt = serverTimestamp();
+          }
           await updateDoc(orderRef, updates);
           await fetchOrders();
           toast({
@@ -723,37 +749,25 @@ export default function OrdersPage() {
     switch (tabName) {
         case 'unpaid':
             return (
-                <Button size="sm" onClick={() => updateOrderStatus(order.id, { status: 'Processing' })}>
-                    Proses
+                <Button size="sm" onClick={() => handleMarkAsPaid(order)}>
+                    Proses (Lunas)
                 </Button>
             );
         case 'toShip':
             return (
                 <Button size="sm" onClick={() => updateOrderStatus(order.id, { status: 'Shipped' })}>
-                    Atur Pengiriman
+                    Kirim Pesanan
                 </Button>
             );
         case 'shipped':
             return (
                  <Button size="sm" onClick={() => updateOrderStatus(order.id, { status: 'Delivered' })}>
-                    Selesai
+                    Tandai Selesai
                 </Button>
             );
         case 'delivered':
              return (
-                 <Dialog>
-                    <DialogTrigger asChild>
-                        <Button size="sm">Lihat Rincian</Button>
-                    </DialogTrigger>
-                     <DialogContent>
-                        <DialogHeader><DialogTitle>Faktur Pesanan #{order.id}</DialogTitle></DialogHeader>
-                        {/* Placeholder for invoice content */}
-                         <p className="text-center py-8">Rincian faktur akan ditampilkan di sini.</p>
-                         <DialogFooter>
-                             <Button onClick={() => generateSinglePdf(order.id)}><Printer className="mr-2 h-4 w-4"/>Cetak</Button>
-                         </DialogFooter>
-                    </DialogContent>
-                 </Dialog>
+                <Button size="sm" onClick={() => generateSinglePdf(order.id)}>Lihat Rincian</Button>
             );
         case 'cancelled':
              return (
