@@ -28,7 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Download, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon, Eye, DollarSign, MessageSquare, MoreHorizontal, Package, User } from "lucide-react"
+import { Download, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon, Eye, DollarSign, MessageSquare, MoreHorizontal, Package, User, ExternalLink } from "lucide-react"
 import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -561,7 +561,7 @@ export default function OrdersPage() {
         pdf.text('Subtotal:', leftAlignX, finalY + 10);
         pdf.text(formatCurrency(order.subtotal || 0), leftAlignX + 40, finalY + 10);
         pdf.text('Ongkir:', leftAlignX, finalY + 15);
-        pdf.text(formatCurrency(order.shippingFee || 0), leftAlignX + 40, finalY + 15);
+        pdfDoc.text(formatCurrency(order.shippingFee || 0), leftAlignX + 40, finalY + 15);
         
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
@@ -593,6 +593,24 @@ export default function OrdersPage() {
           setIsProcessing(null);
       }
   };
+  
+  const deleteOrder = async (orderId: string) => {
+      setIsProcessing(orderId);
+      try {
+          await deleteDoc(doc(db, "orders", orderId));
+          toast({
+              title: "Pesanan Dihapus",
+              description: "Pesanan yang dibatalkan telah dihapus."
+          });
+          fetchOrders();
+      } catch (error) {
+           console.error("Error deleting order: ", error);
+           toast({ variant: "destructive", title: "Gagal Menghapus Pesanan"});
+      } finally {
+          setIsProcessing(null);
+      }
+  }
+
 
   const handleMarkAsPaid = async (order: Order) => {
     setIsProcessing(order.id);
@@ -701,6 +719,62 @@ export default function OrdersPage() {
     }
   };
 
+  const renderMainActionButton = (order: Order, tabName: string) => {
+    switch (tabName) {
+        case 'unpaid':
+            return (
+                <Button size="sm" onClick={() => updateOrderStatus(order.id, { status: 'Processing' })}>
+                    Proses
+                </Button>
+            );
+        case 'toShip':
+            return (
+                <Button size="sm" onClick={() => updateOrderStatus(order.id, { status: 'Shipped' })}>
+                    Atur Pengiriman
+                </Button>
+            );
+        case 'shipped':
+            return (
+                 <Button size="sm" onClick={() => updateOrderStatus(order.id, { status: 'Delivered' })}>
+                    Selesai
+                </Button>
+            );
+        case 'delivered':
+             return (
+                 <Dialog>
+                    <DialogTrigger asChild>
+                        <Button size="sm">Lihat Rincian</Button>
+                    </DialogTrigger>
+                     <DialogContent>
+                        <DialogHeader><DialogTitle>Faktur Pesanan #{order.id}</DialogTitle></DialogHeader>
+                        {/* Placeholder for invoice content */}
+                         <p className="text-center py-8">Rincian faktur akan ditampilkan di sini.</p>
+                         <DialogFooter>
+                             <Button onClick={() => generateSinglePdf(order.id)}><Printer className="mr-2 h-4 w-4"/>Cetak</Button>
+                         </DialogFooter>
+                    </DialogContent>
+                 </Dialog>
+            );
+        case 'cancelled':
+             return (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="destructive">
+                            <Trash2 className="mr-2 h-4 w-4"/> Hapus
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader><AlertDialogTitle>Anda Yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan menghapus data pesanan ini secara permanen. Aksi ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => deleteOrder(order.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Hapus Permanen</AlertDialogAction></AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            );
+        default:
+            return null;
+    }
+  }
+
+
   const renderOrderList = (orders: Order[], tabName: string) => {
     const selectedInTabCount = orders.filter(o => selectedOrders.includes(o.id)).length;
     const isAllInTabSelected = orders.length > 0 && selectedInTabCount === orders.length;
@@ -733,7 +807,9 @@ export default function OrdersPage() {
                                      <User className="h-4 w-4 text-muted-foreground"/>
                                      <span className="font-semibold">{order.customerDetails?.name || order.customer}</span>
                                 </div>
-                                <MessageSquare className="h-4 w-4 text-primary cursor-pointer"/>
+                                <a href={`https://wa.me/${order.customerDetails?.whatsapp}`} target="_blank" rel="noopener noreferrer">
+                                    <MessageSquare className="h-4 w-4 text-primary cursor-pointer"/>
+                                </a>
                             </div>
                             <div className="text-sm text-muted-foreground">
                                 No. Pesanan <span className="font-medium text-foreground">{order.id.substring(0, 12)}...</span>
@@ -795,21 +871,6 @@ export default function OrdersPage() {
                                                     <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
                                                 </DropdownMenuItem>
                                             )}
-                                            {order.status === 'Pending' && (
-                                                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Processing' })}>
-                                                    <RefreshCw className="mr-2 h-4 w-4" /> Proses Pesanan
-                                                </DropdownMenuItem>
-                                            )}
-                                            {order.status === 'Processing' && (
-                                                 <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Shipped' })}>
-                                                    <Truck className="mr-2 h-4 w-4" /> Kirim Pesanan
-                                                </DropdownMenuItem>
-                                            )}
-                                            {order.status === 'Shipped' && (
-                                                 <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Delivered' })}>
-                                                    <Check className="mr-2 h-4 w-4" /> Tandai Telah Sampai
-                                                </DropdownMenuItem>
-                                            )}
                                              <DropdownMenuSeparator/>
                                              <EditOrderDialog order={order} onOrderUpdated={fetchOrders} />
                                              <DropdownMenuItem onClick={() => generateSinglePdf(order.id)}>
@@ -831,6 +892,7 @@ export default function OrdersPage() {
                                         </DropdownMenuContent>
                                     </DropdownMenu>
 
+                                    {order.paymentMethod === 'bank_transfer' && tabName !== 'cancelled' && (
                                     <Dialog>
                                         <DialogTrigger asChild>
                                              <Button variant="outline" size="sm">
@@ -849,10 +911,9 @@ export default function OrdersPage() {
                                             ) : (<p className="text-center text-muted-foreground py-8">Belum ada bukti pembayaran.</p>)}
                                         </DialogContent>
                                     </Dialog>
+                                    )}
 
-                                     <Button size="sm">
-                                         Atur Pengiriman
-                                    </Button>
+                                     {renderMainActionButton(order, tabName)}
                                 </>
                               )}
                         </CardFooter>
