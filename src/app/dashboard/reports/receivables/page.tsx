@@ -27,9 +27,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, FileWarning, Calendar as CalendarIcon, Package } from "lucide-react";
+import { DollarSign, FileWarning, Calendar as CalendarIcon, Package, ArrowLeft } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
+import { useRouter } from "next/navigation";
 
 interface Order {
   id: string;
@@ -53,6 +54,8 @@ export default function ReceivablesReportPage() {
   const [filteredReceivables, setFilteredReceivables] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const router = useRouter();
+
 
   const filterReceivablesByDate = useCallback((receivables: Order[], from?: Date, to?: Date) => {
     if (!from && !to) {
@@ -131,12 +134,21 @@ export default function ReceivablesReportPage() {
 
   return (
     <div className="space-y-6">
+       <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Piutang Usaha</CardTitle>
+                <CardDescription>
+                    Lacak semua pesanan yang telah dikirim namun belum lunas. Filter berdasarkan rentang tanggal pesanan.
+                </CardDescription>
+            </div>
+        </div>
       <Card>
         <CardHeader>
-          <CardTitle>Laporan Piutang Usaha</CardTitle>
-          <CardDescription>
-            Lacak semua pesanan yang telah dikirim namun belum lunas. Filter berdasarkan rentang tanggal pesanan.
-          </CardDescription>
+          <CardTitle>Filter Data</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
             <Popover>

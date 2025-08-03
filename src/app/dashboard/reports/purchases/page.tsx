@@ -44,7 +44,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { DollarSign, Package, Calendar as CalendarIcon, FileText, Edit, Plus, Minus, Trash2, Loader2, Search, PlusCircle } from "lucide-react";
+import { DollarSign, Package, Calendar as CalendarIcon, FileText, Edit, Plus, Minus, Trash2, Loader2, Search, PlusCircle, ArrowLeft } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -53,6 +53,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
 
 
 interface Product {
@@ -355,6 +356,7 @@ export default function PurchasesReportPage() {
   const [allTransactions, setAllTransactions] = useState<PurchaseTransaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<PurchaseTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfDay(new Date()),
     to: endOfDay(new Date()),
@@ -435,12 +437,22 @@ export default function PurchasesReportPage() {
 
   return (
     <div className="space-y-6">
+       <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Transaksi Pembelian</CardTitle>
+                <CardDescription>
+                    Lacak semua transaksi pembelian stok. Filter berdasarkan rentang tanggal.
+                </CardDescription>
+            </div>
+        </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Laporan Transaksi Pembelian</CardTitle>
-          <CardDescription>
-            Lacak semua transaksi pembelian stok. Filter berdasarkan rentang tanggal.
-          </CardDescription>
+          <CardTitle>Filter Data</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
             <Popover>

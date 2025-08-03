@@ -36,12 +36,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, Search, Package, Loader2, ArrowUp, ArrowDown } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Package, Loader2, ArrowUp, ArrowDown, ArrowLeft } from "lucide-react";
 import { format, startOfDay, endOfDay, parseISO } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useRouter } from "next/navigation";
 
 // Interfaces
 interface Product {
@@ -500,6 +501,7 @@ export default function StockFlowReportPage() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const router = useRouter();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfDay(new Date(new Date().setDate(new Date().getDate() - 30))),
     to: endOfDay(new Date()),
@@ -535,16 +537,26 @@ export default function StockFlowReportPage() {
 
   return (
     <div className="space-y-6">
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Arus Stok</CardTitle>
+                <CardDescription>
+                    Lacak semua riwayat pergerakan stok untuk setiap produk dalam rentang tanggal tertentu.
+                </CardDescription>
+            </div>
+        </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Laporan Arus Stok</CardTitle>
-          <CardDescription>
-            Lacak semua riwayat pergerakan stok untuk setiap produk dalam rentang tanggal tertentu.
-          </CardDescription>
+          <CardTitle>Filter Pencarian</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col md:flex-row items-start md:items-center gap-4">
             <div className="flex-1 w-full md:w-auto">
-                 <Label htmlFor="date-range">Rentang Tanggal</Label>
+                 <Label htmlFor="date-range">Rentang Tanggal Riwayat</Label>
                  <Popover>
                     <PopoverTrigger asChild>
                         <Button id="date-range" variant={"outline"} className="w-full md:w-[280px] justify-start text-left font-normal">
