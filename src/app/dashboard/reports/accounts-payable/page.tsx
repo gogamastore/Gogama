@@ -26,9 +26,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Calendar as CalendarIcon, Loader2, Receipt } from "lucide-react";
+import { DollarSign, Calendar as CalendarIcon, Loader2, Receipt, ArrowLeft } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
+import { useRouter } from "next/navigation";
 
 interface PurchaseTransaction {
   id: string;
@@ -50,6 +51,7 @@ export default function AccountsPayablePage() {
   const [filteredPayables, setFilteredPayables] = useState<PurchaseTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const router = useRouter();
 
   const filterPayablesByDate = useCallback((payables: PurchaseTransaction[], from?: Date, to?: Date) => {
     if (!from && !to) {
@@ -102,12 +104,22 @@ export default function AccountsPayablePage() {
 
   return (
     <div className="space-y-6">
+       <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Utang Dagang</CardTitle>
+                <CardDescription>
+                    Lacak semua transaksi pembelian dengan metode pembayaran kredit yang belum lunas.
+                </CardDescription>
+            </div>
+        </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Laporan Utang Dagang</CardTitle>
-          <CardDescription>
-            Lacak semua transaksi pembelian dengan metode pembayaran kredit yang belum lunas.
-          </CardDescription>
+          <CardTitle>Filter Data</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
           <Popover>

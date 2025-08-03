@@ -103,30 +103,26 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
         })}
 
         <Collapsible defaultOpen={isReportsOpen} className="w-full">
-            <div className={cn( "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md", isReportsOpen ? "text-accent-foreground" : "text-muted-foreground", "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center" )}>
-                <LineChart className="h-5 w-5" />
-                <Link href="/dashboard/reports" className="group-[.collapsed]:hidden flex-1 text-left">Laporan</Link>
-                <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-5 w-5 group-[.collapsed]:hidden">
-                       <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180" />
-                    </Button>
-                </CollapsibleTrigger>
-            </div>
+             <CollapsibleTrigger asChild>
+                <div className={cn( "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer", isReportsOpen ? "text-accent-foreground" : "text-muted-foreground", "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center" )}>
+                    <LineChart className="h-5 w-5" />
+                    <span className="group-[.collapsed]:hidden flex-1 text-left">Laporan</span>
+                    <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180 group-[.collapsed]:hidden" />
+                </div>
+            </CollapsibleTrigger>
             <CollapsibleContent className="pl-8 pr-2 space-y-1">
                 {reportsSubMenu.map(renderSubMenuItem)}
             </CollapsibleContent>
         </Collapsible>
         
         <Collapsible defaultOpen={isSettingsOpen} className="w-full">
-             <div className={cn( "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md", isSettingsOpen ? "text-accent-foreground" : "text-muted-foreground", "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center" )}>
-                <Settings className="h-5 w-5" />
-                <Link href="/dashboard/settings" className="group-[.collapsed]:hidden flex-1 text-left">Pengaturan</Link>
-                 <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-5 w-5 group-[.collapsed]:hidden">
-                       <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180" />
-                    </Button>
-                </CollapsibleTrigger>
-            </div>
+            <CollapsibleTrigger asChild>
+                <div className={cn( "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer", isSettingsOpen ? "text-accent-foreground" : "text-muted-foreground", "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center" )}>
+                    <Settings className="h-5 w-5" />
+                    <span className="group-[.collapsed]:hidden flex-1 text-left">Pengaturan</span>
+                    <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180 group-[.collapsed]:hidden" />
+                </div>
+            </CollapsibleTrigger>
              <CollapsibleContent className="pl-8 pr-2 space-y-1">
                 {settingsSubMenu.map(renderSubMenuItem)}
             </CollapsibleContent>

@@ -35,9 +35,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, Users, FileText, ShoppingCart, DollarSign } from "lucide-react";
+import { Calendar as CalendarIcon, Users, FileText, ShoppingCart, DollarSign, ArrowLeft } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
+import { useRouter } from "next/navigation";
+
 
 interface Order {
   id: string;
@@ -71,6 +73,7 @@ export default function CustomersReportPage() {
   const [customerReports, setCustomerReports] = useState<CustomerReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const router = useRouter();
 
   const processOrdersToReports = useCallback((orders: Order[]) => {
     const reportMap = new Map<string, CustomerReport>();
@@ -149,12 +152,22 @@ export default function CustomersReportPage() {
   
   return (
     <div className="space-y-6">
-        <Card>
-            <CardHeader>
+       <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
                 <CardTitle>Laporan Pelanggan</CardTitle>
                 <CardDescription>
                 Analisis data dan perilaku pelanggan. Filter berdasarkan rentang tanggal transaksi.
                 </CardDescription>
+            </div>
+        </div>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Filter Data</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center gap-4">
                 <Popover>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -42,9 +43,11 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { DollarSign, Landmark, Calendar as CalendarIcon, FileText } from "lucide-react";
+import { DollarSign, Landmark, Calendar as CalendarIcon, FileText, ArrowLeft } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
+import { useRouter } from "next/navigation";
+
 
 interface ExpenseItem {
   id: string;
@@ -88,6 +91,7 @@ export default function OperationalExpensesReportPage() {
   const [allExpenses, setAllExpenses] = useState<ExpenseItem[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<ExpenseItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfDay(new Date()),
     to: endOfDay(new Date()),
@@ -166,12 +170,21 @@ export default function OperationalExpensesReportPage() {
 
   return (
     <div className="space-y-6">
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Beban Operasional</CardTitle>
+                <CardDescription>
+                    Lacak semua pengeluaran operasional bisnis Anda. Filter berdasarkan rentang tanggal.
+                </CardDescription>
+            </div>
+        </div>
       <Card>
         <CardHeader>
-          <CardTitle>Laporan Beban Operasional</CardTitle>
-          <CardDescription>
-            Lacak semua pengeluaran operasional bisnis Anda. Filter berdasarkan rentang tanggal.
-          </CardDescription>
+            <CardTitle>Filter Data</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
             <Popover>

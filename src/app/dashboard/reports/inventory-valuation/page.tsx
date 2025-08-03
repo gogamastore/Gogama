@@ -19,8 +19,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DollarSign, Search, Warehouse } from "lucide-react";
+import { DollarSign, Search, Warehouse, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+
 
 interface ProductValuation {
   id: string;
@@ -44,6 +47,8 @@ export default function InventoryValuationPage() {
   const [allProducts, setAllProducts] = useState<ProductValuation[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<ProductValuation[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const router = useRouter();
+
 
   useEffect(() => {
     const fetchInventoryData = async () => {
@@ -96,14 +101,19 @@ export default function InventoryValuationPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Laporan Modal Produk (Valuasi Inventaris)</CardTitle>
-          <CardDescription>
-            Lihat total nilai modal dari semua stok produk Anda berdasarkan harga beli terakhir.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Modal Produk (Valuasi Inventaris)</CardTitle>
+                <CardDescription>
+                    Lihat total nilai modal dari semua stok produk Anda berdasarkan harga beli terakhir.
+                </CardDescription>
+            </div>
+        </div>
+
        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Nilai Inventaris</CardTitle>

@@ -29,10 +29,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { Download, Scale, Loader2 } from "lucide-react";
+import { Download, Scale, Loader2, ArrowLeft } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import * as XLSX from "xlsx";
+import { useRouter } from "next/navigation";
+
 
 // Helper function
 const formatCurrency = (amount: number) => {
@@ -67,6 +69,7 @@ export default function BalanceSheetPage() {
   const [loading, setLoading] = useState(true);
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [selectedMonth, setSelectedMonth] = useState(monthOptions[0].value);
+  const router = useRouter();
   
   const [reportData, setReportData] = useState({
     assets: {
@@ -194,12 +197,22 @@ export default function BalanceSheetPage() {
 
   return (
     <div className="space-y-6">
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Neraca</CardTitle>
+                <CardDescription>
+                  Lihat posisi keuangan aset, kewajiban, dan ekuitas bisnis Anda pada akhir bulan tertentu.
+                </CardDescription>
+            </div>
+        </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Laporan Neraca</CardTitle>
-          <CardDescription>
-            Lihat posisi keuangan aset, kewajiban, dan ekuitas bisnis Anda pada akhir bulan tertentu.
-          </CardDescription>
+          <CardTitle>Filter Data</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>

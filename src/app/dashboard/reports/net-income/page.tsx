@@ -25,9 +25,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { Calendar as CalendarIcon, TrendingUp, TrendingDown, DollarSign, ArrowLeft } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
+import { useRouter } from "next/navigation";
+
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("id-ID", {
@@ -39,6 +41,7 @@ const formatCurrency = (amount: number) => {
 
 export default function NetIncomeReportPage() {
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -123,12 +126,22 @@ export default function NetIncomeReportPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Pendapatan Bersih</CardTitle>
+                <CardDescription>
+                    Lihat pendapatan bersih setelah dikurangi semua biaya dalam periode tertentu.
+                </CardDescription>
+            </div>
+        </div>
+
        <Card>
         <CardHeader>
-          <CardTitle>Laporan Pendapatan Bersih</CardTitle>
-          <CardDescription>
-            Lihat pendapatan bersih setelah dikurangi semua biaya dalam periode tertentu.
-          </CardDescription>
+          <CardTitle>Filter Data</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
             <Popover>
