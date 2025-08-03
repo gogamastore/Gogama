@@ -13,8 +13,9 @@ const firebaseConfig = {
   appId: "1:954515661623:web:19d89bf3722600e02ef0b2"
 };
 
-// Inisialisasi Firebase hanya sekali
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+// Initialize Firebase using a singleton pattern
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
