@@ -50,8 +50,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch, query, where, deleteDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
@@ -118,7 +118,6 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
             let imageUrl = formData.image;
 
             if (imageFile) {
-                const storage = getStorage();
                 const storageRef = ref(storage, `product_images/${Date.now()}_${imageFile.name}`);
                 await uploadBytes(storageRef, imageFile);
                 imageUrl = await getDownloadURL(storageRef);
@@ -152,6 +151,19 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                     description: `${formData.name} telah diperbarui.`,
                 });
             } else { // Adding new product
+                 // Check for existing SKU
+                const q = query(collection(db, "products"), where("sku", "==", formData.sku));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    toast({
+                        variant: "destructive",
+                        title: "SKU Sudah Ada",
+                        description: "Produk dengan SKU ini sudah terdaftar. Harap gunakan SKU lain.",
+                    });
+                    setLoading(false);
+                    return;
+                }
+
                 await addDoc(collection(db, "products"), {
                     ...dataToSave,
                     stock: formData.stock || 0, // Use stock from form for new products
@@ -191,7 +203,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="sku" className="text-right">SKU</Label>
-                    <Input id="sku" value={formData.sku} onChange={handleInputChange} className="col-span-3" />
+                    <Input id="sku" value={formData.sku} onChange={handleInputChange} className="col-span-3" disabled={!!product} />
                 </div>
                  <div className="grid grid-cols-4 items-start gap-4">
                     <Label htmlFor="image" className="text-right pt-2">Gambar</Label>
@@ -390,12 +402,22 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
                 
                 if (json.length === 0) throw new Error("File Excel kosong atau format salah.");
 
+                // Fetch existing SKUs to prevent duplicates
+                const productsSnapshot = await getDocs(collection(db, "products"));
+                const existingSkus = new Set(productsSnapshot.docs.map(doc => doc.data().sku));
+                let skippedCount = 0;
+                let addedCount = 0;
+
                 const batch = writeBatch(db);
                 json.forEach((row) => {
-                    if (!row.name || !row.sku || !row.price) {
-                        // Skip rows with missing required fields
+                    // Skip if required fields are missing or SKU already exists
+                    if (!row.name || !row.sku || !row.price || existingSkus.has(row.sku)) {
+                        if (existingSkus.has(row.sku)) {
+                            skippedCount++;
+                        }
                         return;
                     }
+                    
                     const productRef = doc(collection(db, "products"));
                     batch.set(productRef, {
                         name: row.name,
@@ -409,11 +431,19 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
                         'data-ai-hint': 'product item',
                         createdAt: serverTimestamp(),
                     });
+                    addedCount++;
+                    existingSkus.add(row.sku); // Add to set to handle duplicates within the same file
                 });
                 
-                await batch.commit();
+                if (addedCount > 0) {
+                    await batch.commit();
+                }
 
-                toast({ title: 'Impor Berhasil', description: `${json.length} produk telah berhasil ditambahkan.` });
+                toast({ 
+                    title: 'Impor Selesai', 
+                    description: `${addedCount} produk berhasil ditambahkan. ${skippedCount} produk dilewati karena SKU sudah ada.`
+                });
+
                 onImportSuccess();
                 setIsOpen(false);
                 setFile(null);
@@ -440,7 +470,7 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
                 <DialogHeader>
                     <DialogTitle>Impor Produk Massal</DialogTitle>
                     <DialogDescription>
-                        Tambah banyak produk sekaligus menggunakan file Excel. Ikuti langkah-langkah di bawah ini.
+                        Tambah banyak produk sekaligus menggunakan file Excel. Produk dengan SKU yang sudah ada akan dilewati.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
@@ -483,6 +513,9 @@ function ImageViewer({ src, alt }: { src: string, alt: string }) {
             />
         </DialogTrigger>
         <DialogContent className="max-w-xl">
+             <DialogHeader>
+                <DialogTitle className="sr-only">{alt}</DialogTitle>
+             </DialogHeader>
             <Image
                 alt={alt}
                 className="rounded-lg object-contain"
@@ -627,13 +660,12 @@ export default function ProductsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                <TableHead className="w-[100px] sm:table-cell">
+                                <TableHead className="w-[64px]">
                                     <span className="sr-only">Image</span>
                                 </TableHead>
                                 <TableHead>Nama</TableHead>
-                                <TableHead>SKU</TableHead>
-                                <TableHead>Stok</TableHead>
-                                <TableHead className="text-right">Harga Beli</TableHead>
+                                <TableHead className="hidden md:table-cell">Stok</TableHead>
+                                <TableHead className="text-right hidden sm:table-cell">Harga Beli</TableHead>
                                 <TableHead className="text-right">Harga Jual</TableHead>
                                 <TableHead className="w-[50px] text-right">Aksi</TableHead>
                                 </TableRow>
@@ -645,15 +677,14 @@ export default function ProductsPage() {
                                     </TableRow>
                                 ) : paginatedProducts.map((product) => (
                                 <TableRow key={product.id}>
-                                    <TableCell className="sm:table-cell">
+                                    <TableCell>
                                         <ImageViewer src={product.image} alt={product.name}/>
                                     </TableCell>
                                     <TableCell className="font-medium">{product.name}</TableCell>
-                                    <TableCell>{product.sku}</TableCell>
-                                    <TableCell>
-                                    <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock} in stock` : 'Out of Stock'}</Badge>
+                                    <TableCell className="hidden md:table-cell">
+                                    <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock}` : 'Habis'}</Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
+                                    <TableCell className="text-right hidden sm:table-cell">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
                                     <TableCell className="text-right">{product.price}</TableCell>
                                     <TableCell className="text-right">
                                         <Dialog>
@@ -667,6 +698,30 @@ export default function ProductsPage() {
                                                 <DialogHeader>
                                                     <DialogTitle>Aksi untuk: {product.name}</DialogTitle>
                                                 </DialogHeader>
+                                                
+                                                <div className="py-4 space-y-2 text-sm">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">SKU</span>
+                                                        <span className="font-medium">{product.sku}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Kategori</span>
+                                                        <span className="font-medium">{product.category}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Harga Beli</span>
+                                                        <span className="font-medium">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</span>
+                                                    </div>
+                                                     <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Harga Jual</span>
+                                                        <span className="font-medium">{product.price}</span>
+                                                    </div>
+                                                     <div className="space-y-1">
+                                                        <span className="text-muted-foreground">Deskripsi</span>
+                                                        <p className="font-medium p-2 bg-muted rounded-md">{product.description || 'Tidak ada deskripsi.'}</p>
+                                                    </div>
+                                                </div>
+
                                                 <Separator />
                                                 <div className="grid grid-cols-1 gap-2 py-2">
                                                     <Button variant="outline" className="w-full justify-start" onClick={() => handleEditClick(product)}>
@@ -776,9 +831,9 @@ export default function ProductsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[100px] sm:table-cell">Gambar</TableHead>
+                                    <TableHead className="w-[64px]">Gambar</TableHead>
                                     <TableHead>Nama Produk</TableHead>
-                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="hidden md:table-cell">SKU</TableHead>
                                     <TableHead className="text-right">Stok Tersisa</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
@@ -790,11 +845,11 @@ export default function ProductsPage() {
                                     </TableRow>
                                 ) : filteredLowStockProducts.length > 0 ? filteredLowStockProducts.map((product) => (
                                     <TableRow key={product.id}>
-                                        <TableCell className="sm:table-cell">
+                                        <TableCell>
                                             <ImageViewer src={product.image} alt={product.name}/>
                                         </TableCell>
                                         <TableCell className="font-medium">{product.name}</TableCell>
-                                        <TableCell>{product.sku}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
                                         <TableCell className="text-right">
                                           <Badge variant="destructive">{product.stock}</Badge>
                                         </TableCell>
@@ -835,9 +890,9 @@ export default function ProductsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[100px] sm:table-cell">Gambar</TableHead>
+                                    <TableHead className="w-[64px]">Gambar</TableHead>
                                     <TableHead>Nama Produk</TableHead>
-                                    <TableHead>SKU</TableHead>
+                                    <TableHead className="hidden md:table-cell">SKU</TableHead>
                                     <TableHead className="text-center">Stok Saat Ini</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
@@ -849,11 +904,11 @@ export default function ProductsPage() {
                                     </TableRow>
                                 ) : filteredAllProducts.map((product) => (
                                     <TableRow key={product.id}>
-                                        <TableCell className="sm:table-cell">
+                                        <TableCell>
                                             <ImageViewer src={product.image} alt={product.name}/>
                                         </TableCell>
                                         <TableCell className="font-medium">{product.name}</TableCell>
-                                        <TableCell>{product.sku}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
                                         <TableCell className="text-center font-bold">{product.stock}</TableCell>
                                         <TableCell className="text-right">
                                             <AdjustStockDialog product={product} onStockAdjusted={fetchProducts} />
@@ -876,3 +931,5 @@ export default function ProductsPage() {
     </>
   )
 }
+
+    
