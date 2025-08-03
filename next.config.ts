@@ -2,7 +2,6 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  // output: 'export', // This is causing issues with server-side features. Disable for now.
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -10,7 +9,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    unoptimized: true, // Required for static export with Capacitor, but can be reviewed later.
+    unoptimized: true, 
     remotePatterns: [
       {
         protocol: 'https',
