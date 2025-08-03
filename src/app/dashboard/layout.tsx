@@ -6,7 +6,7 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { Search, Menu } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
@@ -177,6 +177,9 @@ export default function DashboardLayout({
                   <SheetTitle>
                     <Logo />
                   </SheetTitle>
+                  <SheetDescription className="sr-only">
+                    A navigation menu for the mobile dashboard.
+                  </SheetDescription>
                 </SheetHeader>
                 <nav className="grid gap-2 text-lg font-medium">
                   <MainNav />
