@@ -17,7 +17,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   // Important change for Capacitor: output static files
-  output: 'export',
+  // output: 'export', // Temporarily disabled for Capacitor platform setup
   typescript: {
     ignoreBuildErrors: true,
   },

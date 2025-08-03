@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gogama Store</string>
+    <string name="title_activity_main">Gogama Store</string>
+    <string name="package_name">com.gogamastore.app</string>
+    <string name="custom_url_scheme">com.gogamastore.app</string>
+</resources>
