@@ -3,9 +3,26 @@ import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 import { AuthProvider } from '@/hooks/use-auth';
 
+const APP_NAME = "Gogama Store";
+const APP_DESCRIPTION = "An intelligent order management system.";
+
 export const metadata: Metadata = {
-  title: 'Gogama Store',
-  description: 'An intelligent order management system.',
+  applicationName: APP_NAME,
+  title: {
+    default: APP_NAME,
+    template: `%s | ${APP_NAME}`,
+  },
+  description: APP_DESCRIPTION,
+  manifest: "/manifest.webmanifest",
+  themeColor: "#64B5F6",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: APP_NAME,
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({
