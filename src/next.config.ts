@@ -1,24 +1,9 @@
 
 import type {NextConfig} from 'next';
-import withPWAInit from "@ducanh2912/next-pwa";
-
-const withPWA = withPWAInit({
-  dest: "public",
-  disable: process.env.NODE_ENV === "development",
-  // add your own strategies to the existing ones
-  // cacheOnFrontEndNav: true,
-  // aggressiveFrontEndNavCaching: true,
-  reloadOnOnline: true,
-  swcMinify: true,
-  workboxOptions: {
-    disableDevLogs: true,
-  },
-});
-
 
 const nextConfig: NextConfig = {
   // Important change for Capacitor: output static files
-  // output: 'export', // Temporarily disabled for Capacitor platform setup
+  output: 'export',
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -49,4 +34,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+export default nextConfig;
