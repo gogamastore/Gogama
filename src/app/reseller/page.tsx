@@ -84,7 +84,7 @@ export default function ResellerDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [itemsPerPage, setItemsPerPage] = useState(24);
 
   const { toast } = useToast();
 
@@ -280,7 +280,7 @@ export default function ResellerDashboard() {
                 >
                     <CarouselContent>
                         {promotions.slice(0, 6).map((product, index) => (
-                        <CarouselItem key={index} className="basis-1/2 md:basis-1/3 lg:basis-1/4">
+                        <CarouselItem key={index} className="basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/6">
                             <div className="p-1">
                                 {renderProductCard(product)}
                             </div>
@@ -313,7 +313,7 @@ export default function ResellerDashboard() {
                 >
                     <CarouselContent>
                         {trendingProducts.slice(0, 6).map((product, index) => (
-                        <CarouselItem key={index} className="basis-1/2 md:basis-1/3 lg:basis-1/4">
+                        <CarouselItem key={index} className="basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/6">
                             <div className="p-1">
                                 {renderProductCard(product)}
                             </div>
@@ -341,8 +341,8 @@ export default function ResellerDashboard() {
           </div>
           
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {[...Array(8)].map((_, i) => (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {[...Array(12)].map((_, i) => (
                     <Card key={i} className="overflow-hidden group">
                         <div className="bg-muted aspect-square w-full animate-pulse"></div>
                         <div className="p-4 space-y-2">
@@ -355,7 +355,7 @@ export default function ResellerDashboard() {
             </div>
           ) : (
              paginatedProducts.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {paginatedProducts.map(renderProductCard)}
                 </div>
              ) : (
@@ -388,7 +388,7 @@ export default function ResellerDashboard() {
                                 <SelectValue placeholder={itemsPerPage} />
                             </SelectTrigger>
                             <SelectContent side="top">
-                                {[12, 24, 48].map((pageSize) => (
+                                {[24, 48, 96].map((pageSize) => (
                                     <SelectItem key={pageSize} value={`${pageSize}`}>
                                         {pageSize}
                                     </SelectItem>
