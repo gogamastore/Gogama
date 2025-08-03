@@ -144,7 +144,7 @@ export default function TrendingProductsPage() {
         </div>
 
         {loading ? (
-             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {[...Array(8)].map((_, i) => (
                     <Card key={i} className="overflow-hidden group">
                         <div className="bg-muted aspect-square w-full animate-pulse"></div>
@@ -157,7 +157,7 @@ export default function TrendingProductsPage() {
                 ))}
             </div>
         ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {trendingProducts.map(renderProductCard)}
             </div>
         )}
