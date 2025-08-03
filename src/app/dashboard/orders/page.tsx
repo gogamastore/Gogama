@@ -860,6 +860,11 @@ export default function OrdersPage() {
                                           order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
                                           order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
                                       }>{order.status}</Badge>
+                                      {order.date?.toDate && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {format(order.date.toDate(), 'dd/MM/yy HH:mm')}
+                                        </p>
+                                      )}
                                 </div>
                                <div className="col-span-4 md:col-span-3 text-sm">
                                     <p className="text-muted-foreground">Jasa Kirim</p>
