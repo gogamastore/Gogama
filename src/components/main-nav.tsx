@@ -31,11 +31,7 @@ const reportsSubMenu = [
     { href: "/dashboard/reports/stock-flow", label: "Arus Stok", icon: Replace },
     { href: "/dashboard/reports/receivables", label: "Piutang Usaha", icon: FileWarning },
     { href: "/dashboard/reports/accounts-payable", label: "Utang Dagang", icon: Receipt },
-    { href: "/dashboard/reports/profit-loss", label: "Laba-Rugi", icon: DollarSign },
-    { href: "/dashboard/reports/net-income", label: "Pendapatan Bersih", icon: ArrowUpRight },
     { href: "/dashboard/reports/customers", label: "Pelanggan", icon: Users },
-    { href: "/dashboard/reports/balance-sheet", label: "Neraca", icon: Scale },
-    { href: "/dashboard/reports/inventory-valuation", label: "Modal Produk", icon: Warehouse },
 ]
 
 const settingsSubMenu = [
@@ -117,7 +113,7 @@ export function MainNav({ className, ...props }: React.HTMLAttributes<HTMLElemen
         
         <Collapsible defaultOpen={isSettingsOpen} className="w-full">
             <CollapsibleTrigger asChild>
-                <div className={cn( "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer", isSettingsOpen ? "text-accent-foreground" : "text-muted-foreground", "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center" )}>
+                 <div className={cn( "flex w-full items-center justify-start gap-3 p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer", isSettingsOpen ? "text-accent-foreground" : "text-muted-foreground", "group-[.collapsed]:px-2 group-[.collapsed]:w-auto group-[.collapsed]:justify-center" )}>
                     <Settings className="h-5 w-5" />
                     <span className="group-[.collapsed]:hidden flex-1 text-left">Pengaturan</span>
                     <ChevronDown className="h-4 w-4 transition-transform [&[data-state=open]]:rotate-180 group-[.collapsed]:hidden" />
