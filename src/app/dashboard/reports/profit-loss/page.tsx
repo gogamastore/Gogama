@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -27,10 +28,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Download, Calendar as CalendarIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { DollarSign, Download, Calendar as CalendarIcon, TrendingUp, TrendingDown, Minus, ArrowLeft } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import * as XLSX from "xlsx";
+import { useRouter } from "next/navigation";
 
 interface Order {
   id: string;
@@ -61,6 +63,7 @@ const formatCurrency = (amount: number) => {
 
 export default function ProfitLossReportPage() {
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -180,12 +183,22 @@ export default function ProfitLossReportPage() {
 
   return (
     <div className="space-y-6">
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Laba-Rugi</CardTitle>
+                <CardDescription>
+                  Pahami keuntungan dan kerugian bisnis Anda dalam rentang tanggal tertentu.
+                </CardDescription>
+            </div>
+        </div>
+      
        <Card>
         <CardHeader>
-          <CardTitle>Laporan Laba-Rugi</CardTitle>
-          <CardDescription>
-            Pahami keuntungan dan kerugian bisnis Anda dalam rentang tanggal tertentu.
-          </CardDescription>
+          <CardTitle>Filter Data</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
             <Popover>

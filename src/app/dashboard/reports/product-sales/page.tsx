@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -35,10 +36,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, Package, FileText, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Package, FileText, Loader2, ArrowLeft } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface OrderProduct {
   productId: string;
@@ -184,6 +186,7 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
 export default function ProductSalesReportPage() {
   const [reportData, setReportData] = useState<ProductSalesReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -255,12 +258,22 @@ export default function ProductSalesReportPage() {
   
   return (
     <div className="space-y-6">
-        <Card>
-            <CardHeader>
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
                 <CardTitle>Laporan Penjualan Produk</CardTitle>
                 <CardDescription>
                 Analisis produk terlaris berdasarkan jumlah penjualan dalam periode waktu tertentu.
                 </CardDescription>
+            </div>
+        </div>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Filter Data</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center gap-4">
                 <Popover>
@@ -367,5 +380,3 @@ export default function ProductSalesReportPage() {
     </div>
   )
 }
-
-    

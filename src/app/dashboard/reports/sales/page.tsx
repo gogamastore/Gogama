@@ -45,10 +45,11 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { DollarSign, Package, Calendar as CalendarIcon, FileText, Loader2 } from "lucide-react";
+import { DollarSign, Package, Calendar as CalendarIcon, FileText, Loader2, ArrowLeft } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface OrderProduct {
   productId: string;
@@ -217,6 +218,7 @@ export default function SalesReportPage() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfDay(new Date()),
     to: endOfDay(new Date()),
@@ -320,12 +322,21 @@ export default function SalesReportPage() {
 
   return (
     <div className="space-y-6">
+       <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/reports')}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Kembali ke Laporan</span>
+            </Button>
+            <div>
+                <CardTitle>Laporan Penjualan</CardTitle>
+                <CardDescription>
+                    Analisis detail penjualan produk Anda. Filter berdasarkan rentang tanggal untuk wawasan yang lebih spesifik.
+                </CardDescription>
+            </div>
+        </div>
       <Card>
         <CardHeader>
-          <CardTitle>Laporan Penjualan</CardTitle>
-          <CardDescription>
-            Analisis detail penjualan produk Anda. Filter berdasarkan rentang tanggal untuk wawasan yang lebih spesifik.
-          </CardDescription>
+          <CardTitle>Filter Data</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-4">
             <Popover>
