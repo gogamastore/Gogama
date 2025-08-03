@@ -9,6 +9,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from "@/components/ui/card"
 import {
   Table,
@@ -27,7 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Download, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon, Eye, DollarSign } from "lucide-react"
+import { Download, CreditCard, CheckCircle, FileText, Printer, Truck, Check, Loader2, Edit, RefreshCw, XCircle, Trash2, Minus, Plus, PlusCircle, Search, Calendar as CalendarIcon, Eye, DollarSign, MessageSquare, MoreHorizontal, Package, User } from "lucide-react"
 import { collection, getDocs, doc, updateDoc, getDoc, query, orderBy, writeBatch, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +45,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 
 declare module 'jspdf' {
@@ -68,6 +70,7 @@ interface OrderProduct {
   name: string;
   quantity: number;
   price: number;
+  image?: string;
 }
 interface CustomerDetails {
     name: string;
@@ -86,6 +89,7 @@ interface Order {
   total: string;
   subtotal: number;
   shippingFee: number;
+  shippingMethod?: string;
   date: any; // Allow for Firestore Timestamp object
   products: OrderProduct[];
 }
@@ -299,9 +303,9 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
     return (
          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
              <DialogTrigger asChild>
-                <Button variant="outline" className="w-full justify-start">
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Edit className="mr-2 h-4 w-4" /> Edit Pesanan
-                </Button>
+                </DropdownMenuItem>
              </DialogTrigger>
              <DialogContent className="sm:max-w-4xl">
                 <DialogHeader className="flex-row justify-between items-center">
@@ -412,7 +416,7 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-        const q = query(collection(db, "orders"), orderBy("date", "asc"));
+        const q = query(collection(db, "orders"), orderBy("date", "desc"));
         const querySnapshot = await getDocs(q);
         const ordersData = querySnapshot.docs.map(doc => {
              const data = doc.data();
@@ -676,7 +680,7 @@ export default function OrdersPage() {
     }
 
     const unpaid = filtered.filter(o => o.paymentMethod === 'bank_transfer' && o.paymentStatus === 'Unpaid' && o.status === 'Pending');
-    const toShip = filtered.filter(o => o.status === 'Processing');
+    const toShip = filtered.filter(o => o.status === 'Processing' || (o.paymentMethod === 'cod' && o.status === 'Pending'));
     const shipped = filtered.filter(o => o.status === 'Shipped');
     const delivered = filtered.filter(o => o.status === 'Delivered');
     const cancelled = filtered.filter(o => o.status === 'Cancelled');
@@ -688,120 +692,148 @@ export default function OrdersPage() {
       setSelectedOrders(prev => isSelected ? [...prev, orderId] : prev.filter(id => id !== orderId));
   };
   
-  const handleSelectAll = (orders: Order[], isSelected: boolean) => {
-      if (isSelected) {
-          setSelectedOrders(orders.map(o => o.id));
-      } else {
-          setSelectedOrders([]);
-      }
+  const handleSelectAllInTab = (ordersInTab: Order[], isSelected: boolean) => {
+    const idsInTab = ordersInTab.map(o => o.id);
+    if (isSelected) {
+        setSelectedOrders(prev => [...new Set([...prev, ...idsInTab])]);
+    } else {
+        setSelectedOrders(prev => prev.filter(id => !idsInTab.includes(id)));
+    }
   };
 
-
-  const renderOrderTable = (orders: Order[], tabName: string) => {
-    const currentSelectedInTab = orders.filter(o => selectedOrders.includes(o.id)).map(o => o.id);
-    const isAllSelectedInTab = orders.length > 0 && currentSelectedInTab.length === orders.length;
+  const renderOrderList = (orders: Order[], tabName: string) => {
+    const selectedInTabCount = orders.filter(o => selectedOrders.includes(o.id)).length;
+    const isAllInTabSelected = orders.length > 0 && selectedInTabCount === orders.length;
 
     return (
-    <div className="relative w-full overflow-auto">
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead className="w-[50px]">
-                         <Checkbox
-                           checked={isAllSelectedInTab}
-                           onCheckedChange={(checked) => handleSelectAll(orders, !!checked)}
-                           aria-label="Pilih semua"
-                         />
-                    </TableHead>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Pelanggan</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Pembayaran</TableHead>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-center w-[150px]">Aksi</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {loading ? (
-                    <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center">Memuat pesanan...</TableCell>
-                    </TableRow>
-                ) : orders.length > 0 ? orders.map((order) => (
-                <TableRow key={order.id} data-state={selectedOrders.includes(order.id) && "selected"}>
-                    <TableCell>
-                         <Checkbox
-                           checked={selectedOrders.includes(order.id)}
-                           onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
-                           aria-label={`Pilih pesanan ${order.id}`}
-                         />
-                    </TableCell>
-                    <TableCell className="font-medium">{order.id.substring(0, 7)}...</TableCell>
-                    <TableCell>{order.customer}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={
-                          order.status === 'Delivered' ? 'text-green-600 border-green-600' :
-                          order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
-                          order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
-                          order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
-                      }>{order.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'}>
-                          {order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{order.date && order.date.toDate ? format(order.date.toDate(), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId }) : 'N/A'}</TableCell>
-                    <TableCell className="text-right">{order.total}</TableCell>
-                    <TableCell className="text-center">
-                        {isProcessing === order.id ? <Loader2 className="h-4 w-4 animate-spin mx-auto"/> : (
-                           <Dialog>
-                            <DialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                    <Eye className="mr-2 h-4 w-4"/>
-                                    Lihat
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                                <DialogHeader>
-                                    <DialogTitle>Aksi untuk Pesanan #{order.id.substring(0,7)}</DialogTitle>
-                                    <DialogDescription>
-                                        Pelanggan: {order.customer}
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <Separator />
-                                <div className="grid grid-cols-1 gap-2 py-2">
-                                     {order.paymentStatus === 'Unpaid' && order.paymentMethod === 'bank_transfer' && (
-                                        <Button variant="outline" className="w-full justify-start" onClick={() => handleMarkAsPaid(order)}>
-                                            <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
-                                        </Button>
+        <div className="space-y-4">
+             <div className="flex items-center gap-4 px-2 py-2 bg-muted/50 rounded-md">
+                <Checkbox
+                    id={`select-all-${tabName}`}
+                    checked={isAllInTabSelected}
+                    onCheckedChange={(checked) => handleSelectAllInTab(orders, !!checked)}
+                    aria-label={`Pilih semua di tab ${tabName}`}
+                />
+                <Label htmlFor={`select-all-${tabName}`} className="text-sm font-medium">
+                    Pilih Semua ({selectedInTabCount} / {orders.length} terpilih)
+                </Label>
+            </div>
+            {loading ? (
+                 <div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" /></div>
+            ) : orders.length > 0 ? (
+                orders.map(order => (
+                    <Card key={order.id} className="overflow-hidden">
+                        <CardHeader className="p-4 bg-card flex-row items-center justify-between border-b">
+                            <div className="flex items-center gap-4">
+                                <Checkbox 
+                                    checked={selectedOrders.includes(order.id)}
+                                    onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                                />
+                                <div className="flex items-center gap-2">
+                                     <User className="h-4 w-4 text-muted-foreground"/>
+                                     <span className="font-semibold">{order.customerDetails?.name || order.customer}</span>
+                                </div>
+                                <MessageSquare className="h-4 w-4 text-primary cursor-pointer"/>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                                No. Pesanan <span className="font-medium text-foreground">{order.id.substring(0, 12)}...</span>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                           <div className="grid grid-cols-12 gap-4 p-4">
+                               <div className="col-span-12 md:col-span-5 flex flex-col gap-2">
+                                   {order.products.slice(0, 2).map(product => (
+                                       <div key={product.productId} className="flex items-center gap-3">
+                                            <Image src={product.image || "https://placehold.co/64x64.png"} alt={product.name} width={40} height={40} className="rounded-md border"/>
+                                            <div>
+                                                <p className="text-sm font-medium line-clamp-1">{product.name}</p>
+                                                <p className="text-xs text-muted-foreground">x{product.quantity}</p>
+                                            </div>
+                                       </div>
+                                   ))}
+                                    {order.products.length > 2 && (
+                                        <p className="text-xs text-muted-foreground pl-2">+ {order.products.length - 2} produk lainnya</p>
                                     )}
-                                    
-                                    {order.status === 'Pending' && (
-                                        <Button variant="outline" className="w-full justify-start" onClick={() => updateOrderStatus(order.id, { status: 'Processing' })}>
-                                            <RefreshCw className="mr-2 h-4 w-4" /> Proses Pesanan
-                                        </Button>
-                                    )}
-                                    
-                                    {order.status === 'Processing' && (
-                                        <Button variant="outline" className="w-full justify-start" onClick={() => updateOrderStatus(order.id, { status: 'Shipped' })}>
-                                            <Truck className="mr-2 h-4 w-4" /> Kirim Pesanan
-                                        </Button>
-                                    )}
+                               </div>
+                                <div className="col-span-4 md:col-span-2 text-sm">
+                                    <p className="text-muted-foreground">Total Pesanan</p>
+                                    <p className="font-semibold">{order.total}</p>
+                                     <Badge variant={order.paymentStatus === 'Paid' ? 'default' : 'destructive'} className="mt-1">
+                                        {order.paymentStatus === 'Paid' ? 'Lunas' : 'Belum Lunas'}
+                                     </Badge>
+                                </div>
+                               <div className="col-span-4 md:col-span-2 text-sm">
+                                    <p className="text-muted-foreground">Status</p>
+                                    <Badge variant="outline" className={
+                                          order.status === 'Delivered' ? 'text-green-600 border-green-600' :
+                                          order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
+                                          order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
+                                          order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
+                                      }>{order.status}</Badge>
+                                </div>
+                               <div className="col-span-4 md:col-span-3 text-sm">
+                                    <p className="text-muted-foreground">Jasa Kirim</p>
+                                    <p className="font-semibold">{order.shippingMethod === 'pickup' ? 'Jemput Sendiri' : 'Ekspedisi'}</p>
+                                </div>
+                           </div>
+                        </CardContent>
+                        <CardFooter className="p-4 bg-muted/30 flex-wrap gap-2 justify-end">
+                              {isProcessing === order.id ? <Loader2 className="h-4 w-4 animate-spin"/> : (
+                                <>
+                                  <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="outline" size="sm">
+                                                <MoreHorizontal className="h-4 w-4"/>
+                                                <span className="sr-only">Aksi lainnya</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Aksi Cepat</DropdownMenuLabel>
+                                            <DropdownMenuSeparator/>
+                                             {order.paymentStatus === 'Unpaid' && order.paymentMethod === 'bank_transfer' && (
+                                                <DropdownMenuItem onClick={() => handleMarkAsPaid(order)}>
+                                                    <CheckCircle className="mr-2 h-4 w-4" /> Tandai Lunas
+                                                </DropdownMenuItem>
+                                            )}
+                                            {order.status === 'Pending' && (
+                                                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Processing' })}>
+                                                    <RefreshCw className="mr-2 h-4 w-4" /> Proses Pesanan
+                                                </DropdownMenuItem>
+                                            )}
+                                            {order.status === 'Processing' && (
+                                                 <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Shipped' })}>
+                                                    <Truck className="mr-2 h-4 w-4" /> Kirim Pesanan
+                                                </DropdownMenuItem>
+                                            )}
+                                            {order.status === 'Shipped' && (
+                                                 <DropdownMenuItem onClick={() => updateOrderStatus(order.id, { status: 'Delivered' })}>
+                                                    <Check className="mr-2 h-4 w-4" /> Tandai Telah Sampai
+                                                </DropdownMenuItem>
+                                            )}
+                                             <DropdownMenuSeparator/>
+                                             <EditOrderDialog order={order} onOrderUpdated={fetchOrders} />
+                                             <DropdownMenuItem onClick={() => generateSinglePdf(order.id)}>
+                                                <Printer className="mr-2 h-4 w-4" /> Download PDF
+                                             </DropdownMenuItem>
+                                             {(order.status === 'Pending' || order.status === 'Processing') && (
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors text-destructive focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full">
+                                                            <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
+                                                        </button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader><AlertDialogTitle>Anda Yakin?</AlertDialogTitle><AlertDialogDescription>Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.</AlertDialogDescription></AlertDialogHeader>
+                                                        <AlertDialogFooter><AlertDialogCancel>Tidak</AlertDialogCancel><AlertDialogAction onClick={() => handleCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction></AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                             )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
 
-                                    {order.status === 'Shipped' && (
-                                        <Button variant="outline" className="w-full justify-start" onClick={() => updateOrderStatus(order.id, { status: 'Delivered' })}>
-                                            <Check className="mr-2 h-4 w-4" /> Tandai Telah Sampai
-                                        </Button>
-                                    )}
-                                    
-                                    <Separator />
-                                    
-                                    <EditOrderDialog order={order} onOrderUpdated={fetchOrders} />
-                                    
                                     <Dialog>
                                         <DialogTrigger asChild>
-                                             <Button variant="outline" className="w-full justify-start">
+                                             <Button variant="outline" size="sm">
                                                 <FileText className="mr-2 h-4 w-4" /> Lihat Bukti Bayar
                                              </Button>
                                         </DialogTrigger>
@@ -818,48 +850,23 @@ export default function OrdersPage() {
                                         </DialogContent>
                                     </Dialog>
 
-                                    <Button variant="outline" className="w-full justify-start" onClick={() => generateSinglePdf(order.id)}>
-                                        <Printer className="mr-2 h-4 w-4" /> Download PDF
+                                     <Button size="sm">
+                                         Atur Pengiriman
                                     </Button>
-
-                                    {(order.status === 'Pending' || order.status === 'Processing') && (
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="destructive" className="w-full justify-start">
-                                                    <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        Tindakan ini akan membatalkan pesanan dan mengembalikan stok produk. Aksi ini tidak dapat diurungkan.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Tidak</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleCancelOrder(order)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Batalkan</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    )}
-                                </div>
-                            </DialogContent>
-                           </Dialog>
-                        )}
-                    </TableCell>
-                </TableRow>
-                )) : (
-                    <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center">
-                            Tidak ada pesanan di kategori ini.
-                        </TableCell>
-                    </TableRow>
-                )}
-            </TableBody>
-        </Table>
-    </div>
-  )};
+                                </>
+                              )}
+                        </CardFooter>
+                    </Card>
+                ))
+            ) : (
+                <div className="text-center p-8 border rounded-lg">
+                    <Package className="mx-auto h-12 w-12 text-muted-foreground"/>
+                    <p className="mt-4 text-muted-foreground">Tidak ada pesanan di kategori ini.</p>
+                </div>
+            )}
+        </div>
+    )
+  };
 
 
   return (
@@ -891,7 +898,7 @@ export default function OrdersPage() {
       </CardHeader>
       <CardContent>
           <Tabs defaultValue="toShip">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
                 <TabsTrigger value="unpaid">
                     Belum Bayar <Badge className="ml-2">{filteredOrders.unpaid.length}</Badge>
                 </TabsTrigger>
@@ -909,24 +916,22 @@ export default function OrdersPage() {
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="unpaid" className="mt-4">
-                {renderOrderTable(filteredOrders.unpaid, 'unpaid')}
+                {renderOrderList(filteredOrders.unpaid, 'unpaid')}
             </TabsContent>
             <TabsContent value="toShip" className="mt-4">
-                {renderOrderTable(filteredOrders.toShip, 'toShip')}
+                {renderOrderList(filteredOrders.toShip, 'toShip')}
             </TabsContent>
             <TabsContent value="shipped" className="mt-4">
-                 {renderOrderTable(filteredOrders.shipped, 'shipped')}
+                 {renderOrderList(filteredOrders.shipped, 'shipped')}
             </TabsContent>
             <TabsContent value="delivered" className="mt-4">
-                 {renderOrderTable(filteredOrders.delivered, 'delivered')}
+                 {renderOrderList(filteredOrders.delivered, 'delivered')}
             </TabsContent>
             <TabsContent value="cancelled" className="mt-4">
-                 {renderOrderTable(filteredOrders.cancelled, 'cancelled')}
+                 {renderOrderList(filteredOrders.cancelled, 'cancelled')}
             </TabsContent>
           </Tabs>
       </CardContent>
     </Card>
   )
 }
-
-    
