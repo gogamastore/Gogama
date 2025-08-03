@@ -515,6 +515,7 @@ function ImageViewer({ src, alt }: { src: string, alt: string }) {
         <DialogContent className="max-w-xl">
              <DialogHeader>
                 <DialogTitle className="sr-only">{alt}</DialogTitle>
+                <DialogDescription className="sr-only">Pratinjau gambar untuk {alt}</DialogDescription>
              </DialogHeader>
             <Image
                 alt={alt}
@@ -697,6 +698,7 @@ export default function ProductsPage() {
                                             <DialogContent className="sm:max-w-md">
                                                 <DialogHeader>
                                                     <DialogTitle>Aksi untuk: {product.name}</DialogTitle>
+                                                    <DialogDescription>Detail produk dan aksi yang bisa dilakukan.</DialogDescription>
                                                 </DialogHeader>
                                                 
                                                 <div className="py-4 space-y-2 text-sm">
@@ -931,5 +933,3 @@ export default function ProductsPage() {
     </>
   )
 }
-
-    

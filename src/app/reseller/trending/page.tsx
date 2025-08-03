@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { collection, getDocs, query, where } from "firebase/firestore"
+import { collection, getDocs, query, where, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useEffect, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
@@ -35,6 +35,13 @@ interface Product {
   description?: string;
   isPromo?: boolean;
   discountPrice?: string;
+}
+
+interface Promotion {
+    productId: string;
+    discountPrice: number;
+    startDate: Timestamp;
+    endDate: Timestamp;
 }
 
 const formatCurrency = (value: string | number): string => {
@@ -64,13 +71,35 @@ export default function TrendingProductsPage() {
                 productsMap.set(doc.id, { 
                     id: doc.id, 
                     ...doc.data(),
+                    stock: doc.data().stock || 0,
+                    description: doc.data().description || ''
                 } as Product);
             });
             
+            // Check for active promotions
+            const now = new Date();
+            const promoQuery = query(collection(db, "promotions"), where("endDate", ">", now));
+            const promoSnapshot = await getDocs(promoQuery);
+            const activePromos = new Map<string, { discountPrice: number }>();
+            promoSnapshot.forEach(doc => {
+                const data = doc.data() as Promotion;
+                 if (data.startDate.toDate() <= now) {
+                    activePromos.set(data.productId, { discountPrice: data.discountPrice });
+                 }
+            });
+
             const trendingSnapshot = await getDocs(collection(db, "trending_products"));
             const trendingProductIds = new Set(trendingSnapshot.docs.map(doc => doc.data().productId));
             
-            const trendingList = Array.from(productsMap.values()).filter(p => trendingProductIds.has(p.id));
+            const trendingList = Array.from(productsMap.values())
+                .filter(p => trendingProductIds.has(p.id))
+                .map(product => {
+                     if (activePromos.has(product.id)) {
+                        product.isPromo = true;
+                        product.discountPrice = formatCurrency(activePromos.get(product.id)!.discountPrice);
+                    }
+                    return product;
+                });
 
             setTrendingProducts(trendingList);
         } catch(error) {

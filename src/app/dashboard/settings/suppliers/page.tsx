@@ -137,6 +137,9 @@ function SupplierFormDialog({ supplier, onSave }: { supplier?: Supplier | null, 
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{supplier ? 'Edit Supplier' : 'Tambah Supplier Baru'}</DialogTitle>
+                    <DialogDescription>
+                        {supplier ? 'Edit detail supplier yang sudah ada.' : 'Masukkan detail supplier baru.'}
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                      <div className="space-y-2">

@@ -60,6 +60,8 @@ export default function AllPromoProductsPage() {
                 productsMap.set(doc.id, { 
                     id: doc.id, 
                     ...doc.data(),
+                    stock: doc.data().stock || 0,
+                    description: doc.data().description || ''
                 } as Product);
             });
             

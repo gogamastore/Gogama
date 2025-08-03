@@ -589,6 +589,9 @@ export default function PurchasesReportPage() {
                                 <DialogContent className="sm:max-w-2xl">
                                     <DialogHeader>
                                         <DialogTitle>Faktur Pembelian #{transaction.id}</DialogTitle>
+                                        <DialogDescription>
+                                            Rincian transaksi pembelian.
+                                        </DialogDescription>
                                         <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
                                             <span>Tanggal: {format(new Date(transaction.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
                                             <Separator orientation="vertical" className="h-4"/>
