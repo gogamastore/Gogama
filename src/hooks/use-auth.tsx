@@ -29,6 +29,7 @@ interface GoogleSignInResult {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isProcessingRedirect: boolean;
   signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
   changePassword: (password: string) => Promise<void>;
@@ -43,42 +44,51 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isProcessingRedirect, setIsProcessingRedirect] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-      } else {
-        // Handle the redirect result when the page loads
-        try {
-            const result = await getRedirectResult(auth);
-            if (result) {
-                const user = result.user;
-                const userDocRef = doc(db, 'user', user.uid);
-                const userDoc = await getDoc(userDocRef);
+    // This effect handles the result of a redirect sign-in.
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result) {
+          // User has successfully signed in via redirect.
+          const user = result.user;
+          const userDocRef = doc(db, 'user', user.uid);
+          const userDoc = await getDoc(userDocRef);
 
-                if (!userDoc.exists()) {
-                    await setDoc(userDocRef, {
-                        name: user.displayName,
-                        email: user.email,
-                        whatsapp: user.phoneNumber || '',
-                        role: 'reseller'
-                    });
-                     router.push('/reseller/profile');
-                } else {
-                    if (userDoc.data().role === 'reseller') {
-                        router.push('/reseller');
-                    } else {
-                        router.push('/dashboard');
-                    }
-                }
-                setUser(user);
+          if (!userDoc.exists()) {
+            // This is a new user
+            await setDoc(userDocRef, {
+              name: user.displayName,
+              email: user.email,
+              whatsapp: user.phoneNumber || '',
+              role: 'reseller'
+            });
+            // Redirect new users to their profile to complete it.
+            router.push('/reseller/profile');
+          } else {
+            // Existing user, redirect based on role
+            const userData = userDoc.data();
+            if (userData.role === 'reseller') {
+              router.push('/reseller');
+            } else {
+              router.push('/dashboard');
             }
-        } catch (error) {
-            console.error("Error during redirect result handling:", error);
+          }
+          setUser(user);
         }
-      }
+      })
+      .catch((error) => {
+        console.error("Error during redirect result handling:", error);
+      })
+      .finally(() => {
+        setIsProcessingRedirect(false);
+      });
+
+    // This listener handles all other auth state changes (manual login, logout, session persistence).
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
       setLoading(false);
     });
 
@@ -118,12 +128,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async (): Promise<void> => {
       const provider = new GoogleAuthProvider();
-      // Start the redirect flow
       await signInWithRedirect(auth, provider);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, reauthenticate, changePassword, sendPasswordReset, createUser, signInWithGoogle }}>
+    <AuthContext.Provider value={{ user, loading, isProcessingRedirect, signIn, signOut, reauthenticate, changePassword, sendPasswordReset, createUser, signInWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );
