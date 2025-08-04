@@ -744,84 +744,92 @@ export default function ProductsPage() {
                                     <TableRow>
                                         <TableCell colSpan={7} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
-                                ) : paginatedProducts.map((product) => (
-                                <TableRow key={product.id}>
-                                    <TableCell>
-                                        <ImageViewer src={product.image} alt={product.name}/>
-                                    </TableCell>
-                                    <TableCell className="font-medium">{product.name}</TableCell>
-                                    <TableCell className="hidden md:table-cell">
-                                    <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock}` : 'Habis'}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right hidden sm:table-cell">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
-                                    <TableCell className="text-right">{product.price}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Dialog>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" size="sm">
-                                                    <Eye className="mr-2 h-4 w-4"/>
-                                                    Lihat
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent className="sm:max-w-md">
-                                                <DialogHeader>
-                                                    <DialogTitle>Aksi untuk: {product.name}</DialogTitle>
-                                                    <DialogDescription>Detail produk dan aksi yang bisa dilakukan.</DialogDescription>
-                                                </DialogHeader>
-                                                
-                                                <div className="py-4 space-y-2 text-sm">
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">SKU</span>
-                                                        <span className="font-medium">{product.sku}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Kategori</span>
-                                                        <span className="font-medium">{product.category}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Harga Beli</span>
-                                                        <span className="font-medium">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</span>
-                                                    </div>
-                                                     <div className="flex justify-between">
-                                                        <span className="text-muted-foreground">Harga Jual</span>
-                                                        <span className="font-medium">{product.price}</TableCell>
-                                                    </div>
-                                                     <div className="space-y-1">
-                                                        <span className="text-muted-foreground">Deskripsi</span>
-                                                        <p className="font-medium p-2 bg-muted rounded-md">{product.description || 'Tidak ada deskripsi.'}</p>
-                                                    </div>
-                                                </div>
+                                ) : paginatedProducts.length > 0 ? (
+                                    paginatedProducts.map((product) => (
+                                        <TableRow key={product.id}>
+                                            <TableCell>
+                                                <ImageViewer src={product.image} alt={product.name}/>
+                                            </TableCell>
+                                            <TableCell className="font-medium">{product.name}</TableCell>
+                                            <TableCell className="hidden md:table-cell">
+                                            <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock}` : 'Habis'}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right hidden sm:table-cell">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
+                                            <TableCell className="text-right">{product.price}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Dialog>
+                                                    <DialogTrigger asChild>
+                                                        <Button variant="outline" size="sm">
+                                                            <Eye className="mr-2 h-4 w-4"/>
+                                                            Lihat
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="sm:max-w-md">
+                                                        <DialogHeader>
+                                                            <DialogTitle>Aksi untuk: {product.name}</DialogTitle>
+                                                            <DialogDescription>Detail produk dan aksi yang bisa dilakukan.</DialogDescription>
+                                                        </DialogHeader>
+                                                        
+                                                        <div className="py-4 space-y-2 text-sm">
+                                                            <div className="flex justify-between">
+                                                                <span className="text-muted-foreground">SKU</span>
+                                                                <span className="font-medium">{product.sku}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                                <span className="text-muted-foreground">Kategori</span>
+                                                                <span className="font-medium">{product.category}</span>
+                                                            </div>
+                                                            <div className="flex justify-between">
+                                                                <span className="text-muted-foreground">Harga Beli</span>
+                                                                <span className="font-medium">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</span>
+                                                            </div>
+                                                             <div className="flex justify-between">
+                                                                <span className="text-muted-foreground">Harga Jual</span>
+                                                                <span className="font-medium">{product.price}</span>
+                                                            </div>
+                                                             <div className="space-y-1">
+                                                                <span className="text-muted-foreground">Deskripsi</span>
+                                                                <p className="font-medium p-2 bg-muted rounded-md">{product.description || 'Tidak ada deskripsi.'}</p>
+                                                            </div>
+                                                        </div>
 
-                                                <Separator />
-                                                <div className="grid grid-cols-1 gap-2 py-2">
-                                                    <Button variant="outline" className="w-full justify-start" onClick={() => handleEditClick(product)}>
-                                                        <Edit className="mr-2 h-4 w-4"/> Edit Produk
-                                                    </Button>
-                                                     <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button variant="destructive" className="w-full justify-start">
-                                                                <Trash2 className="mr-2 h-4 w-4" /> Hapus Produk
+                                                        <Separator />
+                                                        <div className="grid grid-cols-1 gap-2 py-2">
+                                                            <Button variant="outline" className="w-full justify-start" onClick={() => handleEditClick(product)}>
+                                                                <Edit className="mr-2 h-4 w-4"/> Edit Produk
                                                             </Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
-                                                                <AlertDialogDescription>
-                                                                    Tindakan ini akan menghapus produk <span className="font-bold">{product.name}</span> secara permanen. Aksi ini tidak dapat diurungkan.
-                                                                </AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Batal</AlertDialogCancel>
-                                                                <AlertDialogAction onClick={() => handleDeleteProduct(product.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Hapus Produk</AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                </div>
-                                            </DialogContent>
-                                        </Dialog>
-                                    </TableCell>
-                                </TableRow>
-                                ))}
+                                                             <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button variant="destructive" className="w-full justify-start">
+                                                                        <Trash2 className="mr-2 h-4 w-4" /> Hapus Produk
+                                                                    </Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            Tindakan ini akan menghapus produk <span className="font-bold">{product.name}</span> secara permanen. Aksi ini tidak dapat diurungkan.
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                                        <AlertDialogAction onClick={() => handleDeleteProduct(product.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Hapus Produk</AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </div>
+                                                    </DialogContent>
+                                                </Dialog>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-24 text-center">
+                                            Tidak ada produk yang cocok dengan pencarian Anda.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </div>
@@ -1002,4 +1010,3 @@ export default function ProductsPage() {
   )
 }
 
-    
