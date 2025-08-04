@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
   TooltipProvider
 } from "@/components/ui/tooltip"
-import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive, ClipboardList, Settings, ChevronDown, Banknote, Users, Contact, Building, Receipt, FileWarning, DollarSign, ArrowUpRight, Scale, Warehouse, Replace, Landmark } from "lucide-react"
+import { LayoutDashboard, ShoppingCart, Package, LineChart, Bot, Archive, ClipboardList, Settings, ChevronDown, Banknote, Users, Contact, Building, Receipt, FileWarning, DollarSign, ArrowUpRight, Scale, Warehouse, Replace, Landmark, LayoutGrid, Percent, TrendingUp } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Button } from "./ui/button"
 
@@ -39,8 +39,10 @@ const settingsSubMenu = [
     { href: "/dashboard/settings/staff", label: "Manajemen Staf", icon: Users },
     { href: "/dashboard/settings/contacts", label: "Daftar Kontak", icon: Contact },
     { href: "/dashboard/settings/suppliers", label: "Manajemen Supplier", icon: Building },
-    { href: "/dashboard/settings/promo", label: "Promo" },
-    { href: "/dashboard/settings/design", label: "Desain" },
+    { href: "/dashboard/settings/product-categories", label: "Kategori Produk", icon: LayoutGrid },
+    { href: "/dashboard/settings/promo", label: "Promo", icon: Percent },
+    { href: "/dashboard/settings/design", label: "Desain", icon: LayoutTemplate },
+    { href: "/dashboard/settings/trending-products", label: "Produk Trending", icon: TrendingUp },
 ]
 
 

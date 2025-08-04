@@ -33,6 +33,11 @@ import Link from "next/link"
 import Autoplay from "embla-carousel-autoplay"
 import { ProductDetailDialog } from "./components/product-detail-dialog"
 
+interface ProductCategory {
+  id: string;
+  name: string;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -41,6 +46,7 @@ interface Product {
   image: string;
   'data-ai-hint': string;
   stock: number;
+  category: string;
   description?: string;
   isPromo?: boolean;
   discountPrice?: string;
@@ -79,9 +85,11 @@ export default function ResellerDashboard() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [promotions, setPromotions] = useState<Product[]>([]);
   const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(24);
@@ -100,8 +108,13 @@ export default function ResellerDashboard() {
                     ...doc.data(),
                     stock: doc.data().stock || 0,
                     description: doc.data().description || '',
+                    category: doc.data().category || "Umum"
                 } as Product);
             });
+
+            // Fetch Categories
+            const categoriesSnapshot = await getDocs(query(collection(db, "product_categories"), orderBy("name")));
+            setCategories(categoriesSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name })));
 
             // Fetch Promotions
             const now = new Date();
@@ -154,15 +167,26 @@ export default function ResellerDashboard() {
   }, [toast]);
 
   useEffect(() => {
-    const lowercasedFilter = searchTerm.toLowerCase();
-    const results = allProducts.filter(product => {
-      const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
-      const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
-      return nameMatch || skuMatch;
-    });
+    let results = allProducts;
+
+    // Filter by search term
+    if (searchTerm) {
+        const lowercasedFilter = searchTerm.toLowerCase();
+        results = results.filter(product => {
+            const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
+            const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
+            return nameMatch || skuMatch;
+        });
+    }
+
+    // Filter by category
+    if (selectedCategory !== "all") {
+        results = results.filter(product => product.category === selectedCategory);
+    }
+    
     setFilteredProducts(results);
     setCurrentPage(1); // Reset to first page on new search
-  }, [searchTerm, allProducts]);
+  }, [searchTerm, selectedCategory, allProducts]);
 
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -329,15 +353,28 @@ export default function ResellerDashboard() {
         <section>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
              <h2 className="text-2xl font-bold font-headline">Semua Produk</h2>
-             <div className="relative w-full sm:max-w-xs">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Cari nama atau SKU produk..."
-                    className="pl-9"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
+             <div className="flex w-full sm:w-auto sm:justify-end gap-2">
+                <div className="relative flex-1 sm:flex-auto sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Cari produk..."
+                        className="pl-9"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-full sm:w-48">
+                        <SelectValue placeholder="Semua Kategori" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Semua Kategori</SelectItem>
+                        {categories.map(cat => (
+                             <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+             </div>
           </div>
           
           {loading ? (
@@ -362,7 +399,7 @@ export default function ResellerDashboard() {
                 <div className="text-center py-20 bg-card rounded-lg border">
                     <h2 className="mt-6 text-xl font-semibold">Produk Tidak Ditemukan</h2>
                     <p className="mt-2 text-muted-foreground">
-                        Coba gunakan kata kunci pencarian yang berbeda.
+                        Coba gunakan kata kunci pencarian yang berbeda atau ubah filter kategori.
                     </p>
                 </div>
              )

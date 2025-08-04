@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -7,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Banknote, Users, Contact, LayoutTemplate, Percent, TrendingUp, Building } from "lucide-react";
+import { Banknote, Users, Contact, LayoutTemplate, Percent, TrendingUp, Building, LayoutGrid } from "lucide-react";
 import Link from "next/link";
 
 
@@ -35,6 +36,12 @@ const settingsCards = [
     description: "Kelola daftar supplier untuk transaksi pembelian.",
     icon: Building,
     href: "/dashboard/settings/suppliers",
+  },
+   {
+    title: "Kategori Produk",
+    description: "Atur kategori untuk pengelompokan produk Anda.",
+    icon: LayoutGrid,
+    href: "/dashboard/settings/product-categories",
   },
   {
     title: "Desain",

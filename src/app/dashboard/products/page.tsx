@@ -59,6 +59,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 
 
+interface ProductCategory {
+  id: string;
+  name: string;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -72,22 +77,90 @@ interface Product {
   description?: string;
 }
 
+function AddCategoryDialog({ onCategoryAdded }: { onCategoryAdded: (newCategory: ProductCategory) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [name, setName] = useState("");
+    const { toast } = useToast();
+
+    const handleAddCategory = async () => {
+        if (!name.trim()) {
+            toast({ variant: 'destructive', title: 'Nama kategori tidak boleh kosong' });
+            return;
+        }
+        setLoading(true);
+        try {
+            const docRef = await addDoc(collection(db, "product_categories"), {
+                name: name.trim(),
+                createdAt: serverTimestamp(),
+            });
+            onCategoryAdded({ id: docRef.id, name: name.trim() });
+            toast({ title: 'Kategori baru ditambahkan' });
+            setIsOpen(false);
+            setName("");
+        } catch (error) {
+            console.error("Error adding category:", error);
+            toast({ variant: 'destructive', title: 'Gagal menambah kategori' });
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <button className="w-full text-left p-2 text-sm text-primary hover:bg-accent rounded-md">
+                    + Tambah Kategori Baru
+                </button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Tambah Kategori Produk Baru</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                    <Label htmlFor="category-name">Nama Kategori</Label>
+                    <Input id="category-name" value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
+                    <Button onClick={handleAddCategory} disabled={loading}>{loading ? 'Menyimpan...' : 'Simpan Kategori'}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
 function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onSave: () => void, onOpenChange: (open: boolean) => void }) {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(product?.image || null);
-    
+    const [categories, setCategories] = useState<ProductCategory[]>([]);
+
     const [formData, setFormData] = useState({
         name: product?.name || "",
         sku: product?.sku || "",
         purchasePrice: product?.purchasePrice || 0,
         price: product ? parseFloat(product.price.replace(/[^0-9]/g, '')) : 0,
         stock: product?.stock || 0,
-        category: product?.category || "Umum",
+        category: product?.category || "",
         description: product?.description || "",
         image: product?.image || "",
     });
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            const snapshot = await getDocs(collection(db, "product_categories"));
+            setCategories(snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name })));
+        };
+        fetchCategories();
+    }, []);
+
+    const handleCategoryAdded = (newCategory: ProductCategory) => {
+        setCategories(prev => [...prev, newCategory]);
+        setFormData(prev => ({...prev, category: newCategory.name }));
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { id, value } = e.target;
@@ -191,6 +264,21 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="sku" className="text-right">SKU</Label>
                     <Input id="sku" value={formData.sku} onChange={handleInputChange} className="col-span-3" />
+                </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="category" className="text-right">Kategori</Label>
+                     <Select onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))} defaultValue={formData.category}>
+                        <SelectTrigger className="col-span-3">
+                            <SelectValue placeholder="Pilih Kategori Produk" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {categories.map(cat => (
+                                <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                            ))}
+                            <Separator className="my-2"/>
+                            <AddCategoryDialog onCategoryAdded={handleCategoryAdded} />
+                        </SelectContent>
+                    </Select>
                 </div>
                  <div className="grid grid-cols-4 items-start gap-4">
                     <Label htmlFor="image" className="text-right pt-2">Gambar</Label>
