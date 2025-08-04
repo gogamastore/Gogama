@@ -76,10 +76,10 @@ export default function ProfilePage() {
           const data = docSnap.data();
           setProfileData({
             name: data.name || user.displayName || '',
-            whatsapp: data.whatsapp || '',
+            whatsapp: data.whatsapp || '62',
           });
         } else {
-            setProfileData({ name: user.displayName || '', whatsapp: '' });
+            setProfileData({ name: user.displayName || '', whatsapp: '62' });
         }
       });
       fetchAddresses();
@@ -232,6 +232,7 @@ export default function ProfilePage() {
               id="whatsapp"
               value={profileData.whatsapp}
               onChange={handleProfileChange}
+              placeholder="Contoh: 628123456789"
             />
           </div>
            <div className="space-y-2">
