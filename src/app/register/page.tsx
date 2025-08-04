@@ -40,7 +40,7 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
       name: '',
       email: '',
-      whatsapp: '',
+      whatsapp: '62',
       password: ''
   });
   const { user, loading: authLoading, createUser, registerWithGoogle } = useAuth();
@@ -162,7 +162,7 @@ export default function RegisterPage() {
             </div>
              <div className="space-y-2">
               <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
-              <Input id="whatsapp" type="tel" placeholder="081234567890" value={formData.whatsapp} onChange={handleInputChange} />
+              <Input id="whatsapp" type="tel" placeholder="6281234567890" value={formData.whatsapp} onChange={handleInputChange} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
