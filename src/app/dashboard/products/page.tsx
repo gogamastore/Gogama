@@ -151,19 +151,6 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                     description: `${formData.name} telah diperbarui.`,
                 });
             } else { // Adding new product
-                 // Check for existing SKU
-                const q = query(collection(db, "products"), where("sku", "==", formData.sku));
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    toast({
-                        variant: "destructive",
-                        title: "SKU Sudah Ada",
-                        description: "Produk dengan SKU ini sudah terdaftar. Harap gunakan SKU lain.",
-                    });
-                    setLoading(false);
-                    return;
-                }
-
                 await addDoc(collection(db, "products"), {
                     ...dataToSave,
                     stock: formData.stock || 0, // Use stock from form for new products
@@ -402,20 +389,12 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
                 
                 if (json.length === 0) throw new Error("File Excel kosong atau format salah.");
 
-                // Fetch existing SKUs to prevent duplicates
-                const productsSnapshot = await getDocs(collection(db, "products"));
-                const existingSkus = new Set(productsSnapshot.docs.map(doc => doc.data().sku));
-                let skippedCount = 0;
                 let addedCount = 0;
-
                 const batch = writeBatch(db);
+
                 json.forEach((row) => {
-                    // Skip if required fields are missing or SKU already exists
-                    if (!row.name || !row.sku || !row.price || existingSkus.has(row.sku)) {
-                        if (existingSkus.has(row.sku)) {
-                            skippedCount++;
-                        }
-                        return;
+                    if (!row.name || !row.sku || !row.price) {
+                        return; // Skip rows with missing required data
                     }
                     
                     const productRef = doc(collection(db, "products"));
@@ -432,7 +411,6 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
                         createdAt: serverTimestamp(),
                     });
                     addedCount++;
-                    existingSkus.add(row.sku); // Add to set to handle duplicates within the same file
                 });
                 
                 if (addedCount > 0) {
@@ -441,7 +419,7 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
 
                 toast({ 
                     title: 'Impor Selesai', 
-                    description: `${addedCount} produk berhasil ditambahkan. ${skippedCount} produk dilewati karena SKU sudah ada.`
+                    description: `${addedCount} produk berhasil ditambahkan.`
                 });
 
                 onImportSuccess();
@@ -470,7 +448,7 @@ function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) 
                 <DialogHeader>
                     <DialogTitle>Impor Produk Massal</DialogTitle>
                     <DialogDescription>
-                        Tambah banyak produk sekaligus menggunakan file Excel. Produk dengan SKU yang sudah ada akan dilewati.
+                        Tambah banyak produk sekaligus menggunakan file Excel.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
@@ -933,5 +911,3 @@ export default function ProductsPage() {
     </>
   )
 }
-
-    
