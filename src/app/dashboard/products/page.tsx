@@ -1,6 +1,8 @@
 
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import Image from "next/image"
 import {
   Card,
@@ -782,7 +784,7 @@ export default function ProductsPage() {
                                                     </div>
                                                      <div className="flex justify-between">
                                                         <span className="text-muted-foreground">Harga Jual</span>
-                                                        <span className="font-medium">{product.price}</span>
+                                                        <span className="font-medium">{product.price}</TableCell>
                                                     </div>
                                                      <div className="space-y-1">
                                                         <span className="text-muted-foreground">Deskripsi</span>
@@ -999,3 +1001,5 @@ export default function ProductsPage() {
     </>
   )
 }
+
+    
