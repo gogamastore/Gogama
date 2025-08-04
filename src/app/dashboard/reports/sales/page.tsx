@@ -3,7 +3,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -32,10 +32,10 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter
 } from "@/components/ui/dialog";
 import {
   BarChart,
@@ -46,18 +46,34 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { DollarSign, Package, Calendar as CalendarIcon, FileText, Loader2, ArrowLeft, Printer } from "lucide-react";
+import { DollarSign, Package, Calendar as CalendarIcon, FileText, Loader2, ArrowLeft, Printer, Edit, PlusCircle, Search, Minus, Plus, Trash2 } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+
 
 declare module 'jspdf' {
   interface jsPDF {
     autoTable: (options: any) => jsPDF;
   }
+}
+
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  price: string;
+  stock: number;
+  image: string;
+  'data-ai-hint'?: string;
+  purchasePrice?: number;
 }
 
 interface OrderProduct {
@@ -67,6 +83,7 @@ interface OrderProduct {
   price: number;
   image: string;
 }
+
 interface Order {
   id: string;
   customer: string;
@@ -112,7 +129,306 @@ const processSalesDataForChart = (orders: Order[]) => {
 };
 
 
-function OrderDetailDialog({ orderId }: { orderId: string }) {
+function AddProductToOrderDialog({ currentProducts, onAddProduct }: { currentProducts: OrderProduct[], onAddProduct: (product: Product, quantity: number) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [quantity, setQuantity] = useState(1);
+
+    const fetchProducts = async () => {
+        setLoading(true);
+        const querySnapshot = await getDocs(collection(db, "products"));
+        const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        setAllProducts(productsData);
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchProducts();
+        }
+    }, [isOpen]);
+
+    useEffect(() => {
+        const currentProductIds = currentProducts.map(p => p.productId);
+        const availableProducts = allProducts.filter(p => !currentProductIds.includes(p.id));
+        const results = availableProducts.filter(p => 
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setFilteredProducts(results);
+    }, [searchTerm, allProducts, currentProducts]);
+    
+    const handleAddClick = (product: Product) => {
+        onAddProduct(product, quantity);
+        setIsOpen(false);
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Tambah Produk</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-4xl">
+                <DialogHeader>
+                    <DialogTitle>Tambah Produk ke Pesanan</DialogTitle>
+                    <DialogDescription>Cari dan pilih produk yang ingin ditambahkan.</DialogDescription>
+                </DialogHeader>
+                 <div className="relative pt-2">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Cari produk berdasarkan nama atau SKU..."
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="max-h-[50vh] overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Produk</TableHead>
+                                <TableHead>Stok</TableHead>
+                                <TableHead>Harga</TableHead>
+                                <TableHead className="w-[180px]">Jumlah</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow><TableCell colSpan={5} className="text-center">Memuat produk...</TableCell></TableRow>
+                            ) : filteredProducts.length > 0 ? filteredProducts.map(p => (
+                                <TableRow key={p.id}>
+                                    <TableCell className="font-medium">{p.name}</TableCell>
+                                    <TableCell>{p.stock}</TableCell>
+                                    <TableCell>{p.price}</TableCell>
+                                    <TableCell>
+                                        <Input type="number" defaultValue={1} min={1} max={p.stock} onChange={(e) => setQuantity(Number(e.target.value))} />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button onClick={() => handleAddClick(p)}>Tambah</Button>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow><TableCell colSpan={5} className="text-center">Produk tidak ditemukan atau sudah ada di pesanan.</TableCell></TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdated: () => void }) {
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [editableProducts, setEditableProducts] = useState<OrderProduct[]>([]);
+    const [shippingFee, setShippingFee] = useState<number>(0);
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (order) {
+            setEditableProducts(JSON.parse(JSON.stringify(order.products || []))); // Deep copy
+            setShippingFee(order.shippingFee || 0);
+        }
+    }, [order]);
+
+    const handleQuantityChange = (productId: string, newQuantity: number) => {
+        if (newQuantity < 1) return;
+        setEditableProducts(products => 
+            products.map(p => p.productId === productId ? { ...p, quantity: newQuantity } : p)
+        );
+    };
+
+    const handleRemoveItem = (productId: string) => {
+        setEditableProducts(products => products.filter(p => p.productId !== productId));
+    };
+
+    const handleAddProduct = (product: Product, quantity: number) => {
+        const newProduct: OrderProduct = {
+            productId: product.id,
+            name: product.name,
+            quantity: quantity,
+            price: parseFloat(product.price.replace(/[^0-9]/g, ''))
+        };
+        setEditableProducts(prev => [...prev, newProduct]);
+    };
+
+    const subtotal = useMemo(() => {
+        return editableProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+    }, [editableProducts]);
+
+    const newTotal = useMemo(() => subtotal + shippingFee, [subtotal, shippingFee]);
+
+    const handleSaveChanges = async () => {
+        setIsSaving(true);
+        const batch = writeBatch(db);
+
+        try {
+            const originalProducts = order.products || [];
+            const stockAdjustments = new Map<string, number>();
+
+            // Calculate differences for existing products
+            originalProducts.forEach(origP => {
+                const newP = editableProducts.find(p => p.productId === origP.productId);
+                if (newP) {
+                    const diff = origP.quantity - newP.quantity; // +ve if stock returns
+                    if (diff !== 0) {
+                        stockAdjustments.set(origP.productId, (stockAdjustments.get(origP.productId) || 0) + diff);
+                    }
+                } else { // Item was removed
+                    stockAdjustments.set(origP.productId, (stockAdjustments.get(origP.productId) || 0) + origP.quantity);
+                }
+            });
+
+            // Calculate differences for newly added products
+            editableProducts.forEach(newP => {
+                if (!originalProducts.some(origP => origP.productId === newP.productId)) {
+                     const diff = -newP.quantity; // -ve as stock is taken
+                     stockAdjustments.set(newP.productId, (stockAdjustments.get(newP.productId) || 0) + diff);
+                }
+            });
+
+
+            // Apply stock updates
+            for (const [productId, adjustment] of stockAdjustments.entries()) {
+                const productRef = doc(db, "products", productId);
+                const productDoc = await getDoc(productRef);
+                if (productDoc.exists()) {
+                    const currentStock = productDoc.data().stock || 0;
+                    batch.update(productRef, { stock: currentStock + adjustment });
+                }
+            }
+
+            // Update the order itself
+            const orderRef = doc(db, "orders", order.id);
+            batch.update(orderRef, {
+                products: editableProducts,
+                shippingFee: shippingFee,
+                subtotal: subtotal,
+                total: formatCurrency(newTotal),
+            });
+            
+            await batch.commit();
+
+            toast({ title: "Pesanan Berhasil Diperbarui", description: "Stok produk dan detail pesanan telah diperbarui." });
+            onOrderUpdated();
+            setIsEditDialogOpen(false);
+
+        } catch (error) {
+            console.error("Error updating order:", error);
+            toast({ variant: "destructive", title: "Gagal Menyimpan Perubahan" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+             <DialogTrigger asChild>
+                <Button variant="secondary" className="w-full justify-start gap-2">
+                    <Edit/> Edit Pesanan
+                </Button>
+             </DialogTrigger>
+             <DialogContent className="sm:max-w-4xl">
+                <DialogHeader className="flex-row justify-between items-center">
+                    <div>
+                        <DialogTitle>Edit Pesanan #{order.id.substring(0, 7)}...</DialogTitle>
+                        <DialogDescription>
+                            Ubah jumlah, hapus item, atau tambah produk baru ke pesanan.
+                        </DialogDescription>
+                    </div>
+                    <AddProductToOrderDialog currentProducts={editableProducts} onAddProduct={handleAddProduct} />
+                </DialogHeader>
+                <div className="max-h-[50vh] overflow-y-auto p-1">
+                    <div className="relative w-full overflow-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Produk</TableHead>
+                                    <TableHead className="w-[150px]">Jumlah</TableHead>
+                                    <TableHead className="text-right">Harga Satuan</TableHead>
+                                    <TableHead className="text-right">Subtotal</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {editableProducts.map(p => (
+                                    <TableRow key={p.productId}>
+                                        <TableCell className="font-medium">{p.name}</TableCell>
+                                        <TableCell>
+                                             <div className="flex items-center gap-1">
+                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(p.productId, p.quantity - 1)}>
+                                                    <Minus className="h-3 w-3" />
+                                                </Button>
+                                                <Input
+                                                    type="number"
+                                                    value={p.quantity}
+                                                    onChange={(e) => handleQuantityChange(p.productId, parseInt(e.target.value, 10))}
+                                                    className="w-14 h-7 text-center"
+                                                    min="1"
+                                                />
+                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQuantityChange(p.productId, p.quantity + 1)}>
+                                                    <Plus className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
+                                        <TableCell className="text-right font-semibold">{formatCurrency(p.price * p.quantity)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(p.productId)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {editableProducts.length === 0 && (
+                                     <TableRow>
+                                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                            Tidak ada produk dalam pesanan. Tambahkan produk baru untuk melanjutkan.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                     <Separator className="my-4"/>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4">
+                        <div className="space-y-2">
+                             <Label htmlFor="shippingFee">Biaya Pengiriman</Label>
+                             <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+                                <Input 
+                                    id="shippingFee" 
+                                    type="number" 
+                                    value={shippingFee}
+                                    onChange={(e) => setShippingFee(Number(e.target.value))}
+                                    className="pl-8"
+                                />
+                             </div>
+                        </div>
+                        <div className="space-y-1 text-right md:pt-5">
+                            <p className="text-sm text-muted-foreground">Subtotal Produk: {formatCurrency(subtotal)}</p>
+                            <p className="text-lg font-bold">Total Baru: {formatCurrency(newTotal)}</p>
+                        </div>
+                     </div>
+                </div>
+                 <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Batal</Button>
+                    <Button onClick={handleSaveChanges} disabled={isSaving || editableProducts.length === 0}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        Simpan Perubahan
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+function OrderDetailDialog({ orderId, onOrderUpdated }: { orderId: string, onOrderUpdated: () => void }) {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -143,8 +459,16 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
   }, [orderId, isOpen]);
 
   useEffect(() => {
-    fetchOrder();
-  }, [fetchOrder]);
+    if (isOpen) {
+        fetchOrder();
+    }
+  }, [isOpen, fetchOrder]);
+
+  const handleUpdate = () => {
+    fetchOrder(); // Refetch this specific order's details
+    onOrderUpdated(); // Refetch the whole list on the parent page
+  };
+
 
   const generatePdf = () => {
       if (!order) return;
@@ -211,58 +535,63 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
           )}
         </DialogHeader>
         {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : order ? (
-          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Informasi Pelanggan</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm space-y-1">
-                <p><strong>Nama:</strong> {order.customerDetails?.name || order.customer}</p>
-                <p><strong>Alamat:</strong> {order.customerDetails?.address || 'N/A'}</p>
-                <p><strong>WhatsApp:</strong> {order.customerDetails?.whatsapp || 'N/A'}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Rincian Produk</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Produk</TableHead>
-                      <TableHead>Jumlah</TableHead>
-                      <TableHead className="text-right">Harga Satuan</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {order.products?.map(p => (
-                      <TableRow key={p.productId}>
-                        <TableCell className="flex items-center gap-2">
-                          <Image src={p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
-                          {p.name}
-                        </TableCell>
-                        <TableCell>{p.quantity}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(p.quantity * p.price)}</TableCell>
+          <>
+            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informasi Pelanggan</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm space-y-1">
+                  <p><strong>Nama:</strong> {order.customerDetails?.name || order.customer}</p>
+                  <p><strong>Alamat:</strong> {order.customerDetails?.address || 'N/A'}</p>
+                  <p><strong>WhatsApp:</strong> {order.customerDetails?.whatsapp || 'N/A'}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Rincian Produk</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produk</TableHead>
+                        <TableHead>Jumlah</TableHead>
+                        <TableHead className="text-right">Harga Satuan</TableHead>
+                        <TableHead className="text-right">Subtotal</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-            <div className="space-y-2 text-right text-sm">
-              <p>Subtotal Produk: <span className="font-medium">{formatCurrency(order.subtotal)}</span></p>
-              <p>Biaya Pengiriman: <span className="font-medium">{formatCurrency(order.shippingFee)}</span></p>
-              <p className="font-bold text-base border-t pt-2 mt-2">Total: <span className="text-primary">{formatCurrency(order.total)}</span></p>
+                    </TableHeader>
+                    <TableBody>
+                      {order.products?.map(p => (
+                        <TableRow key={p.productId}>
+                          <TableCell className="flex items-center gap-2">
+                            <Image src={p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
+                            {p.name}
+                          </TableCell>
+                          <TableCell>{p.quantity}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(p.quantity * p.price)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+              <div className="space-y-2 text-right text-sm">
+                <p>Subtotal Produk: <span className="font-medium">{formatCurrency(order.subtotal)}</span></p>
+                <p>Biaya Pengiriman: <span className="font-medium">{formatCurrency(order.shippingFee)}</span></p>
+                <p className="font-bold text-base border-t pt-2 mt-2">Total: <span className="text-primary">{formatCurrency(order.total)}</span></p>
+              </div>
             </div>
-             <DialogFooter className="pt-4">
+             <DialogFooter className="justify-between">
+                <div>
+                   {order && <EditOrderDialog order={order} onOrderUpdated={handleUpdate}/>}
+                </div>
                 <Button onClick={generatePdf} variant="outline">
                     <Printer className="mr-2 h-4 w-4"/> Download Faktur
                 </Button>
             </DialogFooter>
-          </div>
+          </>
         ) : <p>Order tidak ditemukan.</p>}
       </DialogContent>
     </Dialog>
@@ -280,6 +609,49 @@ export default function SalesReportPage() {
     to: endOfDay(new Date()),
   });
 
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const querySnapshot = await getDocs(collection(db, "orders"));
+      const ordersDataPromises = querySnapshot.docs.map(async (orderDoc) => {
+          const data = orderDoc.data();
+          const total = typeof data.total === 'string' 
+              ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
+              : typeof data.total === 'number' ? data.total : 0;
+          
+          // Fetch customer details if not embedded
+          let customerDetails = data.customerDetails;
+          if (data.customerId && !customerDetails) {
+              const userDocRef = doc(db, "user", data.customerId);
+              const userDoc = await getDoc(userDocRef);
+              if (userDoc.exists()) {
+                  customerDetails = userDoc.data();
+              }
+          }
+
+          return { 
+              id: orderDoc.id, 
+              ...data, 
+              total,
+              subtotal: data.subtotal || 0,
+              shippingFee: data.shippingFee || 0,
+              products: data.products || [],
+              date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(), // Handle Firestore Timestamp
+              customerDetails 
+          } as Order;
+      });
+      const ordersData = await Promise.all(ordersDataPromises);
+      setAllOrders(ordersData);
+      // Initial filter for today
+      const todayOrders = filterOrdersByDate(ordersData, startOfDay(new Date()), endOfDay(new Date()));
+      setFilteredOrders(todayOrders);
+    } catch (error) {
+      console.error("Error fetching orders: ", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []); // filterOrdersByDate is not a dependency as it's defined outside
+
   const filterOrdersByDate = useCallback((orders: Order[], from?: Date, to?: Date) => {
     if (!from && !to) {
         return orders;
@@ -293,51 +665,8 @@ export default function SalesReportPage() {
   }, []);
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      setLoading(true);
-      try {
-        const querySnapshot = await getDocs(collection(db, "orders"));
-        const ordersDataPromises = querySnapshot.docs.map(async (orderDoc) => {
-            const data = orderDoc.data();
-            const total = typeof data.total === 'string' 
-                ? parseFloat(data.total.replace(/[^0-9]/g, '')) 
-                : typeof data.total === 'number' ? data.total : 0;
-            
-            // Fetch customer details if not embedded
-            let customerDetails = data.customerDetails;
-            if (data.customerId && !customerDetails) {
-                const userDocRef = doc(db, "user", data.customerId);
-                const userDoc = await getDoc(userDocRef);
-                if (userDoc.exists()) {
-                    customerDetails = userDoc.data();
-                }
-            }
-
-            return { 
-                id: orderDoc.id, 
-                ...data, 
-                total,
-                subtotal: data.subtotal || 0,
-                shippingFee: data.shippingFee || 0,
-                products: data.products || [],
-                date: data.date.toDate ? data.date.toDate().toISOString() : new Date(data.date).toISOString(), // Handle Firestore Timestamp
-                customerDetails 
-            } as Order;
-        });
-        const ordersData = await Promise.all(ordersDataPromises);
-        setAllOrders(ordersData);
-        // Initial filter for today
-        const todayOrders = filterOrdersByDate(ordersData, startOfDay(new Date()), endOfDay(new Date()));
-        setFilteredOrders(todayOrders);
-      } catch (error) {
-        console.error("Error fetching orders: ", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOrders();
-  }, [filterOrdersByDate]);
+  }, [fetchOrders]);
 
   const handleFilter = () => {
     const { from, to } = dateRange;
@@ -515,7 +844,7 @@ export default function SalesReportPage() {
                     filteredOrders.map((order) => (
                     <TableRow key={order.id}>
                         <TableCell>
-                           <OrderDetailDialog orderId={order.id} />
+                           <OrderDetailDialog orderId={order.id} onOrderUpdated={fetchOrders} />
                         </TableCell>
                         <TableCell>{order.customerDetails?.name || order.customer}</TableCell>
                         <TableCell>{format(new Date(order.date), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</TableCell>
