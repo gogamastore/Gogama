@@ -34,14 +34,22 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter
 } from "@/components/ui/dialog";
-import { DollarSign, FileWarning, Calendar as CalendarIcon, Package, ArrowLeft, Loader2 } from "lucide-react";
+import { DollarSign, FileWarning, Calendar as CalendarIcon, Package, ArrowLeft, Loader2, Printer } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 interface OrderProduct {
   productId: string;
@@ -112,6 +120,48 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
   useEffect(() => {
     fetchOrder();
   }, [fetchOrder]);
+  
+  const generatePdf = () => {
+        if (!order) return;
+        const pdfDoc = new jsPDF();
+        pdfDoc.setFontSize(20);
+        pdfDoc.text("Faktur Pesanan", 14, 22);
+        pdfDoc.setFontSize(10);
+        pdfDoc.text(`ID Pesanan: ${order.id}`, 14, 32);
+        pdfDoc.text(`Tanggal: ${format(order.date.toDate(), 'dd MMM yyyy, HH:mm', { locale: dateFnsLocaleId })}`, 14, 37);
+    
+        const customerInfo = order.customerDetails;
+        pdfDoc.text("Informasi Pelanggan:", 14, 47);
+        pdfDoc.text(`Nama: ${customerInfo?.name || order.customer}`, 14, 52);
+        const addressLines = pdfDoc.splitTextToSize(`Alamat: ${customerInfo?.address || 'N/A'}`, 180);
+        pdfDoc.text(addressLines, 14, 57);
+        let currentY = 57 + (addressLines.length * 5);
+        pdfDoc.text(`WhatsApp: ${customerInfo?.whatsapp || 'N/A'}`, 14, currentY + 5);
+    
+        const tableY = currentY + 15;
+        const tableColumn = ["Nama Produk", "Jumlah", "Harga Satuan", "Subtotal"];
+        const tableRows = order.products?.map(prod => [
+            prod.name,
+            prod.quantity,
+            formatCurrency(prod.price),
+            formatCurrency(prod.price * prod.quantity)
+        ]) || [];
+    
+        pdfDoc.autoTable({ head: [tableColumn], body: tableRows, startY: tableY });
+        const finalY = (pdfDoc as any).lastAutoTable.finalY + 10;
+    
+        pdfDoc.setFontSize(10);
+        pdfDoc.text("Subtotal Produk:", 14, finalY);
+        pdfDoc.text(formatCurrency(order.subtotal || 0), 14 + 40, finalY);
+        pdfDoc.text("Biaya Pengiriman:", 14, finalY + 5);
+        pdfDoc.text(formatCurrency(order.shippingFee || 0), 14 + 40, finalY + 5);
+        
+        pdfDoc.setFontSize(12);
+        pdfDoc.setFont('helvetica', 'bold');
+        pdfDoc.text("Total:", 14, finalY + 12);
+        pdfDoc.text(formatCurrency(order.total), 14 + 40, finalY + 12);
+        pdfDoc.output("dataurlnewwindow");
+    };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -182,6 +232,11 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
               <p>Biaya Pengiriman: <span className="font-medium">{formatCurrency(order.shippingFee)}</span></p>
               <p className="font-bold text-base border-t pt-2 mt-2">Total: <span className="text-primary">{formatCurrency(order.total)}</span></p>
             </div>
+             <DialogFooter className="pt-4">
+                <Button onClick={generatePdf} variant="outline" disabled={!order}>
+                    <Printer className="mr-2 h-4 w-4"/> Download Faktur
+                </Button>
+            </DialogFooter>
           </div>
         ) : <p>Order tidak ditemukan.</p>}
       </DialogContent>

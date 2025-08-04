@@ -893,7 +893,7 @@ export default function OrdersPage() {
                                              <DropdownMenuSeparator/>
                                              <EditOrderDialog order={order} onOrderUpdated={fetchOrders} />
                                              <DropdownMenuItem onClick={() => generateSinglePdf(order.id)}>
-                                                <Printer className="mr-2 h-4 w-4" /> Download PDF
+                                                <Printer className="mr-2 h-4 w-4" /> Download Faktur
                                              </DropdownMenuItem>
                                              {(order.status === 'Pending' || order.status === 'Processing') && (
                                                 <AlertDialog>

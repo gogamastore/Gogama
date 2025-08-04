@@ -44,7 +44,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { DollarSign, Package, Calendar as CalendarIcon, FileText, Edit, Plus, Minus, Trash2, Loader2, Search, PlusCircle, ArrowLeft } from "lucide-react";
+import { DollarSign, Package, Calendar as CalendarIcon, FileText, Edit, Plus, Minus, Trash2, Loader2, Search, PlusCircle, ArrowLeft, Printer } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -54,7 +54,14 @@ import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 interface Product {
   id: string;
@@ -352,6 +359,102 @@ function EditPurchaseDialog({ transaction, onPurchaseUpdated }: { transaction: P
     )
 }
 
+function PurchaseDetailDialog({ transaction }: { transaction: PurchaseTransaction }) {
+    const generatePdf = () => {
+        if (!transaction) return;
+        const pdfDoc = new jsPDF();
+        pdfDoc.setFontSize(20);
+        pdfDoc.text("Faktur Pembelian", 14, 22);
+        pdfDoc.setFontSize(10);
+        pdfDoc.text(`ID Transaksi: ${transaction.id}`, 14, 32);
+        pdfDoc.text(`Tanggal: ${format(new Date(transaction.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}`, 14, 37);
+        pdfDoc.text(`Supplier: ${transaction.supplierName || 'N/A'}`, 14, 42);
+
+        const tableY = 52;
+        const tableColumn = ["Nama Produk", "Jumlah", "Harga Beli", "Subtotal"];
+        const tableRows = transaction.items?.map(item => [
+            item.productName,
+            item.quantity,
+            formatCurrency(item.purchasePrice),
+            formatCurrency(item.purchasePrice * item.quantity)
+        ]) || [];
+
+        pdfDoc.autoTable({ head: [tableColumn], body: tableRows, startY: tableY });
+        const finalY = (pdfDoc as any).lastAutoTable.finalY + 10;
+        
+        pdfDoc.setFontSize(12);
+        pdfDoc.setFont('helvetica', 'bold');
+        pdfDoc.text("Total Pembelian:", 14, finalY);
+        pdfDoc.text(formatCurrency(transaction.totalAmount), 14 + 45, finalY);
+
+        pdfDoc.output("dataurlnewwindow");
+    };
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <FileText className="h-4 w-4" />
+                    <span className="sr-only">Lihat Faktur Pembelian</span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Faktur Pembelian #{transaction.id}</DialogTitle>
+                    <DialogDescription>Rincian transaksi pembelian.</DialogDescription>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
+                        <span>Tanggal: {format(new Date(transaction.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
+                        <Separator orientation="vertical" className="h-4"/>
+                        <span>Supplier: {transaction.supplierName || 'N/A'}</span>
+                    </div>
+                </DialogHeader>
+                <div className="grid gap-4 py-4 max-h-[60vh] overflow-auto">
+                    <Card>
+                        <CardHeader><CardTitle>Rincian Produk Dibeli</CardTitle></CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Produk</TableHead>
+                                        <TableHead>Jumlah</TableHead>
+                                        <TableHead className="text-right">Harga Beli Satuan</TableHead>
+                                        <TableHead className="text-right">Subtotal</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {transaction.items?.map(item => (
+                                        <TableRow key={item.productId}>
+                                            <TableCell>{item.productName}</TableCell>
+                                            <TableCell>{item.quantity}</TableCell>
+                                            <TableCell className="text-right">{formatCurrency(item.purchasePrice)}</TableCell>
+                                            <TableCell className="text-right">{formatCurrency(item.quantity * item.purchasePrice)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                    <Separator/>
+                    <div className="flex justify-between items-center text-sm px-2">
+                        <div className="text-muted-foreground">
+                            Metode Pembayaran: <span className="font-medium text-foreground capitalize">{transaction.paymentMethod?.replace('_', ' ')}</span>
+                        </div>
+                        <div className="text-right font-bold text-lg">
+                            Total Pembelian: {formatCurrency(transaction.totalAmount)}
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter className="justify-between">
+                    <Button onClick={generatePdf} variant="outline">
+                        <Printer className="mr-2 h-4 w-4"/> Download Faktur
+                    </Button>
+                    <EditPurchaseDialog transaction={transaction} onPurchaseUpdated={() => {}} />
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function PurchasesReportPage() {
   const [allTransactions, setAllTransactions] = useState<PurchaseTransaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<PurchaseTransaction[]>([]);
@@ -579,70 +682,7 @@ export default function PurchasesReportPage() {
                         {formatCurrency(transaction.totalAmount)}
                         </TableCell>
                         <TableCell className="text-center">
-                        <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                        <FileText className="h-4 w-4" />
-                                        <span className="sr-only">Lihat Faktur Pembelian</span>
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-2xl">
-                                    <DialogHeader>
-                                        <DialogTitle>Faktur Pembelian #{transaction.id}</DialogTitle>
-                                        <DialogDescription>
-                                            Rincian transaksi pembelian.
-                                        </DialogDescription>
-                                        <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
-                                            <span>Tanggal: {format(new Date(transaction.date), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
-                                            <Separator orientation="vertical" className="h-4"/>
-                                            <span>Supplier: {transaction.supplierName || 'N/A'}</span>
-                                        </div>
-                                    </DialogHeader>
-                                    <div className="grid gap-4 py-4">
-                                        <Card>
-                                            <CardHeader>
-                                                <CardTitle>Rincian Produk Dibeli</CardTitle>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className="overflow-auto">
-                                                    <Table>
-                                                        <TableHeader>
-                                                            <TableRow>
-                                                                <TableHead>Produk</TableHead>
-                                                                <TableHead>Jumlah</TableHead>
-                                                                <TableHead className="text-right">Harga Beli Satuan</TableHead>
-                                                                <TableHead className="text-right">Subtotal</TableHead>
-                                                            </TableRow>
-                                                        </TableHeader>
-                                                        <TableBody>
-                                                            {transaction.items?.map(item => (
-                                                                <TableRow key={item.productId}>
-                                                                    <TableCell>{item.productName}</TableCell>
-                                                                    <TableCell>{item.quantity}</TableCell>
-                                                                    <TableCell className="text-right">{formatCurrency(item.purchasePrice)}</TableCell>
-                                                                    <TableCell className="text-right">{formatCurrency(item.quantity * item.purchasePrice)}</TableCell>
-                                                                </TableRow>
-                                                            ))}
-                                                        </TableBody>
-                                                    </Table>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                        <Separator/>
-                                        <div className="flex justify-between items-center text-sm px-2">
-                                            <div className="text-muted-foreground">
-                                                Metode Pembayaran: <span className="font-medium text-foreground capitalize">{transaction.paymentMethod?.replace('_', ' ')}</span>
-                                            </div>
-                                            <div className="text-right font-bold text-lg">
-                                                Total Pembelian: {formatCurrency(transaction.totalAmount)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <DialogFooter>
-                                        <EditPurchaseDialog transaction={transaction} onPurchaseUpdated={fetchTransactions} />
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
+                           <PurchaseDetailDialog transaction={transaction} />
                         </TableCell>
                     </TableRow>
                     ))

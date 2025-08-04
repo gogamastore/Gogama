@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -34,12 +35,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Calendar as CalendarIcon, Loader2, Receipt, ArrowLeft, Banknote, Package } from "lucide-react";
+import { DollarSign, Calendar as CalendarIcon, Loader2, Receipt, ArrowLeft, Banknote, Package, Printer } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 interface PurchaseItem {
   productId: string;
@@ -97,11 +106,41 @@ function PurchaseInvoiceDialog({ transactionId }: { transactionId: string }) {
         fetchTransaction();
     }, [fetchTransaction]);
 
+    const generatePdf = () => {
+        if (!transaction) return;
+        const pdfDoc = new jsPDF();
+        pdfDoc.setFontSize(20);
+        pdfDoc.text("Faktur Pembelian", 14, 22);
+        pdfDoc.setFontSize(10);
+        pdfDoc.text(`ID Transaksi: ${transaction.id}`, 14, 32);
+        pdfDoc.text(`Tanggal: ${format(transaction.date.toDate(), 'dd MMM yyyy', { locale: dateFnsLocaleId })}`, 14, 37);
+        pdfDoc.text(`Supplier: ${transaction.supplierName || 'N/A'}`, 14, 42);
+
+        const tableY = 52;
+        const tableColumn = ["Nama Produk", "Jumlah", "Harga Beli", "Subtotal"];
+        const tableRows = transaction.items?.map(item => [
+            item.productName,
+            item.quantity,
+            formatCurrency(item.purchasePrice),
+            formatCurrency(item.purchasePrice * item.quantity)
+        ]) || [];
+
+        pdfDoc.autoTable({ head: [tableColumn], body: tableRows, startY: tableY });
+        const finalY = (pdfDoc as any).lastAutoTable.finalY + 10;
+        
+        pdfDoc.setFontSize(12);
+        pdfDoc.setFont('helvetica', 'bold');
+        pdfDoc.text("Total Pembelian:", 14, finalY);
+        pdfDoc.text(formatCurrency(transaction.totalAmount), 14 + 45, finalY);
+
+        pdfDoc.output("dataurlnewwindow");
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button variant="link" asChild className="p-0 h-auto">
-                    <span className="cursor-pointer">{transactionId}</span>
+                <Button variant="link" className="p-0 h-auto font-medium">
+                    {transactionId}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl">
@@ -157,6 +196,11 @@ function PurchaseInvoiceDialog({ transactionId }: { transactionId: string }) {
                         </div>
                     </div>
                 ) : <p>Transaksi tidak ditemukan.</p>}
+                 <DialogFooter>
+                    <Button onClick={generatePdf} variant="outline" disabled={!transaction}>
+                        <Printer className="mr-2 h-4 w-4"/> Download Faktur
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
@@ -290,7 +334,7 @@ export default function AccountsPayablePage() {
                 ) : filteredPayables.length > 0 ? (
                   filteredPayables.map((payable) => (
                     <TableRow key={payable.id}>
-                      <TableCell className="font-medium">
+                      <TableCell>
                         <PurchaseInvoiceDialog transactionId={payable.id} />
                       </TableCell>
                       <TableCell>{format(new Date(payable.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
