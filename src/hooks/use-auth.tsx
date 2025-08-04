@@ -23,7 +23,7 @@ import { useRouter } from 'next/navigation';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  isProcessingRedirect: boolean; // Kept for compatibility, but will be false
+  isProcessingRedirect: boolean; 
   signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
   changePassword: (password: string) => Promise<void>;
@@ -39,7 +39,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const isProcessingRedirect = false; // No longer using redirect
+  const isProcessingRedirect = false; 
   const router = useRouter();
 
   useEffect(() => {
@@ -81,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return createUserWithEmailAndPassword(auth, email, password);
   }
 
-  const handleGoogleAuth = async (isRegistration: boolean) => {
+  const handleGoogleAuth = async () => {
     const provider = new GoogleAuthProvider();
     try {
         const result = await signInWithPopup(auth, provider);
@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
-            // User exists, log them in
+            // User exists, log them in and redirect
             const userData = userDoc.data();
             if (userData.role === 'reseller') {
                 router.push('/reseller');
@@ -98,23 +98,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 router.push('/dashboard');
             }
         } else {
-            // New user, create document in Firestore
+            // New user, create document in Firestore and treat as a reseller registration
             await setDoc(userDocRef, {
                 name: user.displayName || 'Reseller Baru',
                 email: user.email,
                 whatsapp: user.phoneNumber || '',
                 role: 'reseller'
             });
-            router.push('/reseller/profile'); // Redirect to complete profile
+            router.push('/reseller'); 
         }
-    } catch (error) {
+    } catch (error: any) {
+        // Handle specific auth errors if needed, otherwise re-throw
         console.error("Google Auth failed:", error);
-        throw error; // Re-throw to be caught by the calling function
+        if (error.code !== 'auth/popup-closed-by-user') {
+          throw error;
+        }
     }
   };
 
-  const signInWithGoogle = () => handleGoogleAuth(false);
-  const registerWithGoogle = () => handleGoogleAuth(true);
+  // Both sign-in and register now use the same robust logic
+  const signInWithGoogle = () => handleGoogleAuth();
+  const registerWithGoogle = () => handleGoogleAuth();
   
 
   return (

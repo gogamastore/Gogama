@@ -32,6 +32,7 @@ export default function RootPage() {
               router.replace('/dashboard');
             }
           } else {
+            // Default to dashboard if no role is found (e.g. initial admin)
             router.replace('/dashboard');
           }
         } catch (error) {
