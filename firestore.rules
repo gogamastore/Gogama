@@ -1,87 +1,90 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isAuth() {
-      return request.auth != null;
-    }
-
-    function getRole() {
-      return get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role;
-    }
-
+  
+    // Helper function to check if the user is an admin
     function isAdmin() {
-      return isAuth() && getRole() == 'admin';
+      return request.auth != null && get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
 
-    function isReseller() {
-      return isAuth() && getRole() == 'reseller';
-    }
-
-    // User collection:
-    // - Users can read and update their own data.
-    // - New users can create their own document during registration.
-    // - Only admins can delete user documents.
+    // Users can only read/write their own data. Admins can read anyone's data.
     match /user/{userId} {
-      allow read, update: if isAuth() && request.auth.uid == userId;
-      allow create: if isAuth(); // For registration
-      allow delete: if isAdmin();
-    }
-    
-    // User subcollection for addresses: only the user can manage their own addresses.
-    match /user/{userId}/addresses/{addressId} {
-        allow read, write, delete: if isAuth() && request.auth.uid == userId;
+      allow read: if isAdmin() || request.auth.uid == userId;
+      allow write: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
     }
 
-    // Products & Stock Adjustments:
-    // - All authenticated users can read products.
-    // - Only admins can create, update, or delete products and their stock adjustments.
+    // Users can only manage their own address book.
+    match /user/{userId}/addresses/{addressId} {
+        allow read, write: if request.auth.uid == userId;
+    }
+
+    // Products are publicly readable. Only admins can modify them.
     match /products/{productId} {
-      allow read: if isAuth();
+      allow read: if true;
       allow write: if isAdmin();
     }
-    match /stock_adjustments/{adjustmentId} {
-      allow read, write: if isAdmin();
+    
+    // Categories are publicly readable. Only admins can modify them.
+    match /product_categories/{categoryId} {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    
+    // Banners are publicly readable. Only admins can modify them.
+    match /banners/{bannerId} {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    
+    // Promotions are publicly readable. Only admins can modify them.
+    match /promotions/{promoId} {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    
+    // Trending products are publicly readable. Only admins can modify them.
+    match /trending_products/{trendingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // WhatsApp contacts are publicly readable. Only admins can modify them.
+    match /whatsapp_contacts/{contactId} {
+       allow read: if true;
+       allow write: if isAdmin();
+    }
+    
+     // Bank accounts are publicly readable. Only admins can modify them.
+    match /bank_accounts/{accountId} {
+       allow read: if true;
+       allow write: if isAdmin();
     }
 
-    // Orders:
-    // - Resellers can create their own orders.
-    // - Resellers can read and update (cancel/upload proof) their own orders.
-    // - Admins can read and write all orders.
+    // Orders can only be created by authenticated users.
+    // Users can only read their own orders. Admins can read all orders.
     match /orders/{orderId} {
-      allow create: if isReseller() && request.resource.data.customerId == request.auth.uid;
-      allow read, update: if (isReseller() && resource.data.customerId == request.auth.uid) || isAdmin();
+      allow create: if request.auth != null;
+      allow read, update: if isAdmin() || request.auth.uid == resource.data.customerId;
       allow delete: if isAdmin();
     }
 
-    // Admin-only collections (banners, contacts, bank accounts, suppliers, expenses, purchases)
-    // - Only admins can read and write to these collections.
-    match /banners/{bannerId} {
-        allow read, write: if isAdmin();
-    }
-    match /whatsapp_contacts/{contactId} {
-        allow read, write: if isAdmin();
-    }
-    match /bank_accounts/{accountId} {
-        allow read, write: if isAdmin();
-    }
-    match /suppliers/{supplierId} {
-        allow read, write: if isAdmin();
-    }
-     match /promotions/{promoId} {
-        allow read: if isAuth();
-        allow write: if isAdmin();
-    }
-    match /trending_products/{trendingId} {
-        allow read: if isAuth();
-        allow write: if isAdmin();
-    }
+    // Transaction & log data is admin-only access.
     match /purchase_transactions/{transactionId} {
-      allow read, write: if isAdmin();
+        allow read, write: if isAdmin();
     }
+    
     match /operational_expenses/{expenseId} {
+        allow read, write: if isAdmin();
+    }
+
+    match /stock_adjustments/{adjustmentId} {
+        allow read, write: if isAdmin();
+    }
+    
+    match /suppliers/{supplierId} {
       allow read, write: if isAdmin();
     }
   }
