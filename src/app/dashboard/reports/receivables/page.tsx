@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -27,10 +27,40 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, FileWarning, Calendar as CalendarIcon, Package, ArrowLeft } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { DollarSign, FileWarning, Calendar as CalendarIcon, Package, ArrowLeft, Loader2 } from "lucide-react";
 import { format, isValid, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Separator } from "@/components/ui/separator";
+
+
+interface OrderProduct {
+  productId: string;
+  name: string;
+  quantity: number;
+  price: number;
+  image: string;
+}
+interface FullOrder {
+  id: string;
+  customer: string;
+  customerDetails?: { name: string; address: string; whatsapp: string };
+  status: 'Delivered' | 'Shipped' | 'Processing' | 'Pending' | 'Cancelled';
+  total: number;
+  subtotal: number;
+  shippingFee: number;
+  date: any; // Firestore Timestamp
+  products: OrderProduct[];
+}
 
 interface Order {
   id: string;
@@ -48,6 +78,117 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 0,
   }).format(amount);
 };
+
+
+function OrderDetailDialog({ orderId }: { orderId: string }) {
+  const [order, setOrder] = useState<FullOrder | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const fetchOrder = useCallback(async () => {
+    if (!isOpen) return;
+    setLoading(true);
+    try {
+        const orderDoc = await getDoc(doc(db, "orders", orderId));
+        if (orderDoc.exists()) {
+            const data = orderDoc.data();
+            const total = typeof data.total === 'string' ? parseFloat(data.total.replace(/[^0-9]/g, '')) : data.total || 0;
+            setOrder({ 
+                id: orderDoc.id,
+                ...data,
+                total,
+                subtotal: data.subtotal || 0,
+                shippingFee: data.shippingFee || 0,
+                products: data.products || [],
+             } as FullOrder);
+        }
+    } catch (error) {
+        console.error("Failed to fetch order", error);
+    } finally {
+        setLoading(false);
+    }
+  }, [orderId, isOpen]);
+
+  useEffect(() => {
+    fetchOrder();
+  }, [fetchOrder]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="link" className="p-0 h-auto font-medium">
+          {orderId}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Faktur #{order?.id}</DialogTitle>
+          {order && (
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>{format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}</span>
+                <Badge variant="outline" className={
+                    order.status === 'Delivered' ? 'text-green-600 border-green-600' :
+                    order.status === 'Shipped' ? 'text-blue-600 border-blue-600' :
+                    order.status === 'Processing' ? 'text-yellow-600 border-yellow-600' : 
+                    order.status === 'Cancelled' ? 'text-red-600 border-red-600' : 'text-gray-600 border-gray-600'
+                }>{order.status}</Badge>
+            </div>
+          )}
+        </DialogHeader>
+        {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : order ? (
+          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Informasi Pelanggan</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-1">
+                <p><strong>Nama:</strong> {order.customerDetails?.name || order.customer}</p>
+                <p><strong>Alamat:</strong> {order.customerDetails?.address || 'N/A'}</p>
+                <p><strong>WhatsApp:</strong> {order.customerDetails?.whatsapp || 'N/A'}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Rincian Produk</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produk</TableHead>
+                      <TableHead>Jumlah</TableHead>
+                      <TableHead className="text-right">Harga Satuan</TableHead>
+                      <TableHead className="text-right">Subtotal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {order.products?.map(p => (
+                      <TableRow key={p.productId}>
+                        <TableCell className="flex items-center gap-2">
+                          <Image src={p.image || 'https://placehold.co/40x40.png'} alt={p.name} width={40} height={40} className="rounded" />
+                          {p.name}
+                        </TableCell>
+                        <TableCell>{p.quantity}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(p.quantity * p.price)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+            <div className="space-y-2 text-right text-sm">
+              <p>Subtotal Produk: <span className="font-medium">{formatCurrency(order.subtotal)}</span></p>
+              <p>Biaya Pengiriman: <span className="font-medium">{formatCurrency(order.shippingFee)}</span></p>
+              <p className="font-bold text-base border-t pt-2 mt-2">Total: <span className="text-primary">{formatCurrency(order.total)}</span></p>
+            </div>
+          </div>
+        ) : <p>Order tidak ditemukan.</p>}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 export default function ReceivablesReportPage() {
   const [allReceivables, setAllReceivables] = useState<Order[]>([]);
@@ -235,7 +376,9 @@ export default function ReceivablesReportPage() {
                 {filteredReceivables.length > 0 ? (
                     filteredReceivables.map((order) => (
                     <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.id}</TableCell>
+                        <TableCell>
+                           <OrderDetailDialog orderId={order.id} />
+                        </TableCell>
                         <TableCell>{order.customer}</TableCell>
                         <TableCell>{format(new Date(order.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
                         <TableCell>
