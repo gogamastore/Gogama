@@ -83,15 +83,8 @@ export default function LoginForm() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      const result = await signInWithGoogle();
-      if (!result) {
-         toast({
-            variant: "destructive",
-            title: "Login Gagal",
-            description: "Akun Google Anda belum terdaftar. Silakan mendaftar terlebih dahulu.",
-        });
-      }
-      // Redirection is handled by the auth hook if successful
+      await signInWithGoogle();
+      // Redirect is handled by the auth hook's redirect result logic
     } catch (error) {
         console.error("Google Sign-In failed", error);
         toast({

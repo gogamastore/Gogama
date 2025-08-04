@@ -117,15 +117,8 @@ export default function RegisterPage() {
   const handleGoogleRegister = async () => {
     setLoading(true);
     try {
-        const newUser = await registerWithGoogle();
-        if (!newUser) {
-            toast({
-                variant: 'destructive',
-                title: 'Gagal Mendaftar',
-                description: 'Akun Google ini sepertinya sudah terdaftar. Silakan coba login.'
-            });
-        }
-        // Redirect is handled in the hook
+        await registerWithGoogle();
+        // Redirect is handled by the auth hook's redirect result logic
     } catch(error) {
          toast({
             variant: "destructive",
