@@ -203,7 +203,7 @@ function ProductForm({ product, onSave, onOpenChange }: { product?: Product, onS
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="sku" className="text-right">SKU</Label>
-                    <Input id="sku" value={formData.sku} onChange={handleInputChange} className="col-span-3" disabled={!!product} />
+                    <Input id="sku" value={formData.sku} onChange={handleInputChange} className="col-span-3" />
                 </div>
                  <div className="grid grid-cols-4 items-start gap-4">
                     <Label htmlFor="image" className="text-right pt-2">Gambar</Label>
@@ -933,3 +933,5 @@ export default function ProductsPage() {
     </>
   )
 }
+
+    
