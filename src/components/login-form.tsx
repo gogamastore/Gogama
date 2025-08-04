@@ -40,7 +40,7 @@ const GoogleIcon = () => (
 export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { user, loading: authLoading, signIn, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn, signInWithGoogle, sendPasswordReset } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -83,22 +83,8 @@ export default function LoginForm() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      const { user, isNewUser } = await signInWithGoogle();
-      
-      // If it's a new user, they will be redirected from the auth hook after their profile is created.
-      // If it's an existing user, we redirect them here.
-      if (!isNewUser) {
-        const userDocRef = doc(db, "user", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists() && userDoc.data().role === 'reseller') {
-          router.push('/reseller');
-        } else {
-          router.push('/dashboard');
-        }
-      }
-      // The redirection for new users is handled within the auth hook.
-      // This is to ensure profile creation is complete before redirection.
-
+      await signInWithGoogle();
+      // The redirection is now handled by the onAuthStateChanged in the auth hook.
     } catch (error) {
         console.error("Google Sign-In failed", error);
         toast({
@@ -106,7 +92,6 @@ export default function LoginForm() {
             title: "Login Google Gagal",
             description: "Terjadi kesalahan, silakan coba lagi.",
         });
-    } finally {
         setLoading(false);
     }
   };

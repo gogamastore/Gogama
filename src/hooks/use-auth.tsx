@@ -13,7 +13,9 @@ import {
     sendPasswordResetEmail,
     createUserWithEmailAndPassword,
     signInWithPopup,
-    GoogleAuthProvider
+    GoogleAuthProvider,
+    signInWithRedirect,
+    getRedirectResult
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -33,7 +35,7 @@ interface AuthContextType {
   reauthenticate: (password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   createUser: (email: string, password: string) => Promise<any>;
-  signInWithGoogle: () => Promise<GoogleSignInResult>;
+  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,13 +46,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUser(user);
+      } else {
+        // Handle the redirect result when the page loads
+        try {
+            const result = await getRedirectResult(auth);
+            if (result) {
+                const user = result.user;
+                const userDocRef = doc(db, 'user', user.uid);
+                const userDoc = await getDoc(userDocRef);
+
+                if (!userDoc.exists()) {
+                    await setDoc(userDocRef, {
+                        name: user.displayName,
+                        email: user.email,
+                        whatsapp: user.phoneNumber || '',
+                        role: 'reseller'
+                    });
+                     router.push('/reseller/profile');
+                } else {
+                    if (userDoc.data().role === 'reseller') {
+                        router.push('/reseller');
+                    } else {
+                        router.push('/dashboard');
+                    }
+                }
+                setUser(user);
+            }
+        } catch (error) {
+            console.error("Error during redirect result handling:", error);
+        }
+      }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const signIn = (email: string, password: string) => {
     return signInWithEmailAndPassword(auth, email, password);
@@ -83,29 +116,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return createUserWithEmailAndPassword(auth, email, password);
   }
 
-  const signInWithGoogle = async (): Promise<GoogleSignInResult> => {
+  const signInWithGoogle = async (): Promise<void> => {
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      const userDocRef = doc(db, 'user', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      let isNewUser = false;
-      if (!userDoc.exists()) {
-          isNewUser = true;
-          // Create a new user document for resellers
-          await setDoc(userDocRef, {
-              name: user.displayName,
-              email: user.email,
-              whatsapp: user.phoneNumber || '',
-              role: 'reseller'
-          });
-          // Redirect to profile page to complete details
-          router.push('/reseller/profile');
-      }
-      
-      return { user, isNewUser };
+      // Start the redirect flow
+      await signInWithRedirect(auth, provider);
   };
 
   return (
