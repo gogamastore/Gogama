@@ -40,7 +40,7 @@ const GoogleIcon = () => (
 export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { user, loading: authLoading, signIn, signInWithGoogle, sendPasswordReset } = useAuth();
+  const { user, loading: authLoading, signIn, signInWithGoogle, sendPasswordReset, isProcessingRedirect } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -83,8 +83,15 @@ export default function LoginForm() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      await signInWithGoogle();
-      // The redirection is now handled by the onAuthStateChanged in the auth hook.
+      const result = await signInWithGoogle();
+      if (!result) {
+         toast({
+            variant: "destructive",
+            title: "Login Gagal",
+            description: "Akun Google Anda belum terdaftar. Silakan mendaftar terlebih dahulu.",
+        });
+      }
+      // Redirection is handled by the auth hook if successful
     } catch (error) {
         console.error("Google Sign-In failed", error);
         toast({
@@ -92,6 +99,7 @@ export default function LoginForm() {
             title: "Login Google Gagal",
             description: "Terjadi kesalahan, silakan coba lagi.",
         });
+    } finally {
         setLoading(false);
     }
   };
