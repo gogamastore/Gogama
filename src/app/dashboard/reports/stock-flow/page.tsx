@@ -10,6 +10,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from "@/components/ui/card";
 import {
   Table,
@@ -37,7 +38,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, Search, Package, Loader2, ArrowUp, ArrowDown, ArrowLeft, Printer } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Package, Loader2, ArrowUp, ArrowDown, ArrowLeft, Printer, ChevronLeft, ChevronRight } from "lucide-react";
 import { format, startOfDay, endOfDay, parseISO } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import Image from "next/image";
@@ -46,6 +47,8 @@ import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -231,7 +234,7 @@ function PurchaseDetailDialog({ transactionId }: { transactionId: string }) {
                     </div>
                 ) : <p>Transaksi tidak ditemukan.</p>}
                  <DialogFooter>
-                    <Button onClick={generatePdf} variant="outline">
+                    <Button onClick={generatePdf} variant="outline" disabled={!transaction}>
                         <Printer className="mr-2 h-4 w-4"/> Download Faktur
                     </Button>
                 </DialogFooter>
@@ -383,7 +386,7 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
                     </div>
                 ) : <p>Order tidak ditemukan.</p>}
                  <DialogFooter>
-                    <Button onClick={generatePdf} variant="outline">
+                    <Button onClick={generatePdf} variant="outline" disabled={!order}>
                         <Printer className="mr-2 h-4 w-4"/> Download Faktur
                     </Button>
                 </DialogFooter>
@@ -598,6 +601,9 @@ export default function StockFlowReportPage() {
     to: endOfDay(new Date()),
   });
   
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
@@ -624,7 +630,17 @@ export default function StockFlowReportPage() {
       return nameMatch || skuMatch;
     });
     setFilteredProducts(results);
+    setCurrentPage(1); // Reset page on new search
   }, [searchTerm, allProducts]);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [currentPage, itemsPerPage, filteredProducts]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
 
   return (
     <div className="space-y-6">
@@ -690,8 +706,8 @@ export default function StockFlowReportPage() {
                     <TableBody>
                         {loading ? (
                              <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></TableCell></TableRow>
-                        ) : filteredProducts.length > 0 ? (
-                            filteredProducts.map((product) => (
+                        ) : paginatedProducts.length > 0 ? (
+                            paginatedProducts.map((product) => (
                                 <TableRow key={product.id}>
                                     <TableCell>
                                         <Image src={product.image} alt={product.name} width={64} height={64} className="rounded-md object-cover" />
@@ -711,6 +727,57 @@ export default function StockFlowReportPage() {
                 </Table>
             </div>
         </CardContent>
+        <CardFooter>
+            <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+                <div className="flex-1">
+                    Menampilkan {paginatedProducts.length} dari {filteredProducts.length} produk.
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <p>Baris per halaman</p>
+                        <Select
+                            value={`${itemsPerPage}`}
+                            onValueChange={(value) => {
+                                setItemsPerPage(Number(value));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={`${itemsPerPage}`} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[20, 50, 100].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>Halaman {currentPage} dari {totalPages}</div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </CardFooter>
       </Card>
 
     </div>
