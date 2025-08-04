@@ -85,6 +85,9 @@ function SupplierDialog({ onSelectSupplier }: { onSelectSupplier: (supplier: Sup
             <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Pilih atau Tambah Supplier</DialogTitle>
+                    <DialogDescription>
+                        Pilih supplier dari daftar yang ada, atau tambahkan supplier baru ke dalam sistem.
+                    </DialogDescription>
                 </DialogHeader>
                  {isAdding ? (
                     <div className="space-y-4 p-2 border rounded-md">
