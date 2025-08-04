@@ -980,7 +980,7 @@ export default function OrdersPage() {
           <Tabs defaultValue="toShip">
             <TabsList className="h-auto p-1.5 w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
                 <TabsTrigger value="unpaid">
-                    Belum Bayar <Badge className="ml-2">{filteredOrders.unpaid.length}</Badge>
+                    Belum Proses <Badge className="ml-2">{filteredOrders.unpaid.length}</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="toShip">
                     Perlu Dikirim <Badge className="ml-2">{filteredOrders.toShip.length}</Badge>
