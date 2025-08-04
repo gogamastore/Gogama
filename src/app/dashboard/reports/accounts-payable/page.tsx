@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Card,
@@ -19,6 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -26,10 +34,27 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DollarSign, Calendar as CalendarIcon, Loader2, Receipt, ArrowLeft } from "lucide-react";
+import { DollarSign, Calendar as CalendarIcon, Loader2, Receipt, ArrowLeft, Banknote, Package } from "lucide-react";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { id as dateFnsLocaleId } from "date-fns/locale";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+
+interface PurchaseItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  purchasePrice: number;
+}
+interface FullPurchaseTransaction {
+  id: string;
+  date: any;
+  totalAmount: number;
+  items: PurchaseItem[];
+  supplierName?: string;
+  paymentMethod?: 'cash' | 'bank_transfer' | 'credit';
+}
 
 interface PurchaseTransaction {
   id: string;
@@ -45,6 +70,97 @@ const formatCurrency = (amount: number) => {
     minimumFractionDigits: 0,
   }).format(amount);
 };
+
+
+function PurchaseInvoiceDialog({ transactionId }: { transactionId: string }) {
+    const [transaction, setTransaction] = useState<FullPurchaseTransaction | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+
+    const fetchTransaction = useCallback(async () => {
+        if (!isOpen) return;
+        setLoading(true);
+        try {
+            const docRef = doc(db, "purchase_transactions", transactionId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setTransaction({ id: docSnap.id, ...docSnap.data() } as FullPurchaseTransaction);
+            }
+        } catch (error) {
+            console.error("Failed to fetch purchase transaction", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [transactionId, isOpen]);
+    
+    useEffect(() => {
+        fetchTransaction();
+    }, [fetchTransaction]);
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="link" asChild className="p-0 h-auto">
+                    <span className="cursor-pointer">{transactionId}</span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Faktur Pembelian #{transaction?.id}</DialogTitle>
+                    {transaction && (
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
+                            <span>Tanggal: {format(transaction.date.toDate(), 'dd MMMM yyyy', { locale: dateFnsLocaleId })}</span>
+                            <Separator orientation="vertical" className="h-4"/>
+                            <span>Supplier: {transaction.supplierName || 'N/A'}</span>
+                        </div>
+                    )}
+                </DialogHeader>
+                 {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : transaction ? (
+                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Rincian Produk Dibeli</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="overflow-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Produk</TableHead>
+                                                <TableHead>Jumlah</TableHead>
+                                                <TableHead className="text-right">Harga Beli Satuan</TableHead>
+                                                <TableHead className="text-right">Subtotal</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {transaction.items?.map(item => (
+                                                <TableRow key={item.productId}>
+                                                    <TableCell>{item.productName}</TableCell>
+                                                    <TableCell>{item.quantity}</TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(item.purchasePrice)}</TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(item.quantity * item.purchasePrice)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Separator/>
+                        <div className="flex justify-between items-center text-sm px-2">
+                            <div className="text-muted-foreground">
+                                Metode Pembayaran: <Badge variant="destructive" className="capitalize">{transaction.paymentMethod?.replace('_', ' ')}</Badge>
+                            </div>
+                            <div className="text-right font-bold text-lg">
+                                Total Pembelian: {formatCurrency(transaction.totalAmount)}
+                            </div>
+                        </div>
+                    </div>
+                ) : <p>Transaksi tidak ditemukan.</p>}
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 export default function AccountsPayablePage() {
   const [allPayables, setAllPayables] = useState<PurchaseTransaction[]>([]);
@@ -174,7 +290,9 @@ export default function AccountsPayablePage() {
                 ) : filteredPayables.length > 0 ? (
                   filteredPayables.map((payable) => (
                     <TableRow key={payable.id}>
-                      <TableCell className="font-medium">{payable.id}</TableCell>
+                      <TableCell className="font-medium">
+                        <PurchaseInvoiceDialog transactionId={payable.id} />
+                      </TableCell>
                       <TableCell>{format(new Date(payable.date), 'dd MMM yyyy', { locale: dateFnsLocaleId })}</TableCell>
                       <TableCell>{payable.supplierName || 'N/A'}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(payable.totalAmount)}</TableCell>
