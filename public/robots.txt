@@ -1,0 +1,12 @@
+# See https://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file
+#
+# Allow all crawling
+User-agent: *
+Allow: /
+
+# Disallow paths that are not part of this Next.js app
+Disallow: /wp-admin/
+Disallow: /wordpress/
+Disallow: /wp-includes/
+Disallow: /wp-content/
+Disallow: /test_404_page
