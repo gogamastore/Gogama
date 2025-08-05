@@ -50,13 +50,14 @@ export default function LoginForm() {
       if (userDoc.exists()) {
         const userData = userDoc.data();
         if (userData.role === 'reseller') {
-          router.push('/reseller');
+          router.replace('/reseller');
         } else {
-          router.push('/dashboard');
+          router.replace('/dashboard');
         }
       } else {
-        // Default to dashboard if no role is found (e.g. initial admin)
-        router.push('/dashboard');
+        // This case is for the very first admin user or if something went wrong.
+        // It's safer to default to the dashboard and let them figure it out.
+        router.replace('/dashboard');
       }
 
     } catch (error) {

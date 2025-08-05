@@ -28,15 +28,17 @@ export default function RootPage() {
             const userData = userDoc.data();
             if (userData.role === 'reseller') {
               router.replace('/reseller');
-            } else {
+            } else { // 'admin' or any other role
               router.replace('/dashboard');
             }
           } else {
-            // Default to dashboard if no role is found (e.g. initial admin)
+            // If for some reason the user exists in Auth but not in Firestore,
+            // default them to dashboard. This might happen for the initial admin.
             router.replace('/dashboard');
           }
         } catch (error) {
           console.error("Error checking user role, defaulting to dashboard:", error);
+          // Fallback to dashboard in case of a Firestore error
           router.replace('/dashboard');
         }
       };
