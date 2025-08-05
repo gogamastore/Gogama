@@ -3,111 +3,99 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user has the 'admin' role
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/user/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    // Aturan default: Blokir semua akses kecuali yang diizinkan secara eksplisit.
+    match /{document=**} {
+      allow read, write: if false;
     }
-    
-    // Rules for user data (profiles)
+
+    // Izinkan pengguna membaca profil mereka sendiri dan admin bisa membaca semua.
+    // Izinkan pengguna memperbarui data mereka sendiri.
     match /user/{userId} {
-      // Users can read/update their own profile. Admins can manage any user.
-      allow read, update: if request.auth.uid == userId || isAdmin();
-      
-      // Admins can create new users (staff/resellers).
-      // Users can also create their own user document during registration.
-      allow create: if isAdmin() || request.auth.uid == userId;
-
-      // Admins can delete users from the database.
-      allow delete: if isAdmin();
-      
-      // Admins can list all users.
-      allow list: if isAdmin();
-    }
-
-    // Rules for 'products' collection
-    match /products/{productId} {
-      // Admins can do anything with products.
-      allow read, write, create, delete: if isAdmin();
-      
-      // Authenticated users (resellers) can read and update products (e.g., for stock changes).
-      allow get, list, update: if request.auth != null;
-    }
-
-     // Rules for the 'orders' collection
-    match /orders/{orderId} {
-        // Admins can manage all orders. This includes listing them for reports.
-        allow read, delete: if isAdmin();
-
-        // Resellers can create orders for themselves
-        allow create: if request.auth.uid == request.resource.data.customerId;
-
-        // Resellers can only read their own orders.
-        allow get, list: if request.auth.uid == resource.data.customerId;
-        
-        // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
-        allow update: if isAdmin() || (request.auth.uid == resource.data.customerId &&
-                        (request.resource.data.status == 'Cancelled' || 
-                         request.resource.data.paymentProofUrl != resource.data.paymentProofUrl));
-    }
-
-    // Rules for 'whatsapp_contacts'
-    match /whatsapp_contacts/{contactId} {
-        // Any authenticated user can read the contacts.
-        allow get, list: if request.auth != null;
-        // Only admins can create, update, or delete contacts.
-        allow write, create, delete: if isAdmin();
-    }
-
-    // Rules for stock, purchases, and expenses (Admin-only)
-    match /stock_adjustments/{adjustmentId} {
-      allow read, write, create, delete, list: if isAdmin();
-    }
-
-    match /purchase_transactions/{transactionId} {
-      allow read, write: if isAdmin();
+      allow read: if request.auth != null; // Semua pengguna terotentikasi bisa membaca profil dasar (jika diperlukan)
+      allow write: if request.auth.uid == userId;
     }
     
-    match /suppliers/{supplierId} {
-        allow read, write: if isAdmin();
-    }
-
-    match /operational_expenses/{expenseId} {
-      allow read, write, create, delete, list: if isAdmin();
-    }
-    
-    match /bank_accounts/{accountId} {
-        allow read: if request.auth != null;
-        allow write, create, delete: if isAdmin();
-    }
-    
+    // Aturan untuk sub-koleksi alamat
     match /user/{userId}/addresses/{addressId} {
-        // A user can manage their own addresses.
-        allow read, write, delete, create: if request.auth.uid == userId;
+      allow read, write, delete: if request.auth.uid == userId;
     }
-    
-    // Rules for Banners (Design Settings)
-	match /banners/{bannerId} {
-  		allow read: if true;
-      	allow write, create, delete: if isAdmin();
+
+    // Aturan Untuk Item Keranjang
+    match /user/{userId}/cart/{productId} {
+      // Pengguna bisa membaca dan menghapus item keranjangnya sendiri.
+      allow read, delete: if request.auth.uid == userId;
+
+      // Saat membuat atau memperbarui item, pastikan datanya valid.
+      // Ini mencegah pengguna memasukkan nilai negatif atau data lain yang tidak diinginkan.
+      allow create, update: if request.auth.uid == userId
+                         && request.resource.data.quantity is number
+                         && request.resource.data.quantity > 0
+                         && request.resource.data.size() == 1;
     }
-    
-    // Rules for Promotions (Promo Settings)
-    match /promotions/{promoId} {
+
+    // Aturan untuk produk: Semua bisa membaca, admin bisa menulis.
+    match /products/{productId} {
       allow read: if true;
-      allow write, create, delete: if isAdmin();
+      allow write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
     
-    // Rules for Trending Products
-    match /trending_products/{trendingId} {
-      allow read: if true;
-      allow write, create, delete: if isAdmin();
-    }
-    
-    // --- Aturan untuk Kategori Produk ---
+    // Aturan untuk kategori produk: Semua bisa membaca, admin bisa menulis.
     match /product_categories/{categoryId} {
-      allow read: if true;
-      allow write, create, delete: if isAdmin();
+        allow read: if true;
+        allow write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
     }
-  } 
+
+    // Aturan untuk pesanan: Pengguna hanya bisa mengakses pesanan mereka sendiri.
+    // Admin bisa mengakses semua pesanan.
+    match /orders/{orderId} {
+        allow read, update: if request.auth.uid == resource.data.customerId 
+                      || get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+        allow create: if request.auth.uid != null;
+        allow write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Aturan untuk rekening bank: Semua bisa membaca, admin bisa menulis.
+    match /bank_accounts/{accountId} {
+        allow read: if true;
+        allow write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Aturan untuk kontak WA: Semua bisa membaca, admin bisa menulis.
+    match /whatsapp_contacts/{contactId} {
+        allow read: if true;
+        allow write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Aturan untuk banner: Semua bisa membaca, admin bisa menulis.
+    match /banners/{bannerId} {
+        allow read: if true;
+        allow write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Aturan untuk promo: Semua bisa membaca, admin bisa menulis.
+    match /promotions/{promoId} {
+        allow read: if true;
+        allow write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Aturan untuk produk trending: Semua bisa membaca, admin bisa menulis.
+    match /trending_products/{trendingId} {
+        allow read: if true;
+        allow write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Aturan untuk transaksi pembelian & penyesuaian stok
+    match /purchase_transactions/{transactionId} {
+        allow read, write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+    match /stock_adjustments/{adjustmentId} {
+        allow read, write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+    match /operational_expenses/{expenseId} {
+        allow read, write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+    match /suppliers/{supplierId} {
+        allow read, write: if get(/databases/$(database)/documents/user/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
 }
