@@ -3,4 +3,4 @@ run:
   start: npm start
 env:
   - variable: GEMINI_API_KEY
-    secret: GEMINI_API_KEY_SECRET
+    secret: AIzaSyDpiIttqhRz4Js6JqszL4_3W1ZDinC4K7s
