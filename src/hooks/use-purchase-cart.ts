@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 
-interface CartItem {
+export interface CartItem {
   id: string;
   name: string;
   price: string;
@@ -22,9 +22,9 @@ interface PurchaseCartContextType {
   totalPurchase: number;
 }
 
-const PurchaseCartContext = createContext<PurchaseCartContextType | undefined>(undefined);
+export const PurchaseCartContext = createContext<PurchaseCartContextType | undefined>(undefined);
 
-export const PurchaseCartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const usePurchaseCartState = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -84,7 +84,7 @@ export const PurchaseCartProvider: React.FC<{ children: ReactNode }> = ({ childr
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
   const totalPurchase = cart.reduce((total, item) => total + (item.purchasePrice * item.quantity), 0);
 
-  const value = {
+  return {
     cart,
     addToCart,
     removeFromCart,
@@ -92,13 +92,7 @@ export const PurchaseCartProvider: React.FC<{ children: ReactNode }> = ({ childr
     totalItems,
     totalPurchase
   };
-
-  return (
-    <PurchaseCartContext.Provider value={value}>
-      {children}
-    </PurchaseCartContext.Provider>
-  );
-};
+}
 
 
 export const usePurchaseCart = (): PurchaseCartContextType => {

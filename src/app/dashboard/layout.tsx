@@ -13,7 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
-import { PurchaseCartProvider } from "@/hooks/use-purchase-cart"; // Import the centralized provider
+import { PurchaseCartProvider } from "@/components/providers/purchase-cart-provider";
 
 function Logo() {
   return (
