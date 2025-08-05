@@ -49,6 +49,7 @@ import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload,
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { collection, getDocs, addDoc, serverTimestamp, doc, updateDoc, writeBatch, query, where, deleteDoc } from "firebase/firestore";
@@ -605,6 +606,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -715,6 +717,50 @@ export default function ProductsPage() {
         });
     }
   };
+
+  const handleDeleteSelectedProducts = async () => {
+    if (selectedProducts.length === 0) return;
+    const batch = writeBatch(db);
+    selectedProducts.forEach(id => {
+        batch.delete(doc(db, "products", id));
+    });
+
+    try {
+        await batch.commit();
+        toast({
+            title: `${selectedProducts.length} Produk Dihapus`,
+            description: "Produk yang dipilih telah berhasil dihapus.",
+        });
+        setSelectedProducts([]);
+        fetchProducts();
+    } catch (error) {
+        console.error("Error deleting selected products:", error);
+        toast({
+            variant: "destructive",
+            title: "Gagal Menghapus Produk",
+            description: "Terjadi kesalahan saat menghapus produk yang dipilih.",
+        });
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+        setSelectedProducts(paginatedProducts.map(p => p.id));
+    } else {
+        setSelectedProducts([]);
+    }
+  };
+
+  const handleSelectProduct = (productId: string, checked: boolean) => {
+    if (checked) {
+        setSelectedProducts(prev => [...prev, productId]);
+    } else {
+        setSelectedProducts(prev => prev.filter(id => id !== productId));
+    }
+  };
+
+  const isAllOnPageSelected = paginatedProducts.length > 0 && selectedProducts.length === paginatedProducts.length;
+
   
   const toggleSortDirection = (key: string) => {
     setSortConfig(prev => {
@@ -765,6 +811,30 @@ export default function ProductsPage() {
                 <TabsTrigger value="stock-management">Manajemen Stok</TabsTrigger>
             </TabsList>
             <div className="ml-auto flex items-center gap-2">
+                 {selectedProducts.length > 0 && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm" className="h-8 gap-1">
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span className="sr-only sm:not-sr-only">Hapus ({selectedProducts.length})</span>
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Tindakan ini akan menghapus {selectedProducts.length} produk secara permanen. Aksi ini tidak dapat diurungkan.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Batal</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteSelectedProducts} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                    Ya, Hapus Produk
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
                 <BulkImportDialog onImportSuccess={fetchProducts} />
                 <ProductSheet onProductAdded={fetchProducts} />
             </div>
@@ -783,6 +853,13 @@ export default function ProductsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                <TableHead className="w-[40px]">
+                                    <Checkbox
+                                        checked={isAllOnPageSelected}
+                                        onCheckedChange={handleSelectAll}
+                                        aria-label="Pilih semua"
+                                    />
+                                </TableHead>
                                 <TableHead className="w-[64px]">
                                     <span className="sr-only">Image</span>
                                 </TableHead>
@@ -800,7 +877,14 @@ export default function ProductsPage() {
                                     </TableRow>
                                 ) : paginatedProducts.length > 0 ? (
                                     paginatedProducts.map((product) => (
-                                        <TableRow key={product.id}>
+                                        <TableRow key={product.id} data-state={selectedProducts.includes(product.id) && "selected"}>
+                                            <TableCell>
+                                                 <Checkbox
+                                                    checked={selectedProducts.includes(product.id)}
+                                                    onCheckedChange={(checked) => handleSelectProduct(product.id, !!checked)}
+                                                    aria-label={`Pilih produk ${product.name}`}
+                                                />
+                                            </TableCell>
                                             <TableCell>
                                                 <ImageViewer src={product.image} alt={product.name}/>
                                             </TableCell>
@@ -1047,3 +1131,5 @@ export default function ProductsPage() {
     </>
   )
 }
+
+    
