@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button"
-import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload, FileDown, Loader2, Search, ChevronLeft, ChevronRight, Eye, Trash2 } from "lucide-react"
+import { PlusCircle, MoreHorizontal, Edit, Settings, ArrowUp, ArrowDown, Upload, FileDown, Loader2, Search, ChevronLeft, ChevronRight, Eye, Trash2, ArrowUpDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -609,6 +609,7 @@ export default function ProductsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const { toast } = useToast();
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
 
 
   const fetchProducts = useCallback(async () => {
@@ -633,15 +634,32 @@ export default function ProductsPage() {
     fetchProducts();
   }, [fetchProducts]);
 
-  const filteredAllProducts = useMemo(() => {
+  const sortedAndFilteredProducts = useMemo(() => {
+    let filtered = products;
+    // Filtering
     const lowercasedFilter = searchTerm.toLowerCase();
-    if (!lowercasedFilter) return products;
-    return products.filter(product => {
-      const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
-      const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
-      return nameMatch || skuMatch;
+    if (lowercasedFilter) {
+        filtered = products.filter(product => {
+            const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
+            const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
+            return nameMatch || skuMatch;
+        });
+    }
+
+    // Sorting
+    return [...filtered].sort((a, b) => {
+        if (sortConfig.key === 'name') {
+            return sortConfig.direction === 'asc' 
+                ? a.name.localeCompare(b.name) 
+                : b.name.localeCompare(a.name);
+        }
+        if (sortConfig.key === 'stock') {
+            return sortConfig.direction === 'asc' ? a.stock - b.stock : b.stock - a.stock;
+        }
+        // Add more sorting keys if needed, e.g., price
+        return 0;
     });
-  }, [searchTerm, products]);
+  }, [searchTerm, products, sortConfig]);
   
   const filteredLowStockProducts = useMemo(() => {
     const lowercasedFilter = searchTerm.toLowerCase();
@@ -657,10 +675,10 @@ export default function ProductsPage() {
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return filteredAllProducts.slice(startIndex, endIndex);
-  }, [currentPage, itemsPerPage, filteredAllProducts]);
+    return sortedAndFilteredProducts.slice(startIndex, endIndex);
+  }, [currentPage, itemsPerPage, sortedAndFilteredProducts]);
 
-  const totalPages = Math.ceil(filteredAllProducts.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedAndFilteredProducts.length / itemsPerPage);
 
 
   const handleEditClick = (product: Product) => {
@@ -692,6 +710,11 @@ export default function ProductsPage() {
         });
     }
   };
+  
+  const toggleSortDirection = () => {
+    setSortConfig(prev => ({ ...prev, direction: prev.direction === 'asc' ? 'desc' : 'asc' }));
+  };
+
 
   return (
     <>
@@ -714,14 +737,31 @@ export default function ProductsPage() {
                     <CardDescription>
                         Kelola produk Anda dan lihat performa penjualannya.
                     </CardDescription>
-                     <div className="relative pt-2">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Cari produk berdasarkan nama atau SKU..."
-                            className="w-full pl-8 sm:w-1/2 md:w-1/3"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Cari produk berdasarkan nama atau SKU..."
+                                className="w-full pl-8"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                         <div className="flex gap-2">
+                            <Select value={sortConfig.key} onValueChange={(value) => setSortConfig(prev => ({ ...prev, key: value }))}>
+                                <SelectTrigger className="w-full sm:w-[180px]">
+                                    <SelectValue placeholder="Urutkan berdasarkan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="name">Nama Produk</SelectItem>
+                                    <SelectItem value="stock">Stok</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Button variant="outline" size="icon" onClick={toggleSortDirection}>
+                                {sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                                <span className="sr-only">Toggle urutan</span>
+                            </Button>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -837,7 +877,7 @@ export default function ProductsPage() {
                  <CardFooter>
                     <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
                        <div className="flex-1">
-                           Menampilkan {paginatedProducts.length} dari {filteredAllProducts.length} produk.
+                           Menampilkan {paginatedProducts.length} dari {sortedAndFilteredProducts.length} produk.
                        </div>
                        <div className="flex items-center gap-4">
                            <div className="flex items-center gap-2">
@@ -1009,4 +1049,5 @@ export default function ProductsPage() {
     </>
   )
 }
+
 
