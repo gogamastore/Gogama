@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { usePurchaseCartFromLayout } from "@/app/dashboard/layout"; // Updated import
+import { usePurchaseCart } from "@/hooks/use-purchase-cart";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { addDoc, collection, doc, serverTimestamp, writeBatch, getDocs, query, orderBy } from "firebase/firestore";
@@ -136,7 +136,7 @@ function SupplierDialog({ onSelectSupplier }: { onSelectSupplier: (supplier: Sup
 }
 
 export default function ProcessPaymentPage() {
-    const { cart, totalPurchase, clearCart } = usePurchaseCartFromLayout(); // Updated hook
+    const { cart, totalPurchase, clearCart } = usePurchaseCart();
     const router = useRouter();
     const { toast } = useToast();
     
