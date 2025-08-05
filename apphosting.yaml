@@ -1,0 +1,6 @@
+run:
+  build: npm run build
+  start: npm start
+env:
+  - variable: GEMINI_API_KEY
+    secret: GEMINI_API_KEY_SECRET
