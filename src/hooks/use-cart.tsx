@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAuth } from './use-auth';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, writeBatch, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, deleteDoc, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
 import { useToast } from './use-toast';
 
 interface Product {
@@ -12,7 +12,7 @@ interface Product {
   name: string;
   price: string;
   image: string;
-  'data-ai-hint': string;
+  'data-ai-hint'?: string;
   isPromo?: boolean;
   discountPrice?: string;
   stock: number;
@@ -37,7 +37,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const parseCurrency = (value: string): number => {
-    return Number(value.replace(/[^0-9]/g, ''));
+    return Number(String(value).replace(/[^0-9]/g, ''));
 }
 
 
@@ -61,8 +61,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           if (productSnap.exists()) {
             const productData = productSnap.data() as Omit<Product, 'id'>;
-            // You can add promo logic here if needed
+            
+            // TODO: promo logic
             const finalPrice = parseCurrency(productData.price);
+
             return {
               ...productData,
               id: cartDoc.id,
