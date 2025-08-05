@@ -60,6 +60,7 @@ import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 
 interface ProductCategory {
@@ -890,7 +891,12 @@ export default function ProductsPage() {
                                             </TableCell>
                                             <TableCell className="font-medium">{product.name}</TableCell>
                                             <TableCell className="hidden md:table-cell">
-                                            <Badge variant={product.stock > 10 ? "default" : product.stock > 0 ? "secondary" : "destructive"}>{product.stock > 0 ? `${product.stock}` : 'Habis'}</Badge>
+                                                <Badge className={cn({
+                                                    'bg-destructive text-destructive-foreground hover:bg-destructive/80': product.stock === 0,
+                                                    'bg-orange-500 text-white hover:bg-orange-500/80': product.stock > 0 && product.stock <= 5,
+                                                })}>
+                                                    {product.stock > 0 ? `${product.stock}` : 'Habis'}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell className="text-right hidden sm:table-cell">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
                                             <TableCell className="text-right">{product.price}</TableCell>
@@ -1059,7 +1065,7 @@ export default function ProductsPage() {
                                         <TableCell className="font-medium">{product.name}</TableCell>
                                         <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
                                         <TableCell className="text-right">
-                                          <Badge variant="destructive">{product.stock}</Badge>
+                                          <Badge variant={product.stock === 0 ? "destructive" : "default"} className={cn({'bg-orange-500 text-white hover:bg-orange-500/80': product.stock > 0})}>{product.stock}</Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <AdjustStockDialog product={product} onStockAdjusted={fetchProducts} />
@@ -1131,5 +1137,6 @@ export default function ProductsPage() {
     </>
   )
 }
+    
 
     
