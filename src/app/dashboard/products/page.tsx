@@ -654,7 +654,9 @@ export default function ProductsPage() {
                 : b.name.localeCompare(a.name);
         }
         if (sortConfig.key === 'stock') {
-            return sortConfig.direction === 'asc' ? a.stock - b.stock : b.stock - a.stock;
+            const stockA = a.stock || 0;
+            const stockB = b.stock || 0;
+            return sortConfig.direction === 'asc' ? stockA - stockB : stockB - stockA;
         }
         // Add more sorting keys if needed, e.g., price
         return 0;
@@ -711,8 +713,13 @@ export default function ProductsPage() {
     }
   };
   
-  const toggleSortDirection = () => {
-    setSortConfig(prev => ({ ...prev, direction: prev.direction === 'asc' ? 'desc' : 'asc' }));
+  const toggleSortDirection = (key: string) => {
+    setSortConfig(prev => {
+        if (prev.key === key) {
+            return { ...prev, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+        }
+        return { key, direction: 'asc' };
+    });
   };
 
 
@@ -757,7 +764,7 @@ export default function ProductsPage() {
                                     <SelectItem value="stock">Stok</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Button variant="outline" size="icon" onClick={toggleSortDirection}>
+                            <Button variant="outline" size="icon" onClick={() => toggleSortDirection(sortConfig.key)}>
                                 {sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
                                 <span className="sr-only">Toggle urutan</span>
                             </Button>
@@ -1020,7 +1027,7 @@ export default function ProductsPage() {
                                     <TableRow>
                                         <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
-                                ) : filteredAllProducts.map((product) => (
+                                ) : sortedAndFilteredProducts.map((product) => (
                                     <TableRow key={product.id}>
                                         <TableCell>
                                             <ImageViewer src={product.image} alt={product.name}/>
@@ -1049,5 +1056,3 @@ export default function ProductsPage() {
     </>
   )
 }
-
-
