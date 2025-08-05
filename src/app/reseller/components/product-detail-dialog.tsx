@@ -79,7 +79,10 @@ export function ProductDetailDialog({ product, children }: { product: Product, c
                 {children}
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto p-1">
+                <DialogHeader className="pr-6">
+                    <DialogTitle className="text-2xl font-bold font-headline">{product.name}</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto pr-6">
                     <div>
                         <Image
                             src={product.image}
@@ -91,9 +94,6 @@ export function ProductDetailDialog({ product, children }: { product: Product, c
                         />
                     </div>
                     <div className="flex flex-col space-y-4">
-                        <DialogHeader>
-                            <DialogTitle className="text-2xl font-bold font-headline">{product.name}</DialogTitle>
-                        </DialogHeader>
                         <div>
                              {product.isPromo && product.discountPrice ? (
                                 <div className="flex items-baseline gap-2">
@@ -111,39 +111,39 @@ export function ProductDetailDialog({ product, children }: { product: Product, c
                                 )}
                              </div>
                         </div>
-                        <DialogDescription className="text-base text-muted-foreground flex-1">
-                          {product.description || "Tidak ada deskripsi untuk produk ini."}
-                        </DialogDescription>
-                        
-                        <div className="flex items-end gap-4 pt-4 border-t">
-                            <div className="space-y-1">
-                                <Label htmlFor="quantity">Jumlah</Label>
-                                <div className="flex items-center gap-2">
-                                    <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => handleQuantityChange(quantity - 1)} disabled={!stockAvailable || quantity <= 1}>
-                                        <Minus className="h-4 w-4" />
-                                    </Button>
-                                    <Input
-                                        id="quantity"
-                                        type="number"
-                                        value={quantity}
-                                        onChange={(e) => handleQuantityChange(parseInt(e.target.value))}
-                                        className="w-16 h-10 text-center"
-                                        min={1}
-                                        max={product.stock}
-                                        disabled={!stockAvailable}
-                                    />
-                                    <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => handleQuantityChange(quantity + 1)} disabled={!stockAvailable || quantity >= product.stock}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                            <Button onClick={handleAddToCartClick} disabled={!stockAvailable} size="lg" className="flex-1">
-                                <ShoppingCart className="mr-2 h-5 w-5" />
-                                {stockAvailable ? 'Tambah' : 'Stok Habis'}
+                        <div className="flex-1">
+                            <DialogDescription className="text-base text-muted-foreground">
+                            {product.description || "Tidak ada deskripsi untuk produk ini."}
+                            </DialogDescription>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex items-end gap-4 pt-4 border-t mt-auto">
+                    <div className="space-y-1">
+                        <Label htmlFor="quantity">Jumlah</Label>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => handleQuantityChange(quantity - 1)} disabled={!stockAvailable || quantity <= 1}>
+                                <Minus className="h-4 w-4" />
+                            </Button>
+                            <Input
+                                id="quantity"
+                                type="number"
+                                value={quantity}
+                                onChange={(e) => handleQuantityChange(parseInt(e.target.value))}
+                                className="w-16 h-10 text-center"
+                                min={1}
+                                max={product.stock}
+                                disabled={!stockAvailable}
+                            />
+                            <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => handleQuantityChange(quantity + 1)} disabled={!stockAvailable || quantity >= product.stock}>
+                                <Plus className="h-4 w-4" />
                             </Button>
                         </div>
-
                     </div>
+                    <Button onClick={handleAddToCartClick} disabled={!stockAvailable} size="lg" className="flex-1">
+                        <ShoppingCart className="mr-2 h-5 w-5" />
+                        {stockAvailable ? 'Tambah' : 'Stok Habis'}
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>

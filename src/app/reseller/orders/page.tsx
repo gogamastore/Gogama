@@ -188,7 +188,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                         Tanggal: {format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
                     </DialogDescription>
                 </DialogHeader>
-                <div className="flex-1 overflow-y-auto p-1 space-y-4">
+                <div className="flex-1 overflow-y-auto p-1 space-y-4 pr-6">
                     <Card>
                         <CardHeader><CardTitle>Produk yang Dipesan</CardTitle></CardHeader>
                         <CardContent>

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -306,7 +307,7 @@ export default function ProfilePage() {
                     <DialogTrigger asChild>
                        <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Tambah Alamat</Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="sm:max-w-lg">
                         <DialogHeader>
                             <DialogTitle>Tambah Alamat Baru</DialogTitle>
                             <DialogDescription>Simpan alamat untuk mempermudah proses checkout nanti.</DialogDescription>
