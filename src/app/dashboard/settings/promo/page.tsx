@@ -29,6 +29,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -249,7 +260,6 @@ export default function PromoSettingsPage() {
   };
   
   const handleDeletePromo = async (promoId: string) => {
-    if (!confirm('Anda yakin ingin menghapus promo ini?')) return;
     try {
         await deleteDoc(doc(db, 'promotions', promoId));
         toast({ title: 'Promo berhasil dihapus' });
@@ -383,9 +393,25 @@ export default function PromoSettingsPage() {
                      <Badge variant={new Date() > new Date(promo.endDate) ? "secondary" : "default"}>
                         {new Date() > new Date(promo.endDate) ? "Berakhir" : "Aktif"}
                      </Badge>
-                     <Button variant="ghost" size="icon" onClick={() => handleDeletePromo(promo.promoId)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                     </Button>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                Tindakan ini akan menghapus promo untuk produk <span className="font-bold">{promo.name}</span>.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Batal</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeletePromo(promo.promoId)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Ya, Hapus</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                     </AlertDialog>
                   </div>
                 </div>
               ))}

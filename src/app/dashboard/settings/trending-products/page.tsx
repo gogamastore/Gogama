@@ -28,6 +28,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { TrendingUp, PlusCircle, Trash2, Loader2, ArrowLeft, Search, Package } from 'lucide-react';
@@ -219,11 +230,10 @@ export default function TrendingProductsPage() {
   }, [fetchTrendingProducts]);
 
 
-  const handleDelete = async (trendingId: string) => {
-     if (!confirm('Anda yakin ingin menghapus produk ini dari daftar trending?')) return;
+  const handleDelete = async (trendingId: string, name: string) => {
     try {
       await deleteDoc(doc(db, 'trending_products', trendingId));
-      toast({ title: 'Produk berhasil dihapus dari daftar' });
+      toast({ title: 'Produk berhasil dihapus dari daftar trending' });
       fetchTrendingProducts();
     } catch (error) {
       console.error('Error deleting trending product: ', error);
@@ -265,9 +275,30 @@ export default function TrendingProductsPage() {
                       <p className="text-sm text-muted-foreground">{product.sku}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(product.trendingId)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Tindakan ini akan menghapus produk <span className="font-bold">{product.name}</span> dari daftar trending.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => handleDelete(product.trendingId, product.name)}
+                        >
+                          Ya, Hapus
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               ))}
             </div>
