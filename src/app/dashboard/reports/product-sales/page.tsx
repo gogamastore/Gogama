@@ -169,7 +169,7 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
                     <span className="cursor-pointer">...{orderId.slice(-6)}</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
                  <DialogHeader>
                     <DialogTitle>Faktur #{order?.id}</DialogTitle>
                     {order && (
@@ -185,7 +185,7 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
                     )}
                 </DialogHeader>
                 {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : order ? (
-                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                     <div className="grid gap-4 py-4 flex-1 overflow-y-auto">
                         <Card>
                             <CardHeader><CardTitle>Informasi Pelanggan</CardTitle></CardHeader>
                             <CardContent className="text-sm space-y-1">
@@ -385,14 +385,14 @@ export default function ProductSalesReportPage() {
                                             <DialogTrigger asChild>
                                                 <Button variant="ghost" size="sm">Lihat</Button>
                                             </DialogTrigger>
-                                            <DialogContent className="sm:max-w-2xl">
+                                            <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
                                                 <DialogHeader>
                                                     <DialogTitle>Detail Transaksi: {product.name}</DialogTitle>
                                                     <DialogDescription>
                                                         Daftar pesanan yang menyertakan produk ini dalam periode terpilih.
                                                     </DialogDescription>
                                                 </DialogHeader>
-                                                <div className="max-h-[60vh] overflow-y-auto p-1">
+                                                <div className="flex-1 overflow-y-auto p-1">
                                                     <Table>
                                                         <TableHeader>
                                                             <TableRow>

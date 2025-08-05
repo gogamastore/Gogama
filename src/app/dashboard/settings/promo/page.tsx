@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -125,7 +126,7 @@ function ProductSelectionDialog({ onProductSelect }: { onProductSelect: (product
             <DialogTrigger asChild>
                 <Button variant="outline">Pilih Produk</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
                  <DialogHeader>
                     <DialogTitle>Pilih Produk untuk Dipromosikan</DialogTitle>
                     <div className="relative pt-2">
@@ -138,7 +139,7 @@ function ProductSelectionDialog({ onProductSelect }: { onProductSelect: (product
                         />
                     </div>
                 </DialogHeader>
-                 <div className="max-h-[60vh] overflow-y-auto">
+                 <div className="flex-1 overflow-y-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -296,7 +297,7 @@ export default function PromoSettingsPage() {
                     Tambah Promo
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Tambah Promo Baru</DialogTitle>
               </DialogHeader>

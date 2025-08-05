@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -138,7 +139,7 @@ function AddTrendingProductDialog({ onProductAdded }: { onProductAdded: () => vo
                     Tambah Produk
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Tambah Produk Trending</DialogTitle>
                     <div className="relative pt-2">
@@ -151,7 +152,7 @@ function AddTrendingProductDialog({ onProductAdded }: { onProductAdded: () => vo
                         />
                     </div>
                 </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto">
+                <div className="flex-1 overflow-y-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>

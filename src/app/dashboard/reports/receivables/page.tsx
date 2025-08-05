@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -170,7 +171,7 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
           {orderId}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Faktur #{order?.id}</DialogTitle>
           {order && (
@@ -186,7 +187,7 @@ function OrderDetailDialog({ orderId }: { orderId: string }) {
           )}
         </DialogHeader>
         {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : order ? (
-          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+          <div className="grid gap-4 py-4 flex-1 overflow-y-auto">
             <Card>
               <CardHeader>
                 <CardTitle>Informasi Pelanggan</CardTitle>

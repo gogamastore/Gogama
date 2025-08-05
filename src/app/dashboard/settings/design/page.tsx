@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -336,14 +337,14 @@ export default function DesignSettingsPage() {
       </Card>
       
        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>{editingBanner ? 'Edit Banner' : 'Tambah Banner Baru'}</DialogTitle>
                 <DialogDescription>
                   Isi detail banner yang akan ditampilkan di halaman utama reseller.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto px-2">
+              <div className="flex-1 space-y-4 py-4 overflow-y-auto px-2">
                 <div className="space-y-2">
                     <Label>Gambar Banner</Label>
                     <div className="flex items-center gap-4">

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -143,7 +144,7 @@ function PurchaseInvoiceDialog({ transactionId }: { transactionId: string }) {
                     {transactionId}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Faktur Pembelian #{transaction?.id}</DialogTitle>
                     {transaction && (
@@ -155,7 +156,7 @@ function PurchaseInvoiceDialog({ transactionId }: { transactionId: string }) {
                     )}
                 </DialogHeader>
                  {loading ? <div className="text-center p-8"><Loader2 className="h-6 w-6 animate-spin mx-auto"/></div> : transaction ? (
-                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                     <div className="grid gap-4 py-4 flex-1 overflow-y-auto">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Rincian Produk Dibeli</CardTitle>

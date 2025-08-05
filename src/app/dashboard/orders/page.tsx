@@ -146,7 +146,7 @@ function AddProductToOrderDialog({ currentProducts, onAddProduct }: { currentPro
             <DialogTrigger asChild>
                 <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Tambah Produk</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-4xl">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Tambah Produk ke Pesanan</DialogTitle>
                     <DialogDescription>Cari dan pilih produk yang ingin ditambahkan.</DialogDescription>
@@ -160,7 +160,7 @@ function AddProductToOrderDialog({ currentProducts, onAddProduct }: { currentPro
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="max-h-[50vh] overflow-y-auto">
+                <div className="flex-1 overflow-y-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -308,7 +308,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                     <Edit className="mr-2 h-4 w-4" /> Edit Pesanan
                 </DropdownMenuItem>
              </DialogTrigger>
-             <DialogContent className="sm:max-w-4xl">
+             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader className="flex-row justify-between items-center">
                     <div>
                         <DialogTitle>Edit Pesanan #{order.id.substring(0, 7)}...</DialogTitle>
@@ -318,7 +318,7 @@ function EditOrderDialog({ order, onOrderUpdated }: { order: Order, onOrderUpdat
                     </div>
                     <AddProductToOrderDialog currentProducts={editableProducts} onAddProduct={handleAddProduct} />
                 </DialogHeader>
-                <div className="max-h-[50vh] overflow-y-auto p-1">
+                <div className="flex-1 overflow-y-auto p-1">
                     <div className="relative w-full overflow-auto">
                         <Table>
                             <TableHeader>
@@ -918,16 +918,18 @@ export default function OrdersPage() {
                                                 <FileText className="mr-2 h-4 w-4" /> Lihat Bukti Bayar
                                              </Button>
                                         </DialogTrigger>
-                                        <DialogContent>
+                                        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
                                             <DialogHeader>
                                                 <DialogTitle>Bukti Pembayaran #{order.id}</DialogTitle>
                                                 <DialogDescription>Pelanggan: {order.customer}</DialogDescription>
                                             </DialogHeader>
-                                            {order.paymentProofUrl ? (
-                                                <Link href={order.paymentProofUrl} target="_blank" rel="noopener noreferrer">
-                                                    <Image src={order.paymentProofUrl} alt={`Payment proof for ${order.id}`} width={500} height={500} className="rounded-md object-contain border" />
-                                                </Link>
-                                            ) : (<p className="text-center text-muted-foreground py-8">Belum ada bukti pembayaran.</p>)}
+                                            <div className="flex-1 overflow-auto flex items-center justify-center">
+                                                {order.paymentProofUrl ? (
+                                                    <Link href={order.paymentProofUrl} target="_blank" rel="noopener noreferrer">
+                                                        <Image src={order.paymentProofUrl} alt={`Payment proof for ${order.id}`} width={500} height={500} className="rounded-md object-contain border" />
+                                                    </Link>
+                                                ) : (<p className="text-center text-muted-foreground py-8">Belum ada bukti pembayaran.</p>)}
+                                            </div>
                                         </DialogContent>
                                     </Dialog>
                                     )}

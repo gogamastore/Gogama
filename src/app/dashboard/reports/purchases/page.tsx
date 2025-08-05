@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -161,7 +162,7 @@ function AddProductToPurchaseDialog({ currentItems, onAddProduct }: { currentIte
             <DialogTrigger asChild>
                 <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Tambah Produk</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-4xl">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Tambah Produk ke Transaksi Pembelian</DialogTitle>
                     <DialogDescription>Cari dan pilih produk yang ingin ditambahkan.</DialogDescription>
@@ -170,7 +171,7 @@ function AddProductToPurchaseDialog({ currentItems, onAddProduct }: { currentIte
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Cari produk..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
-                <div className="max-h-[50vh] overflow-y-auto">
+                <div className="flex-1 overflow-y-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -303,7 +304,7 @@ function EditPurchaseDialog({ transaction, onPurchaseUpdated }: { transaction: P
             <DialogTrigger asChild>
                 <Button variant="outline"><Edit className="mr-2 h-4 w-4" /> Edit Transaksi</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-4xl">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                  <DialogHeader className="flex-row justify-between items-center">
                     <div>
                         <DialogTitle>Edit Transaksi Pembelian #{transaction.id.substring(0, 7)}...</DialogTitle>
@@ -311,7 +312,7 @@ function EditPurchaseDialog({ transaction, onPurchaseUpdated }: { transaction: P
                     </div>
                     <AddProductToPurchaseDialog currentItems={editableItems} onAddProduct={handleAddProduct} />
                 </DialogHeader>
-                <div className="max-h-[50vh] overflow-y-auto p-1">
+                <div className="flex-1 overflow-y-auto p-1">
                      <div className="relative w-full overflow-auto">
                         <Table>
                              <TableHeader>
@@ -359,7 +360,7 @@ function EditPurchaseDialog({ transaction, onPurchaseUpdated }: { transaction: P
     )
 }
 
-function PurchaseDetailDialog({ transaction }: { transaction: PurchaseTransaction }) {
+function PurchaseDetailDialog({ transaction, onPurchaseUpdated }: { transaction: PurchaseTransaction, onPurchaseUpdated: () => void }) {
     const generatePdf = () => {
         if (!transaction) return;
         const pdfDoc = new jsPDF();
@@ -398,7 +399,7 @@ function PurchaseDetailDialog({ transaction }: { transaction: PurchaseTransactio
                     <span className="sr-only">Lihat Faktur Pembelian</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Faktur Pembelian #{transaction.id}</DialogTitle>
                     <DialogDescription>Rincian transaksi pembelian.</DialogDescription>
@@ -408,7 +409,7 @@ function PurchaseDetailDialog({ transaction }: { transaction: PurchaseTransactio
                         <span>Supplier: {transaction.supplierName || 'N/A'}</span>
                     </div>
                 </DialogHeader>
-                <div className="grid gap-4 py-4 max-h-[60vh] overflow-auto">
+                <div className="grid gap-4 py-4 flex-1 overflow-y-auto">
                     <Card>
                         <CardHeader><CardTitle>Rincian Produk Dibeli</CardTitle></CardHeader>
                         <CardContent>
@@ -448,7 +449,7 @@ function PurchaseDetailDialog({ transaction }: { transaction: PurchaseTransactio
                     <Button onClick={generatePdf} variant="outline">
                         <Printer className="mr-2 h-4 w-4"/> Download Faktur
                     </Button>
-                    <EditPurchaseDialog transaction={transaction} onPurchaseUpdated={() => {}} />
+                    <EditPurchaseDialog transaction={transaction} onPurchaseUpdated={onPurchaseUpdated} />
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -682,7 +683,7 @@ export default function PurchasesReportPage() {
                         {formatCurrency(transaction.totalAmount)}
                         </TableCell>
                         <TableCell className="text-center">
-                           <PurchaseDetailDialog transaction={transaction} />
+                           <PurchaseDetailDialog transaction={transaction} onPurchaseUpdated={fetchTransactions} />
                         </TableCell>
                     </TableRow>
                     ))

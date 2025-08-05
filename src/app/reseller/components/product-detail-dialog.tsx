@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import Image from "next/image"
@@ -77,8 +78,8 @@ export function ProductDetailDialog({ product, children }: { product: Product, c
             <DialogTrigger asChild>
                 {children}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto p-1">
                     <div>
                         <Image
                             src={product.image}
@@ -114,7 +115,7 @@ export function ProductDetailDialog({ product, children }: { product: Product, c
                           {product.description || "Tidak ada deskripsi untuk produk ini."}
                         </DialogDescription>
                         
-                        <div className="flex items-end gap-4">
+                        <div className="flex items-end gap-4 pt-4 border-t">
                             <div className="space-y-1">
                                 <Label htmlFor="quantity">Jumlah</Label>
                                 <div className="flex items-center gap-2">

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -229,14 +230,14 @@ export default function CustomersReportPage() {
                                                     <span className="sr-only">Lihat Riwayat</span>
                                                 </Button>
                                             </DialogTrigger>
-                                            <DialogContent className="sm:max-w-3xl">
+                                            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
                                                 <DialogHeader>
                                                     <DialogTitle>Riwayat Transaksi: {customer.name}</DialogTitle>
                                                     <DialogDescription>
                                                         Semua transaksi yang dilakukan oleh pelanggan ini dalam periode yang dipilih.
                                                     </DialogDescription>
                                                 </DialogHeader>
-                                                <div className="max-h-[60vh] overflow-y-auto p-1">
+                                                <div className="flex-1 overflow-y-auto p-1">
                                                     <div className="overflow-auto">
                                                         <Table>
                                                             <TableHeader>

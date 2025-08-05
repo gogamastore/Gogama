@@ -162,9 +162,9 @@ function PaymentUploader({ order, onUploadSuccess }: { order: Order, onUploadSuc
                 </div>
 
                 {paymentProofPreview && (
-                    <div>
+                    <div className="flex flex-col items-center">
                         <p className="text-sm font-medium mb-2">Pratinjau / Bukti Terunggah:</p>
-                        <Image src={paymentProofPreview} alt="Bukti Pembayaran" width={200} height={200} className="rounded-md border object-contain" />
+                        <Image src={paymentProofPreview} alt="Bukti Pembayaran" width={250} height={300} className="rounded-md border object-contain" />
                     </div>
                 )}
             </CardContent>
@@ -181,14 +181,14 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                     Lihat
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Detail Pesanan #{order.id}</DialogTitle>
                     <DialogDescription>
                         Tanggal: {format(order.date.toDate(), 'dd MMMM yyyy, HH:mm', { locale: dateFnsLocaleId })}
                     </DialogDescription>
                 </DialogHeader>
-                <div className="max-h-[70vh] overflow-y-auto p-1 space-y-4">
+                <div className="flex-1 overflow-y-auto p-1 space-y-4">
                     <Card>
                         <CardHeader><CardTitle>Produk yang Dipesan</CardTitle></CardHeader>
                         <CardContent>
@@ -227,8 +227,8 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                     {order.paymentProofUrl && order.paymentMethod === 'bank_transfer' && (
                         <Card>
                             <CardHeader><CardTitle>Bukti Pembayaran</CardTitle></CardHeader>
-                            <CardContent>
-                                <Image src={order.paymentProofUrl} alt="Bukti Pembayaran" width={250} height={250} className="rounded-md border object-contain" />
+                            <CardContent className="flex justify-center">
+                                <Image src={order.paymentProofUrl} alt="Bukti Pembayaran" width={300} height={400} className="rounded-md border object-contain" />
                             </CardContent>
                         </Card>
                     )}
@@ -241,7 +241,7 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
                     <DialogFooter>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="destructive" className="w-full justify-start">
+                                <Button variant="destructive">
                                     <XCircle className="mr-2 h-4 w-4" /> Batalkan Pesanan
                                 </Button>
                             </AlertDialogTrigger>
