@@ -168,8 +168,8 @@ export default function ResellerDashboard() {
         const bInStock = b.stock > 0;
         if (aInStock && !bInStock) return -1; // a is in stock, b is not -> a comes first
         if (!aInStock && bInStock) return 1;  // b is in stock, a is not -> b comes first
-        // If both are in stock or both are out of stock, sort by stock quantity descending
-        return b.stock - a.stock;
+        // If both have same stock status (either both in stock or both out of stock), sort by name
+        return a.name.localeCompare(b.name);
     });
 
     // Filter by search term
