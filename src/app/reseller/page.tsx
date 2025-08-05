@@ -144,13 +144,6 @@ export default function ResellerDashboard() {
             setTrendingProducts(productsData.filter(p => trendingProductIds.has(p.id)));
 
             setAllProducts(productsData);
-            setFilteredProducts(productsData);
-
-            // Fetch Banners
-            const bannersQuery = query(collection(db, 'banners'), where('isActive', '==', true), orderBy('order', 'asc'));
-            const bannersSnapshot = await getDocs(bannersQuery);
-            const bannersData = bannersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner));
-            setBanners(bannersData);
 
         } catch(error) {
             console.error("Failed to fetch page data:", error);
@@ -167,7 +160,17 @@ export default function ResellerDashboard() {
   }, [toast]);
 
   useEffect(() => {
-    let results = allProducts;
+    let results = [...allProducts];
+
+    // Default sorting logic
+    results.sort((a, b) => {
+        const aInStock = a.stock > 0;
+        const bInStock = b.stock > 0;
+        if (aInStock && !bInStock) return -1; // a is in stock, b is not -> a comes first
+        if (!aInStock && bInStock) return 1;  // b is in stock, a is not -> b comes first
+        // If both are in stock or both are out of stock, sort by stock quantity descending
+        return b.stock - a.stock;
+    });
 
     // Filter by search term
     if (searchTerm) {
@@ -185,7 +188,7 @@ export default function ResellerDashboard() {
     }
     
     setFilteredProducts(results);
-    setCurrentPage(1); // Reset to first page on new search
+    setCurrentPage(1); // Reset to first page on new filter
   }, [searchTerm, selectedCategory, allProducts]);
 
   const paginatedProducts = useMemo(() => {
