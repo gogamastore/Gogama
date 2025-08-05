@@ -26,9 +26,15 @@ const PurchaseCartContext = createContext<PurchaseCartContextType | undefined>(u
 
 export const PurchaseCartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    setIsMounted(true);
+  }, []);
+
+
+  useEffect(() => {
+    if (isMounted && typeof window !== 'undefined') {
       try {
         const savedCart = window.sessionStorage.getItem('purchase-cart');
         if (savedCart) {
@@ -38,17 +44,17 @@ export const PurchaseCartProvider: React.FC<{ children: ReactNode }> = ({ childr
         console.error("Failed to load purchase cart from sessionStorage", error);
       }
     }
-  }, []);
+  }, [isMounted]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isMounted && typeof window !== 'undefined') {
       try {
         window.sessionStorage.setItem('purchase-cart', JSON.stringify(cart));
       } catch (error) {
         console.error("Failed to save purchase cart to sessionStorage", error);
       }
     }
-  }, [cart]);
+  }, [cart, isMounted]);
 
   const addToCart = (newItem: CartItem) => {
     setCart(prevCart => {
