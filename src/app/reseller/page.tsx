@@ -351,10 +351,10 @@ export default function ResellerDashboard() {
         )}
 
         <section>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
              <h2 className="text-2xl font-bold font-headline">Semua Produk</h2>
-             <div className="flex w-full sm:w-auto sm:justify-end gap-2">
-                <div className="relative flex-1 sm:flex-auto sm:w-64">
+             <div className="flex flex-col sm:flex-row w-full md:w-auto md:justify-end gap-2">
+                <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Cari produk..."
@@ -364,7 +364,7 @@ export default function ResellerDashboard() {
                     />
                 </div>
                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="w-full sm:w-48">
+                    <SelectTrigger className="w-full sm:w-[200px]">
                         <SelectValue placeholder="Semua Kategori" />
                     </SelectTrigger>
                     <SelectContent>
