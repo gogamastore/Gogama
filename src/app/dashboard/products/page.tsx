@@ -634,44 +634,47 @@ export default function ProductsPage() {
     fetchProducts();
   }, [fetchProducts]);
 
+  const sortProducts = (productsToSort: Product[], config: { key: string; direction: string; }) => {
+    return [...productsToSort].sort((a, b) => {
+        if (config.key === 'name') {
+            return config.direction === 'asc' 
+                ? a.name.localeCompare(b.name) 
+                : b.name.localeCompare(a.name);
+        }
+        if (config.key === 'stock') {
+            const stockA = a.stock || 0;
+            const stockB = b.stock || 0;
+            return config.direction === 'asc' ? stockA - stockB : stockB - stockA;
+        }
+        return 0;
+    });
+  };
+
   const sortedAndFilteredProducts = useMemo(() => {
     let filtered = products;
-    // Filtering
-    const lowercasedFilter = searchTerm.toLowerCase();
-    if (lowercasedFilter) {
+    if (searchTerm) {
+        const lowercasedFilter = searchTerm.toLowerCase();
         filtered = products.filter(product => {
             const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
             const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
             return nameMatch || skuMatch;
         });
     }
-
-    // Sorting
-    return [...filtered].sort((a, b) => {
-        if (sortConfig.key === 'name') {
-            return sortConfig.direction === 'asc' 
-                ? a.name.localeCompare(b.name) 
-                : b.name.localeCompare(a.name);
-        }
-        if (sortConfig.key === 'stock') {
-            const stockA = a.stock || 0;
-            const stockB = b.stock || 0;
-            return sortConfig.direction === 'asc' ? stockA - stockB : stockB - stockA;
-        }
-        // Add more sorting keys if needed, e.g., price
-        return 0;
-    });
+    return sortProducts(filtered, sortConfig);
   }, [searchTerm, products, sortConfig]);
   
-  const filteredLowStockProducts = useMemo(() => {
-    const lowercasedFilter = searchTerm.toLowerCase();
-    if (!lowercasedFilter) return lowStockProducts;
-    return lowStockProducts.filter(product => {
-      const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
-      const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
-      return nameMatch || skuMatch;
-    });
-  }, [searchTerm, lowStockProducts]);
+  const sortedAndFilteredLowStockProducts = useMemo(() => {
+    let filtered = lowStockProducts;
+    if (searchTerm) {
+        const lowercasedFilter = searchTerm.toLowerCase();
+        filtered = lowStockProducts.filter(product => {
+            const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
+            const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
+            return nameMatch || skuMatch;
+        });
+    }
+    return sortProducts(filtered, sortConfig);
+  }, [searchTerm, lowStockProducts, sortConfig]);
 
 
   const paginatedProducts = useMemo(() => {
@@ -722,10 +725,39 @@ export default function ProductsPage() {
     });
   };
 
+  const renderSortControls = () => (
+    <div className="flex flex-col sm:flex-row gap-2 pt-2">
+        <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+                placeholder="Cari produk berdasarkan nama atau SKU..."
+                className="w-full pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
+        <div className="flex gap-2">
+            <Select value={sortConfig.key} onValueChange={(value) => setSortConfig(prev => ({ ...prev, key: value }))}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Urutkan berdasarkan" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="name">Nama Produk</SelectItem>
+                    <SelectItem value="stock">Stok</SelectItem>
+                </SelectContent>
+            </Select>
+            <Button variant="outline" size="icon" onClick={() => toggleSortDirection(sortConfig.key)}>
+                {sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                <span className="sr-only">Toggle urutan</span>
+            </Button>
+        </div>
+    </div>
+  );
+
 
   return (
     <>
-    <Tabs defaultValue="all" onValueChange={() => setSearchTerm('')}>
+    <Tabs defaultValue="all" onValueChange={() => { setSearchTerm(''); setCurrentPage(1); }}>
         <div className="flex items-center">
             <TabsList>
                 <TabsTrigger value="all">Daftar Produk</TabsTrigger>
@@ -744,32 +776,7 @@ export default function ProductsPage() {
                     <CardDescription>
                         Kelola produk Anda dan lihat performa penjualannya.
                     </CardDescription>
-                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Cari produk berdasarkan nama atau SKU..."
-                                className="w-full pl-8"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                         <div className="flex gap-2">
-                            <Select value={sortConfig.key} onValueChange={(value) => setSortConfig(prev => ({ ...prev, key: value }))}>
-                                <SelectTrigger className="w-full sm:w-[180px]">
-                                    <SelectValue placeholder="Urutkan berdasarkan" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="name">Nama Produk</SelectItem>
-                                    <SelectItem value="stock">Stok</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Button variant="outline" size="icon" onClick={() => toggleSortDirection(sortConfig.key)}>
-                                {sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-                                <span className="sr-only">Toggle urutan</span>
-                            </Button>
-                        </div>
-                    </div>
+                    {renderSortControls()}
                 </CardHeader>
                 <CardContent>
                     <div className="relative w-full overflow-auto">
@@ -941,15 +948,7 @@ export default function ProductsPage() {
                     <CardDescription>
                         Produk dengan jumlah stok 5 atau kurang. Segera restock!
                     </CardDescription>
-                     <div className="relative pt-2">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Cari produk..."
-                            className="w-full pl-8 sm:w-1/2 md:w-1/3"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
+                     {renderSortControls()}
                 </CardHeader>
                 <CardContent>
                      <div className="relative w-full overflow-auto">
@@ -968,7 +967,7 @@ export default function ProductsPage() {
                                     <TableRow>
                                         <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
-                                ) : filteredLowStockProducts.length > 0 ? filteredLowStockProducts.map((product) => (
+                                ) : sortedAndFilteredLowStockProducts.length > 0 ? sortedAndFilteredLowStockProducts.map((product) => (
                                     <TableRow key={product.id}>
                                         <TableCell>
                                             <ImageViewer src={product.image} alt={product.name}/>
@@ -1000,15 +999,7 @@ export default function ProductsPage() {
                     <CardDescription>
                         Lakukan penyesuaian stok untuk produk Anda dan lihat riwayat perubahan.
                     </CardDescription>
-                     <div className="relative pt-2">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Cari produk..."
-                            className="w-full pl-8 sm:w-1/2 md:w-1/3"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
+                    {renderSortControls()}
                 </CardHeader>
                 <CardContent>
                      <div className="relative w-full overflow-auto">
