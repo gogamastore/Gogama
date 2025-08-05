@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import Image from "next/image"
@@ -17,7 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useCart } from "@/hooks/use-cart"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { Plus, Minus, ShoppingCart } from "lucide-react"
+import { Plus, Minus, ShoppingCart, Loader2 } from "lucide-react"
 import { useState, useEffect } from "react"
 
 
@@ -47,6 +46,7 @@ export function ProductDetailDialog({ product, children }: { product: Product, c
     const stockAvailable = product.stock > 0;
     const [isOpen, setIsOpen] = useState(false);
     const [quantity, setQuantity] = useState(1);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { addToCart } = useCart();
     const { toast } = useToast();
     
@@ -62,13 +62,17 @@ export function ProductDetailDialog({ product, children }: { product: Product, c
         }
     }
 
-    const handleAddToCartClick = () => {
-        addToCart(product, quantity);
-        toast({
-            title: "Produk Ditambahkan",
-            description: `${quantity}x ${product.name} telah ditambahkan ke keranjang.`,
-        });
-        setIsOpen(false);
+    const handleAddToCartClick = async () => {
+        setIsSubmitting(true);
+        try {
+            await addToCart(product, quantity);
+        } catch (error) {
+            // Error toast is handled in the hook
+            console.error(error);
+        } finally {
+            setIsSubmitting(false);
+            setIsOpen(false);
+        }
     }
 
     const displayPrice = (product.isPromo && product.discountPrice) ? product.discountPrice : product.price;
@@ -140,8 +144,12 @@ export function ProductDetailDialog({ product, children }: { product: Product, c
                             </Button>
                         </div>
                     </div>
-                    <Button onClick={handleAddToCartClick} disabled={!stockAvailable} size="lg" className="flex-1">
-                        <ShoppingCart className="mr-2 h-5 w-5" />
+                    <Button onClick={handleAddToCartClick} disabled={!stockAvailable || isSubmitting} size="lg" className="flex-1">
+                        {isSubmitting ? (
+                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        ) : (
+                            <ShoppingCart className="mr-2 h-5 w-5" />
+                        )}
                         {stockAvailable ? 'Tambah' : 'Stok Habis'}
                     </Button>
                 </div>

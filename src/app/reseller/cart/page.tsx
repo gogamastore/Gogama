@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCart } from "@/hooks/use-cart";
-import { Minus, Plus, ShoppingBag, Trash2, X, ArrowLeft } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Trash2, X, ArrowLeft, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const formatCurrency = (amount: number) => {
@@ -27,7 +27,7 @@ const formatCurrency = (amount: number) => {
 
 
 export default function CartPage() {
-  const { cart, updateQuantity, removeFromCart, totalAmount, clearCart } = useCart();
+  const { cart, updateQuantity, removeFromCart, totalAmount, clearCart, loading } = useCart();
   const router = useRouter();
 
   return (
@@ -40,7 +40,12 @@ export default function CartPage() {
         <h1 className="text-3xl font-bold font-headline">Keranjang Belanja</h1>
       </div>
       
-      {cart.length === 0 ? (
+      {loading ? (
+           <div className="text-center py-20">
+                <Loader2 className="mx-auto h-12 w-12 animate-spin text-muted-foreground" />
+                <p className="mt-4">Memuat keranjang...</p>
+           </div>
+      ) : cart.length === 0 ? (
         <div className="text-center py-20 bg-card rounded-lg border">
           <ShoppingBag className="mx-auto h-16 w-16 text-muted-foreground" />
           <h2 className="mt-6 text-xl font-semibold">Keranjang Anda kosong</h2>
@@ -90,8 +95,9 @@ export default function CartPage() {
                                             onChange={(e) => updateQuantity(item.id, parseInt(e.target.value))}
                                             className="w-16 h-8 text-center"
                                             min={1}
+                                            max={item.stock}
                                         />
-                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(item.id, item.quantity + 1)} disabled={item.quantity >= item.stock}>
                                             <Plus className="h-4 w-4" />
                                         </Button>
                                     </div>

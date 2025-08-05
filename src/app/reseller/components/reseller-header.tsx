@@ -31,7 +31,7 @@ function Logo() {
 }
 
 export default function ResellerHeader() {
-    const { totalItems } = useCart();
+    const { totalItems, loading: cartLoading } = useCart();
     const { user, signOut } = useAuth();
     const router = useRouter();
     const [isMounted, setIsMounted] = useState(false);
@@ -103,7 +103,7 @@ export default function ResellerHeader() {
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" asChild>
                 <Link href="/reseller/cart" className="relative">
-                    {isMounted && totalItems > 0 && (
+                    {isMounted && !cartLoading && totalItems > 0 && (
                          <Badge className="absolute -top-2 -right-2 h-5 w-5 justify-center p-0">{totalItems}</Badge>
                     )}
                     <ShoppingCart className="h-5 w-5" />

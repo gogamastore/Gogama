@@ -3,6 +3,9 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAuth } from './use-auth';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, doc, writeBatch, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { useToast } from './use-toast';
 
 interface Product {
   id: string;
@@ -12,6 +15,7 @@ interface Product {
   'data-ai-hint': string;
   isPromo?: boolean;
   discountPrice?: string;
+  stock: number;
 }
 
 interface CartItem extends Product {
@@ -21,12 +25,13 @@ interface CartItem extends Product {
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  clearCart: () => void;
+  addToCart: (product: Product, quantity?: number) => Promise<void>;
+  removeFromCart: (productId: string) => Promise<void>;
+  updateQuantity: (productId: string, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   totalItems: number;
   totalAmount: number;
+  loading: boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -38,86 +43,121 @@ const parseCurrency = (value: string): number => {
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { toast } = useToast();
 
-  const getCartKey = useCallback((uid: string | null | undefined) => {
-      if (!uid) return null;
-      return `reseller-cart-${uid}`;
-  }, []);
-  
-
-  // Load cart from localStorage when user state changes
+  // Subscribe to cart changes in Firestore
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-        const cartKey = getCartKey(user?.uid);
-        if (cartKey) {
-            try {
-                const savedCart = window.localStorage.getItem(cartKey);
-                if (savedCart) {
-                    setCart(JSON.parse(savedCart));
-                } else {
-                    setCart([]); // Reset cart for new user login
-                }
-            } catch (error) {
-                console.error('Failed to parse cart from localStorage', error);
-                setCart([]);
-            }
-        } else {
-            // If no user, clear the cart
-            setCart([]);
-        }
-        setIsHydrated(true);
+    if (user) {
+      setLoading(true);
+      const cartRef = collection(db, 'user', user.uid, 'cart');
+      
+      const unsubscribe = onSnapshot(cartRef, async (snapshot) => {
+        const productPromises = snapshot.docs.map(async (cartDoc) => {
+          const cartData = cartDoc.data();
+          const productRef = doc(db, 'products', cartDoc.id);
+          const productSnap = await getDoc(productRef);
+
+          if (productSnap.exists()) {
+            const productData = productSnap.data() as Omit<Product, 'id'>;
+            // You can add promo logic here if needed
+            const finalPrice = parseCurrency(productData.price);
+            return {
+              ...productData,
+              id: cartDoc.id,
+              quantity: cartData.quantity,
+              finalPrice: finalPrice
+            } as CartItem;
+          }
+          return null;
+        });
+
+        const cartItems = (await Promise.all(productPromises)).filter(item => item !== null) as CartItem[];
+        setCart(cartItems);
+        setLoading(false);
+      }, (error) => {
+        console.error("Error listening to cart changes:", error);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    } else {
+      // If no user, clear the cart and stop loading
+      setCart([]);
+      setLoading(false);
     }
-  }, [user, getCartKey]);
+  }, [user]);
 
-  // Persist cart to localStorage whenever it changes
-  useEffect(() => {
-    if (isHydrated && typeof window !== 'undefined') {
-        const cartKey = getCartKey(user?.uid);
-        if (cartKey) {
-            try {
-                window.localStorage.setItem(cartKey, JSON.stringify(cart));
-            } catch (error) {
-                console.error('Failed to save cart to localStorage', error);
-            }
-        }
+  const addToCart = async (product: Product, quantity: number = 1) => {
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Harap login terlebih dahulu' });
+        return;
     }
-  }, [cart, isHydrated, user, getCartKey]);
+    
+    const cartRef = doc(db, 'user', user.uid, 'cart', product.id);
+    
+    try {
+        const docSnap = await getDoc(cartRef);
+        const newQuantity = docSnap.exists() ? docSnap.data().quantity + quantity : quantity;
 
-  const addToCart = (product: Product, quantity: number = 1) => {
-    setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.id === product.id);
-      const priceToUse = (product.isPromo && product.discountPrice) ? parseCurrency(product.discountPrice) : parseCurrency(product.price);
+        if (newQuantity > product.stock) {
+            toast({ variant: 'destructive', title: 'Stok tidak mencukupi' });
+            return;
+        }
 
-      if (existingItem) {
-        return prevCart.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
-        );
-      }
-      return [...prevCart, { ...product, quantity, finalPrice: priceToUse }];
-    });
+        await setDoc(cartRef, { quantity: newQuantity }, { merge: true });
+        toast({ title: 'Produk ditambahkan ke keranjang' });
+
+    } catch (error) {
+        console.error("Error adding to cart:", error);
+        toast({ variant: 'destructive', title: 'Gagal menambahkan ke keranjang' });
+    }
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== productId));
+  const removeFromCart = async (productId: string) => {
+     if (!user) return;
+     const cartRef = doc(db, 'user', user.uid, 'cart', productId);
+     try {
+         await deleteDoc(cartRef);
+     } catch (error) {
+         console.error("Error removing from cart:", error);
+         toast({ variant: 'destructive', title: 'Gagal menghapus dari keranjang' });
+     }
   };
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = async (productId: string, quantity: number) => {
+    if (!user) return;
     if (quantity < 1) {
-      // Remove item if quantity is less than 1
-      removeFromCart(productId);
+      await removeFromCart(productId);
       return;
     }
-    setCart(prevCart =>
-      prevCart.map(item =>
-        item.id === productId ? { ...item, quantity: quantity } : item
-      )
-    );
+    const cartRef = doc(db, 'user', user.uid, 'cart', productId);
+    try {
+        await setDoc(cartRef, { quantity: quantity }, { merge: true });
+    } catch (error) {
+        console.error("Error updating quantity:", error);
+        toast({ variant: 'destructive', title: 'Gagal memperbarui jumlah' });
+    }
   };
   
-  const clearCart = () => {
-    setCart([]);
+  const clearCart = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+        const cartRef = collection(db, 'user', user.uid, 'cart');
+        const querySnapshot = await getDocs(cartRef);
+        const batch = writeBatch(db);
+        querySnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+    } catch (error) {
+        console.error("Error clearing cart:", error);
+        toast({ variant: 'destructive', title: 'Gagal mengosongkan keranjang' });
+    } finally {
+        setLoading(false);
+    }
   }
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
@@ -129,8 +169,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       removeFromCart, 
       updateQuantity, 
       clearCart, 
-      totalItems: isHydrated && user ? totalItems : 0, // Return 0 on server / before hydration or if no user
-      totalAmount: isHydrated && user ? totalAmount : 0,
+      totalItems,
+      totalAmount,
+      loading
   };
 
   return (
