@@ -100,6 +100,11 @@ export default function ResellerDashboard() {
     async function getPageData() {
         setLoading(true);
         try {
+            // Fetch Banners
+            const bannerQuery = query(collection(db, "banners"), where("isActive", "==", true), orderBy("order", "asc"));
+            const bannerSnapshot = await getDocs(bannerQuery);
+            setBanners(bannerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
+
             const productsSnapshot = await getDocs(collection(db, "products"));
             const productsMap = new Map<string, Product>();
             productsSnapshot.forEach(doc => {
@@ -357,11 +362,11 @@ export default function ResellerDashboard() {
            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
              <h2 className="text-2xl font-bold font-headline">Semua Produk</h2>
              <div className="flex flex-col sm:flex-row w-full md:w-auto md:justify-end gap-2">
-                <div className="relative flex-1">
+                <div className="relative flex-1 md:flex-initial">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Cari produk..."
-                        className="pl-9"
+                        className="pl-9 w-full md:w-64"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
