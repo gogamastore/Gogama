@@ -46,37 +46,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [auth]);
 
-  const signIn = (email: string, password: string) => {
+  const signIn = useCallback((email: string, password: string) => {
     return signInWithEmailAndPassword(auth, email, password);
-  };
+  }, [auth]);
 
-  const signOut = () => {
+  const signOut = useCallback(() => {
     router.push('/');
     return firebaseSignOut(auth);
-  };
+  }, [auth, router]);
 
-  const reauthenticate = (password: string) => {
-    if (!user) {
+  const reauthenticate = useCallback((password: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
         throw new Error("User not authenticated");
     }
-    const credential = EmailAuthProvider.credential(user.email!, password);
-    return reauthenticateWithCredential(user, credential);
-  };
+    const credential = EmailAuthProvider.credential(currentUser.email!, password);
+    return reauthenticateWithCredential(currentUser, credential);
+  },[auth]);
 
-  const changePassword = (password: string) => {
-      if (!user) {
+  const changePassword = useCallback((password: string) => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
         throw new Error("User not authenticated");
       }
-      return updatePassword(user, password);
-  };
+      return updatePassword(currentUser, password);
+  }, [auth]);
 
-  const sendPasswordReset = (email: string) => {
+  const sendPasswordReset = useCallback((email: string) => {
       return sendPasswordResetEmail(auth, email);
-  }
+  }, [auth]);
   
-  const createUser = (email: string, password: string) => {
+  const createUser = useCallback((email: string, password: string) => {
       return createUserWithEmailAndPassword(auth, email, password);
-  }
+  }, [auth]);
 
   return (
     <AuthContext.Provider value={{ user, loading, signIn, signOut, reauthenticate, changePassword, sendPasswordReset, createUser }}>
