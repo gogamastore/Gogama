@@ -1,9 +1,0 @@
-{
-  "appId": "store.gogama.app",
-  "appName": "Gogama Store",
-  "webDir": "out",
-  "server": {
-    "url": "https://gogama.store",
-    "cleartext": true
-  }
-}
