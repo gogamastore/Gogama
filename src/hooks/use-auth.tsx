@@ -11,9 +11,10 @@ import {
     reauthenticateWithCredential,
     updatePassword,
     sendPasswordResetEmail,
-    createUserWithEmailAndPassword
+    createUserWithEmailAndPassword,
+    getAuth
 } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
+import { app, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
@@ -33,6 +34,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const auth = getAuth(app);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -40,13 +44,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [auth]);
 
   const signIn = (email: string, password: string) => {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
   const signOut = () => {
+    router.push('/');
     return firebaseSignOut(auth);
   };
 
