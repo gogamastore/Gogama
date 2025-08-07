@@ -86,7 +86,6 @@ function AddProductDialog({ brand, onProductsAdded, currentProductIds }: { brand
             const productsSnapshot = await getDocs(collection(db, "products"));
             const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
             setAllProducts(productsData);
-            setFilteredProducts(productsData);
         } catch (error) {
             console.error(error);
              toast({ variant: 'destructive', title: 'Gagal Memuat Produk' });
@@ -114,12 +113,13 @@ function AddProductDialog({ brand, onProductsAdded, currentProductIds }: { brand
         try {
             if (currentProductIds.has(product.id)) {
                  toast({ variant: 'destructive', title: 'Produk sudah ada di brand ini.' });
+                 setIsSubmitting(false); // Make sure to stop submission
                  return;
             }
             const productRef = doc(db, 'products', product.id);
             await updateDoc(productRef, { brandId: brand.id });
             toast({ title: `Produk "${product.name}" ditambahkan.` });
-            onProductsAdded();
+            onProductsAdded(); // Refresh the list
         } catch(error) {
             console.error(error);
             toast({ variant: "destructive", title: "Gagal menambahkan produk" });
@@ -168,7 +168,7 @@ function AddProductDialog({ brand, onProductsAdded, currentProductIds }: { brand
                                             onClick={() => handleAddProduct(p)} 
                                             disabled={isSubmitting || currentProductIds.has(p.id)}
                                         >
-                                            {currentProductIds.has(p.id) ? 'Ditambahkan' : 'Tambah'}
+                                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> : (currentProductIds.has(p.id) ? 'Ditambahkan' : 'Tambah')}
                                         </Button>
                                     </TableCell>
                                 </TableRow>
