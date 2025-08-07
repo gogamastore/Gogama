@@ -1,10 +1,10 @@
 
 import type { Metadata } from "next";
 import "./../globals.css";
-import Header from "@/components/layout/header";
+import ResellerHeader from "./components/reseller-header";
 import Footer from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toaster";
-import BottomNav from "@/components/layout/bottom-nav";
+import BottomNav from "./components/reseller-bottom-nav";
 import { CartProvider } from "@/hooks/use-cart";
 import ResellerChatTrigger from "./components/reseller-chat-trigger";
 
@@ -24,7 +24,7 @@ export default function ResellerLayout({
   return (
     <CartProvider>
         <div className="relative flex min-h-dvh flex-col bg-background">
-          <Header />
+          <ResellerHeader />
           <main className="flex-1 pb-20 md:pb-0">{children}</main>
           <Footer />
           <BottomNav />
