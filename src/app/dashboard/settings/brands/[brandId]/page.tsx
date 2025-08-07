@@ -97,13 +97,14 @@ function AddProductDialog({ brand, onProductsAdded, currentProductIds }: { brand
 
     useEffect(() => {
         if(isOpen) fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
     useEffect(() => {
         const lowercasedFilter = searchTerm.toLowerCase();
         const results = allProducts.filter(p => 
             p.name.toLowerCase().includes(lowercasedFilter) || 
-            (p.sku && p.sku.toLowerCase().includes(lowercasedFilter))
+            (p.sku && String(p.sku).toLowerCase().includes(lowercasedFilter))
         );
         setFilteredProducts(results);
     }, [searchTerm, allProducts]);
