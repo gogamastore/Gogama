@@ -24,6 +24,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -193,7 +194,7 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
   const [brand, setBrand] = useState<Brand | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const { brandId } = params;
+  const brandId = params.brandId;
 
   const fetchBrandAndProducts = useCallback(async () => {
     setLoading(true);
