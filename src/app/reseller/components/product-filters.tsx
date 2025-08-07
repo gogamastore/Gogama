@@ -42,8 +42,8 @@ export default function ProductFilters({ onSearchChange, onCategoryChange }: Pro
     return (
         <section className="w-full py-6">
             <div className="container max-w-screen-2xl">
-                <div className="flex flex-col md:flex-row gap-4">
-                    <div className="relative flex-1">
+                <div className="flex flex-col md:flex-row gap-4 justify-center">
+                    <div className="relative w-full md:max-w-lg">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Cari produk berdasarkan nama atau SKU..."
