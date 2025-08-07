@@ -44,6 +44,12 @@ const settingsCards = [
     href: "/dashboard/settings/product-categories",
   },
   {
+    title: "Manajemen Brand",
+    description: "Atur brand dan produk yang terasosiasi di dalamnya.",
+    icon: Building,
+    href: "/dashboard/settings/brands",
+  },
+  {
     title: "Desain",
     description: "Atur banner dan tampilan halaman reseller.",
     icon: LayoutTemplate,

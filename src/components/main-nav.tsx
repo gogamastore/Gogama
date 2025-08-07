@@ -40,6 +40,7 @@ const settingsSubMenu = [
     { href: "/dashboard/settings/contacts", label: "Daftar Kontak", icon: Contact },
     { href: "/dashboard/settings/suppliers", label: "Manajemen Supplier", icon: Building },
     { href: "/dashboard/settings/product-categories", label: "Kategori Produk", icon: LayoutGrid },
+    { href: "/dashboard/settings/brands", label: "Manajemen Brand", icon: Building },
     { href: "/dashboard/settings/promo", label: "Promo", icon: Percent },
     { href: "/dashboard/settings/design", label: "Desain", icon: LayoutTemplate },
     { href: "/dashboard/settings/trending-products", label: "Produk Trending", icon: TrendingUp },
