@@ -1,4 +1,6 @@
 
+"use client";
+
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -9,56 +11,99 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Button } from "../ui/button";
+import { useEffect, useState } from "react";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
+import Autoplay from "embla-carousel-autoplay";
 
-const heroBanners = [
-  {
-    title: "Koleksi Fashion Terbaru",
-    subtitle: "Tampil Gaya Setiap Hari",
-    image: "https://placehold.co/1200x500.png",
-    hint: "fashion collection",
-    buttonText: "Belanja Sekarang"
-  },
-  {
-    title: "Mega Sale Elektronik",
-    subtitle: "Diskon hingga 50%",
-    image: "https://placehold.co/1200x500.png",
-    hint: "electronics sale",
-    buttonText: "Lihat Promo"
-  },
-  {
-    title: "Perabotan Rumah Impian",
-    subtitle: "Ciptakan Kenyamanan di Rumah Anda",
-    image: "https://placehold.co/1200x500.png",
-    hint: "home furniture",
-    buttonText: "Jelajahi"
-  },
-]
+interface Banner {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  buttonText: string;
+  buttonLink: string;
+  isActive: boolean;
+  order: number;
+}
 
 export default function HeroSection() {
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    async function fetchBanners() {
+      setLoading(true);
+      try {
+        const q = query(collection(db, 'banners'), orderBy('order', 'asc'));
+        const querySnapshot = await getDocs(q);
+        const fetchedBanners = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Banner)).filter(banner => banner.isActive);
+        setBanners(fetchedBanners);
+      } catch (error) {
+        console.error("Error fetching banners: ", error);
+        toast({ variant: "destructive", title: "Gagal memuat banner." });
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchBanners();
+  }, [toast]);
+
+  if (loading) {
+    return (
+       <section className="w-full pt-6 md:pt-10">
+         <div className="container max-w-screen-2xl">
+            <div className="bg-muted aspect-[2/1] md:h-[500px] w-full animate-pulse rounded-lg"></div>
+         </div>
+       </section>
+    )
+  }
+
+  if (banners.length === 0) {
+      return null;
+  }
+
   return (
     <section className="w-full pt-6 md:pt-10">
       <div className="container max-w-screen-2xl">
-        <Carousel className="w-full" opts={{ loop: true }}>
+        <Carousel 
+            className="w-full" 
+            opts={{ loop: true }}
+            plugins={[
+                Autoplay({
+                  delay: 5000,
+                  stopOnInteraction: true,
+                }),
+              ]}
+            >
           <CarouselContent>
-            {heroBanners.map((banner, index) => (
+            {banners.map((banner, index) => (
               <CarouselItem key={index}>
                 <Card className="overflow-hidden">
                   <CardContent className="p-0">
                     <div className="relative aspect-[2/1] md:h-[500px] w-full">
                         <Image
-                            src={banner.image}
+                            src={banner.imageUrl}
                             alt={banner.title}
                             layout="fill"
                             objectFit="cover"
                             className="brightness-75"
-                            data-ai-hint={banner.hint}
+                            priority={index === 0}
                         />
                         <div className="absolute inset-0 flex flex-col items-start justify-center p-6 md:p-16 text-white space-y-2 md:space-y-4">
                             <h2 className="text-2xl md:text-5xl font-bold font-headline leading-tight">
                                 {banner.title}
                             </h2>
-                            <p className="text-base md:text-2xl">{banner.subtitle}</p>
-                            <Button size="lg" className="font-headline text-sm md:text-lg mt-2 md:mt-4">{banner.buttonText}</Button>
+                            <p className="text-base md:text-2xl">{banner.description}</p>
+                            <Button size="lg" className="font-headline text-sm md:text-lg mt-2 md:mt-4" asChild>
+                                <Link href={banner.buttonLink || "#"}>{banner.buttonText}</Link>
+                            </Button>
                         </div>
                     </div>
                   </CardContent>
