@@ -1,8 +1,19 @@
 
-import { categories } from "@/lib/data";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import { Shirt, Tv, Sofa, Smartphone, Blend, BookOpen, ToyBrick } from 'lucide-react';
+
+const categories = [
+    { name: "Pakaian", icon: Shirt },
+    { name: "Elektronik", icon: Tv },
+    { name: "Perabotan", icon: Sofa },
+    { name: "Gadget", icon: Smartphone },
+    { name: "Dapur", icon: Blend },
+    { name: "Buku", icon: BookOpen },
+    { name: "Mainan", icon: ToyBrick },
+];
+
 
 export default function QuickAccessMenu() {
   return (
