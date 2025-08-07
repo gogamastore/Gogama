@@ -193,11 +193,12 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
   const [brand, setBrand] = useState<Brand | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const { brandId } = params;
 
   const fetchBrandAndProducts = useCallback(async () => {
     setLoading(true);
     try {
-        const brandDocRef = doc(db, 'brands', params.brandId);
+        const brandDocRef = doc(db, 'brands', brandId);
         const brandDoc = await getDoc(brandDocRef);
         if (!brandDoc.exists()) {
             toast({ variant: 'destructive', title: 'Brand tidak ditemukan.' });
@@ -206,7 +207,7 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
         }
         setBrand({ id: brandDoc.id, ...brandDoc.data() } as Brand);
         
-        const productsQuery = query(collection(db, 'products'), where('brandId', '==', params.brandId));
+        const productsQuery = query(collection(db, 'products'), where('brandId', '==', brandId));
         const productsSnapshot = await getDocs(productsQuery);
         const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(productsData);
@@ -217,7 +218,7 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
     } finally {
         setLoading(false);
     }
-  }, [params.brandId, router, toast]);
+  }, [brandId, router, toast]);
 
   useEffect(() => {
     fetchBrandAndProducts();
