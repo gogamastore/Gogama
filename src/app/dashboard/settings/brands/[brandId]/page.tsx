@@ -103,7 +103,7 @@ function AddProductDialog({ brand, onProductsAdded, currentProductIds }: { brand
         const lowercasedFilter = searchTerm.toLowerCase();
         const results = allProducts.filter(p => 
             p.name.toLowerCase().includes(lowercasedFilter) || 
-            p.sku.toLowerCase().includes(lowercasedFilter)
+            (p.sku && p.sku.toLowerCase().includes(lowercasedFilter))
         );
         setFilteredProducts(results);
     }, [searchTerm, allProducts]);
@@ -222,9 +222,6 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
   const handleRemoveProductFromBrand = async (productId: string) => {
     try {
         const productRef = doc(db, 'products', productId);
-        // Using `null` might not work as intended if strict null checks are on,
-        // it's often safer to delete the field if possible, but Firestore doesn't have a direct `deleteField` on client.
-        // Setting it to null or an empty string is a common workaround.
         await updateDoc(productRef, { brandId: null });
         toast({ title: 'Produk berhasil dihapus dari brand.' });
         fetchBrandAndProducts(); // Refresh list
