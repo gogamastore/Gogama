@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 interface Product {
   id: string;
   name: string;
+  category: string;
   price: string;
   image: string;
   'data-ai-hint'?: string;
@@ -36,7 +37,7 @@ const formatCurrency = (value: string | number): string => {
     }).format(num);
 }
 
-export default function ProductGrid() {
+export default function ProductGrid({ searchTerm, category }: { searchTerm: string, category: string }) {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
@@ -73,7 +74,18 @@ export default function ProductGrid() {
                     return product;
                 });
                 
-                // Sort products: alphabetically, then out-of-stock items to the end
+                // Filtering
+                if (category !== "Semua") {
+                    finalProducts = finalProducts.filter(p => p.category === category);
+                }
+                if (searchTerm) {
+                    finalProducts = finalProducts.filter(p => 
+                        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+                    );
+                }
+
+                // Sorting
                 finalProducts.sort((a, b) => {
                     if (a.stock > 0 && b.stock === 0) {
                         return -1; // a comes first
@@ -85,7 +97,7 @@ export default function ProductGrid() {
                 });
 
 
-                setProducts(finalProducts.slice(0, 24)); // Limit to 24 products
+                setProducts(finalProducts);
 
             } catch (error) {
                 console.error("Failed to fetch products:", error);
@@ -98,12 +110,12 @@ export default function ProductGrid() {
             }
         }
         fetchProducts();
-    }, [toast]);
+    }, [toast, searchTerm, category]);
 
     return (
         <section className="w-full py-6 md:py-10">
             <div className="container max-w-screen-2xl">
-                <h2 className="text-2xl font-bold font-headline mb-6 text-center">Untuk Anda</h2>
+                <h2 className="text-2xl font-bold font-headline mb-6 text-center">Semua Produk</h2>
                 {loading ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
                         {[...Array(10)].map((_, i) => (
@@ -117,11 +129,15 @@ export default function ProductGrid() {
                             </Card>
                         ))}
                     </div>
-                ) : (
+                ) : products.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
                         {products.map((product) => (
                             <ProductCard key={product.id} product={product} />
                         ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-10 text-muted-foreground">
+                        <p>Tidak ada produk yang cocok dengan kriteria Anda.</p>
                     </div>
                 )}
             </div>
