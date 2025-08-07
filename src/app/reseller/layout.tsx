@@ -1,46 +1,47 @@
-import { CartProvider } from "@/hooks/use-cart"
-import ResellerHeader from "./components/reseller-header"
+
+import type { Metadata } from "next";
+import { Poppins, PT_Sans } from "next/font/google";
+import "./../globals.css";
+import { cn } from "@/lib/utils";
+import Header from "@/components/layout/header";
+import Footer from "@/components/layout/footer";
+import { Toaster } from "@/components/ui/toaster";
+import BottomNav from "@/components/layout/bottom-nav";
+import { CartProvider } from "@/hooks/use-cart";
 import ResellerChatTrigger from "./components/reseller-chat-trigger";
 
-function Logo() {
-  return (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-6 w-6 text-primary"
-      >
-        <path d="M2 12.5C2 11.12 3.12 10 4.5 10H6a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h2.5a2.5 2.5 0 0 0 2.5-2.5V10.5A2.5 2.5 0 0 1 17.5 8H20" />
-        <path d="M2 17.5c0-1.38 1.12-2.5 2.5-2.5H6a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h2.5a2.5 2.5 0 0 0 2.5-2.5V10.5A2.5 2.5 0 0 1 17.5 8H20" />
-        <path d="m21 15-4-4" />
-        <path d="m17 15 4-4" />
-      </svg>
-  );
-}
+export const metadata: Metadata = {
+  title: "Gogama Experience",
+  description: "Your one-stop shop for everything.",
+  icons: {
+    icon: 'https://firebasestorage.googleapis.com/v0/b/orderflow-r7jsk.firebasestorage.app/o/ic_gogama_logo.png?alt=media&token=c7caf8ae-553a-4cf8-a4ae-bce1446b599c',
+  },
+};
 
 export default function ResellerLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <CartProvider>
-      <div className="flex flex-col min-h-screen">
-        <ResellerHeader />
-        <main className="flex-1 bg-background">{children}</main>
-        <footer className="bg-card border-t">
-          <div className="container mx-auto p-4 text-center text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Gogama Store. All rights reserved.
-          </div>
-        </footer>
-        <ResellerChatTrigger />
-      </div>
-    </CartProvider>
+     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
+      </head>
+      <body className={cn("font-body antialiased")}>
+        <CartProvider>
+            <div className="relative flex min-h-dvh flex-col bg-background">
+              <Header />
+              <main className="flex-1 pb-20 md:pb-0">{children}</main>
+              <Footer />
+              <BottomNav />
+              <ResellerChatTrigger />
+            </div>
+            <Toaster />
+        </CartProvider>
+      </body>
+    </html>
   );
 }
