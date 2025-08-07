@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { doc, getDoc, collection, getDocs, query, where, writeBatch, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, writeBatch, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,78 +57,69 @@ interface Product {
   name: string;
   sku: string;
   image: string;
+  price: string;
   brandId?: string;
 }
 
-function AddProductDialog({ brand, onProductsAdded }: { brand: Brand, onProductsAdded: () => void }) {
+const formatCurrency = (value: string | number): string => {
+    const num = typeof value === 'string' ? Number(value.replace(/[^0-9]/g, '')) : value;
+    return new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+    }).format(num);
+}
+
+
+function AddProductDialog({ brand, onProductsAdded, currentProductIds }: { brand: Brand, onProductsAdded: () => void, currentProductIds: Set<string> }) {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
     const { toast } = useToast();
 
-    const fetchProducts = useCallback(async () => {
+    const fetchProducts = async () => {
         setLoading(true);
         try {
-            // Fetch products that do not have this brandId
-            const q = query(collection(db, 'products'), where('brandId', '!=', brand.id));
-            const snapshot = await getDocs(q);
-            const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-            // Further client-side filtering for products with no brandId at all.
-            const unbrandedProducts = productsData.filter(p => !p.brandId);
-            setAllProducts(unbrandedProducts);
+            const productsSnapshot = await getDocs(collection(db, "products"));
+            const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+            setAllProducts(productsData);
+            setFilteredProducts(productsData);
         } catch (error) {
             console.error(error);
-            // This query is complex and might fail if index is not set. Provide helpful error.
-             toast({ variant: 'destructive', title: 'Gagal Memuat Produk', description: 'Pastikan Anda telah membuat index komposit untuk "products" pada field "brandId" di Firestore.' });
+             toast({ variant: 'destructive', title: 'Gagal Memuat Produk' });
         } finally {
             setLoading(false);
         }
-    }, [brand.id, toast]);
+    };
 
     useEffect(() => {
         if(isOpen) fetchProducts();
-    }, [isOpen, fetchProducts]);
+    }, [isOpen]);
 
-    const filteredProducts = useMemo(() => {
-        return allProducts.filter(p => 
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    useEffect(() => {
+        const lowercasedFilter = searchTerm.toLowerCase();
+        const results = allProducts.filter(p => 
+            p.name.toLowerCase().includes(lowercasedFilter) || 
+            p.sku.toLowerCase().includes(lowercasedFilter)
         );
-    }, [allProducts, searchTerm]);
+        setFilteredProducts(results);
+    }, [searchTerm, allProducts]);
 
-    const handleToggleSelection = (productId: string) => {
-        setSelectedProductIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(productId)) {
-                newSet.delete(productId);
-            } else {
-                newSet.add(productId);
-            }
-            return newSet;
-        });
-    };
-
-    const handleSave = async () => {
-        if (selectedProductIds.size === 0) {
-            toast({ variant: "destructive", title: "Tidak ada produk dipilih" });
-            return;
-        }
+    const handleAddProduct = async (product: Product) => {
         setIsSubmitting(true);
         try {
-            const batch = writeBatch(db);
-            selectedProductIds.forEach(productId => {
-                const productRef = doc(db, 'products', productId);
-                batch.update(productRef, { brandId: brand.id });
-            });
-            await batch.commit();
-            toast({ title: `${selectedProductIds.size} produk berhasil ditambahkan ke brand.` });
+            if (currentProductIds.has(product.id)) {
+                 toast({ variant: 'destructive', title: 'Produk sudah ada di brand ini.' });
+                 return;
+            }
+            const productRef = doc(db, 'products', product.id);
+            await updateDoc(productRef, { brandId: brand.id });
+            toast({ title: `Produk "${product.name}" ditambahkan.` });
             onProductsAdded();
-            setIsOpen(false);
-            setSelectedProductIds(new Set());
-        } catch (error) {
+        } catch(error) {
             console.error(error);
             toast({ variant: "destructive", title: "Gagal menambahkan produk" });
         } finally {
@@ -144,7 +135,7 @@ function AddProductDialog({ brand, onProductsAdded }: { brand: Brand, onProducts
             <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Tambah Produk ke Brand: {brand.name}</DialogTitle>
-                    <DialogDescription>Pilih satu atau lebih produk untuk dimasukkan ke dalam brand ini.</DialogDescription>
+                    <DialogDescription>Pilih produk untuk dimasukkan ke dalam brand ini.</DialogDescription>
                     <div className="relative pt-2">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input placeholder="Cari produk..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -154,35 +145,36 @@ function AddProductDialog({ brand, onProductsAdded }: { brand: Brand, onProducts
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead></TableHead>
                                 <TableHead>Produk</TableHead>
                                 <TableHead>SKU</TableHead>
+                                <TableHead className="text-right">Harga</TableHead>
+                                <TableHead className="w-[100px] text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading ? <TableRow><TableCell colSpan={3} className="h-24 text-center">Memuat produk...</TableCell></TableRow> : 
+                            {loading ? <TableRow><TableCell colSpan={4} className="h-24 text-center">Memuat produk...</TableCell></TableRow> : 
                             filteredProducts.map(p => (
-                                <TableRow key={p.id} onClick={() => handleToggleSelection(p.id)} className="cursor-pointer" data-state={selectedProductIds.has(p.id) ? 'selected' : ''}>
-                                    <TableCell>
-                                        <input type="checkbox" checked={selectedProductIds.has(p.id)} readOnly/>
-                                    </TableCell>
+                                <TableRow key={p.id}>
                                     <TableCell className="font-medium flex items-center gap-2">
                                         <Image src={p.image} alt={p.name} width={40} height={40} className="rounded-md object-cover"/>
                                         {p.name}
                                     </TableCell>
                                     <TableCell>{p.sku}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(p.price)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button 
+                                            size="sm" 
+                                            onClick={() => handleAddProduct(p)} 
+                                            disabled={isSubmitting || currentProductIds.has(p.id)}
+                                        >
+                                            {currentProductIds.has(p.id) ? 'Ditambahkan' : 'Tambah'}
+                                        </Button>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
-                    <Button onClick={handleSave} disabled={isSubmitting || selectedProductIds.size === 0}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Tambah ({selectedProductIds.size}) Produk
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -225,9 +217,14 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
     fetchBrandAndProducts();
   }, [fetchBrandAndProducts]);
 
+  const currentProductIds = useMemo(() => new Set(products.map(p => p.id)), [products]);
+
   const handleRemoveProductFromBrand = async (productId: string) => {
     try {
         const productRef = doc(db, 'products', productId);
+        // Using `null` might not work as intended if strict null checks are on,
+        // it's often safer to delete the field if possible, but Firestore doesn't have a direct `deleteField` on client.
+        // Setting it to null or an empty string is a common workaround.
         await updateDoc(productRef, { brandId: null });
         toast({ title: 'Produk berhasil dihapus dari brand.' });
         fetchBrandAndProducts(); // Refresh list
@@ -258,7 +255,7 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Daftar Produk dalam Brand</CardTitle>
-            <AddProductDialog brand={brand} onProductsAdded={fetchBrandAndProducts} />
+            <AddProductDialog brand={brand} onProductsAdded={fetchBrandAndProducts} currentProductIds={currentProductIds} />
         </CardHeader>
         <CardContent>
              <div className="overflow-auto">
