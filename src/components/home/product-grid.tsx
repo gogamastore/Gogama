@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 interface Product {
   id: string;
   name: string;
+  sku: string;
   category: string;
   price: string;
   image: string;
@@ -37,7 +38,7 @@ const formatCurrency = (value: string | number): string => {
     }).format(num);
 }
 
-export default function ProductGrid({ searchTerm, category }: { searchTerm: string, category: string }) {
+export default function ProductGrid({ searchTerm, category, limit }: { searchTerm: string, category: string, limit?: number }) {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
@@ -85,17 +86,20 @@ export default function ProductGrid({ searchTerm, category }: { searchTerm: stri
                     );
                 }
 
-                // Sorting
+                // Sorting: by stock status first, then by name
                 finalProducts.sort((a, b) => {
                     if (a.stock > 0 && b.stock === 0) {
-                        return -1; // a comes first
+                        return -1;
                     }
                     if (a.stock === 0 && b.stock > 0) {
-                        return 1; // b comes first
+                        return 1;
                     }
-                    return a.name.localeCompare(b.name); // Then sort by name
+                    return a.name.localeCompare(b.name);
                 });
 
+                if (limit) {
+                    finalProducts = finalProducts.slice(0, limit);
+                }
 
                 setProducts(finalProducts);
 
@@ -110,7 +114,7 @@ export default function ProductGrid({ searchTerm, category }: { searchTerm: stri
             }
         }
         fetchProducts();
-    }, [toast, searchTerm, category]);
+    }, [toast, searchTerm, category, limit]);
 
     return (
         <section className="w-full py-6 md:py-10">
