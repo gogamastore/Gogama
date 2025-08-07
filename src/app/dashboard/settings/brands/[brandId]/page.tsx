@@ -188,7 +188,6 @@ function AddProductDialog({ brand, onProductsAdded }: { brand: Brand, onProducts
 }
 
 export default function ManageBrandProductsPage({ params }: { params: { brandId: string } }) {
-  const { brandId } = params;
   const router = useRouter();
   const { toast } = useToast();
   const [brand, setBrand] = useState<Brand | null>(null);
@@ -198,7 +197,7 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
   const fetchBrandAndProducts = useCallback(async () => {
     setLoading(true);
     try {
-        const brandDocRef = doc(db, 'brands', brandId);
+        const brandDocRef = doc(db, 'brands', params.brandId);
         const brandDoc = await getDoc(brandDocRef);
         if (!brandDoc.exists()) {
             toast({ variant: 'destructive', title: 'Brand tidak ditemukan.' });
@@ -207,7 +206,7 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
         }
         setBrand({ id: brandDoc.id, ...brandDoc.data() } as Brand);
         
-        const productsQuery = query(collection(db, 'products'), where('brandId', '==', brandId));
+        const productsQuery = query(collection(db, 'products'), where('brandId', '==', params.brandId));
         const productsSnapshot = await getDocs(productsQuery);
         const productsData = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(productsData);
@@ -218,7 +217,7 @@ export default function ManageBrandProductsPage({ params }: { params: { brandId:
     } finally {
         setLoading(false);
     }
-  }, [brandId, router, toast]);
+  }, [params.brandId, router, toast]);
 
   useEffect(() => {
     fetchBrandAndProducts();
