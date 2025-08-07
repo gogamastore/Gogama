@@ -27,11 +27,11 @@ service cloud.firestore {
 
     // Rules for 'products' collection
     match /products/{productId} {
-      // Admins can do anything with products.
-      allow read, write, create, delete: if isAdmin();
-      
-      // Authenticated users (resellers) can read and update products (e.g., for stock changes).
-      allow get, list, update: if request.auth != null;
+    // Semua orang (termasuk tamu) bisa melihat produk.
+      allow get, list: if true;
+    // Hanya admin yang bisa membuat, mengubah, atau menghapus produk.
+    // Mencegah pembeli mengubah harga/stok produk.
+      allow write: if isAdmin(); 
     }
 
      // Rules for the 'orders' collection
@@ -98,10 +98,31 @@ service cloud.firestore {
       allow write, create, delete: if isAdmin();
     }
     
+    // Rules for Brands (manajemen Brands)
+    match /brands/{brandId} {
+  // Siapa pun bisa membaca data merek.
+  allow read: if true;
+
+  // Hanya admin yang bisa membuat, mengubah, atau menghapus merek.
+  // Menggunakan fungsi isAdmin() agar lebih bersih dan konsisten.
+  allow write: if isAdmin();
+}
+    
     // Rules for Trending Products
     match /trending_products/{trendingId} {
       allow read: if true;
       allow write, create, delete: if isAdmin();
+    }
+    
+    // --- Aturan untuk Kategori Produk ---
+    match /product_categories/{categoryId} {
+      allow read: if true;
+      allow write, create, delete: if isAdmin();
+    }
+    
+    // Aturan Untuk Item Keranjang
+    match /user/{userId}/cart/{productId} {
+    allow read, write, delete, create: if request.auth.uid == userId;
     }
   } 
 }
