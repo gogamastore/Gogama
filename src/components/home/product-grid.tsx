@@ -82,7 +82,7 @@ export default function ProductGrid({ searchTerm, category, limit }: { searchTer
                 if (searchTerm) {
                     finalProducts = finalProducts.filter(p => 
                         p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                        (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+                        (p.sku && String(p.sku).toLowerCase().includes(searchTerm.toLowerCase()))
                     );
                 }
 
