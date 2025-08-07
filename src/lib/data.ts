@@ -1,5 +1,5 @@
 
-import { Shirt, Tv, Sofa, Smartphone, Blender, BookOpen, ToyBrick } from 'lucide-react';
+import { Shirt, Tv, Sofa, Smartphone, Blend, BookOpen, ToyBrick } from 'lucide-react';
 
 export const products = [
     {
@@ -94,7 +94,7 @@ export const categories = [
   { name: "Elektronik", icon: Tv },
   { name: "Perabotan", icon: Sofa },
   { name: "Handphone", icon: Smartphone },
-  { name: "Peralatan Dapur", icon: Blender },
+  { name: "Peralatan Dapur", icon: Blend },
   { name: "Buku & Alat Tulis", icon: BookOpen },
   { name: "Mainan & Hobi", icon: ToyBrick },
 ];
