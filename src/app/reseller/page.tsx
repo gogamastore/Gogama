@@ -1,8 +1,8 @@
-
 import HeroSection from "@/components/home/hero-section";
 import ProductGrid from "@/components/home/product-grid";
 import QuickAccessMenu from "@/components/home/quick-access-menu";
 import FlashSaleSection from "@/components/home/flash-sale";
+import TrendingSection from "@/components/home/trending-section";
 
 export default function Home() {
   return (
@@ -10,6 +10,7 @@ export default function Home() {
       <HeroSection />
       <QuickAccessMenu />
       <FlashSaleSection />
+      <TrendingSection />
       <ProductGrid />
     </div>
   );

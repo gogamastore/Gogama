@@ -65,15 +65,27 @@ export default function ProductGrid() {
                     }
                 });
 
-                const finalProducts = productsData.map(product => {
+                let finalProducts = productsData.map(product => {
                     if (activePromos.has(product.id)) {
                         product.isPromo = true;
                         product.discountPrice = formatCurrency(activePromos.get(product.id)!.discountPrice);
                     }
                     return product;
                 });
+                
+                // Sort products: alphabetically, then out-of-stock items to the end
+                finalProducts.sort((a, b) => {
+                    if (a.stock > 0 && b.stock === 0) {
+                        return -1; // a comes first
+                    }
+                    if (a.stock === 0 && b.stock > 0) {
+                        return 1; // b comes first
+                    }
+                    return a.name.localeCompare(b.name); // Then sort by name
+                });
 
-                setProducts(finalProducts);
+
+                setProducts(finalProducts.slice(0, 24)); // Limit to 24 products
 
             } catch (error) {
                 console.error("Failed to fetch products:", error);
