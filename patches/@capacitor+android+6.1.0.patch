@@ -1,0 +1,19 @@
+diff --git a/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java b/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java
+index 7382d61..f99a51d 100644
+--- a/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java
++++ b/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java
+@@ -63,11 +63,7 @@
+         }
+ 
+         String configEdgeToEdge = bridge.getConfig().getString("android.edgeToEdge", "auto");
+-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM && configEdgeToEdge.equals("auto")) {
+-            TypedValue value = new TypedValue();
+-            boolean foundOptOut = getContext().getTheme().resolveAttribute(android.R.attr.windowOptOutEdgeToEdgeEnforcement, value, true);
+-            bridge.setEdgeToEdge(!foundOptOut || value.type != TypedValue.TYPE_INT_BOOLEAN || value.data == 0);
+-        } else {
+-            bridge.setEdgeToEdge(configEdgeToEdge.equals("true"));
+-        }
++        bridge.setEdgeToEdge(configEdgeToEdge.equals("true"));
+     }
+ 
+     @Override
