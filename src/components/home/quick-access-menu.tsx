@@ -71,7 +71,7 @@ export default function QuickAccessMenu() {
           <CarouselContent className="-ml-2">
             {brands.map((brand) => (
               <CarouselItem key={brand.id} className="basis-1/4 sm:basis-1/5 md:basis-1/6 lg:basis-[12%] pl-2">
-                 <Link href="#" className="group">
+                 <Link href={`/reseller/brands/${brand.id}`} className="group">
                   <Card className="h-full transition-all duration-300 hover:bg-primary/10 hover:shadow-md">
                     <CardContent className="flex flex-col items-center justify-center p-2 aspect-square">
                       <Image 
