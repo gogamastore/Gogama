@@ -22,12 +22,11 @@ import {
 import { ArrowLeft, Download, Upload, FileUp, CheckCircle, Loader2, XCircle, Package } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { collection, getDocs, query, where, writeBatch, doc } from "firebase/firestore";
+import { collection, getDocs, query, where, writeBatch, doc, orderBy, limit, startAt } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import * as XLSX from "xlsx";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
@@ -47,69 +46,87 @@ interface ProductCategory {
   name: string;
 }
 
-const ProductSelectionDialog = ({ onSelect, selectedIds }: { onSelect: (selected: string[]) => void, selectedIds: string[] }) => {
+interface ExportFilter {
+    orderBy: 'name' | 'sku';
+    range: 'all' | 'zero_stock' | string; // string for range like "0-500"
+}
+
+
+const ProductSelectionDialog = ({ onSelect, currentFilter }: { onSelect: (filter: ExportFilter) => void, currentFilter: ExportFilter }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [localSelected, setLocalSelected] = useState<string[]>(selectedIds);
+    const [filter, setFilter] = useState<ExportFilter>(currentFilter);
 
-    const fetchProducts = async () => {
-        setLoading(true);
-        const snapshot = await getDocs(collection(db, "products"));
-        setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
-        setLoading(false);
-    };
-
-    useEffect(() => {
-        if (isOpen) fetchProducts();
-    }, [isOpen]);
-    
-    const handleCheckboxChange = (id: string, checked: boolean) => {
-        setLocalSelected(prev => checked ? [...prev, id] : prev.filter(pId => pId !== id));
-    };
-    
-    const handleSaveSelection = () => {
-        onSelect(localSelected);
+    const handleSave = () => {
+        onSelect(filter);
         setIsOpen(false);
-    };
+    }
+    
+    // Logic for range options
+    const productCount = 5000; // Assume a large number or fetch if needed
+    const ranges = [];
+    for (let i = 0; i < productCount; i += 500) {
+        ranges.push(`${i}-${i + 500}`);
+    }
 
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
                 <Button type="button" variant="outline">Pilih Baris Tertentu</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Pilih Produk</DialogTitle>
-                    <DialogDescription>Pilih produk yang ingin Anda ekspor untuk diedit stoknya.</DialogDescription>
+                    <DialogTitle>Filter baris data barang yang akan di Export</DialogTitle>
+                    <DialogDescription>Anda dapat memilih untuk export Semua Barang, barang dengan stok 0, atau berdasarkan urutan tertentu.</DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="h-96 border rounded-md">
-                     <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[50px]"></TableHead>
-                                <TableHead>Produk</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? <TableRow><TableCell colSpan={2} className="text-center">Memuat...</TableCell></TableRow> : products.map(p => (
-                                <TableRow key={p.id}>
-                                    <TableCell>
-                                        <Checkbox checked={localSelected.includes(p.id)} onCheckedChange={(checked) => handleCheckboxChange(p.id, !!checked)}/>
-                                    </TableCell>
-                                    <TableCell>{p.name}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
+                <div className="space-y-6 py-2">
+                    <div>
+                        <p className="font-semibold mb-2">Urutkan barang pada Excel berdasarkan:</p>
+                         <RadioGroup value={filter.orderBy} onValueChange={(value) => setFilter(f => ({ ...f, orderBy: value as 'name' | 'sku' }))} className="flex gap-4">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="sku" id="sku" />
+                                <Label htmlFor="sku">Kode Barang (SKU)</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="name" id="name" />
+                                <Label htmlFor="name">Nama Barang</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+                     <div>
+                        <p className="font-semibold mb-2">Pilih Produk yang akan di Export:</p>
+                        <RadioGroup value={filter.range} onValueChange={(value) => setFilter(f => ({ ...f, range: value }))}>
+                            <ScrollArea className="h-60 border p-4 rounded-md">
+                                <div className="space-y-3">
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="all" id="all" />
+                                        <Label htmlFor="all">Semua Data Produk</Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="zero_stock" id="zero_stock" />
+                                        <Label htmlFor="zero_stock">Produk dengan stok '0'</Label>
+                                    </div>
+                                     {ranges.map((range, index) => {
+                                        const [start] = range.split('-');
+                                        return(
+                                            <div key={index} className="flex items-center space-x-2">
+                                                <RadioGroupItem value={range} id={`range-${index}`} />
+                                                <Label htmlFor={`range-${index}`}>Baris ke {Number(start) + 1} - {Number(start) + 500}</Label>
+                                            </div>
+                                        )
+                                     })}
+                                </div>
+                            </ScrollArea>
+                        </RadioGroup>
+                    </div>
+                </div>
                 <DialogFooter>
-                    <Button onClick={handleSaveSelection}>Simpan Pilihan ({localSelected.length})</Button>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
+                    <Button onClick={handleSave}>Pilih</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    );
-};
+    )
+}
 
 const CategorySelectionDialog = ({ onSelect, selectedCategories }: { onSelect: (selected: string[]) => void, selectedCategories: string[] }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -165,48 +182,63 @@ export default function BulkEditStockPage() {
     const router = useRouter();
     const { toast } = useToast();
     const [exportType, setExportType] = useState('specific'); // 'specific' or 'category'
-    const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+    const [specificFilter, setSpecificFilter] = useState<ExportFilter>({ orderBy: 'name', range: 'all' });
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [fileName, setFileName] = useState("Tidak ada file terpilih!");
 
     const filterDescription = useMemo(() => {
-        if (exportType === 'specific' && selectedProductIds.length > 0) {
-            return `${selectedProductIds.length} produk dipilih.`;
+        if (exportType === 'specific') {
+            const { orderBy, range } = specificFilter;
+            const orderText = orderBy === 'name' ? 'Nama Barang' : 'Kode Barang';
+            let rangeText = '';
+            if (range === 'all') rangeText = 'Semua Produk';
+            else if (range === 'zero_stock') rangeText = 'Stok 0';
+            else rangeText = `Baris ${Number(range.split('-')[0]) + 1} - ${Number(range.split('-')[1])}`;
+            return `Urut berdasarkan ${orderText}, ${rangeText}.`;
         }
         if (exportType === 'category' && selectedCategories.length > 0) {
             return `Kategori: ${selectedCategories.join(', ')}.`;
         }
         return "Belum ada filter yang dipilih!";
-    }, [exportType, selectedProductIds, selectedCategories]);
-
-    const canExport = useMemo(() => {
-        return (exportType === 'specific' && selectedProductIds.length > 0) || (exportType === 'category' && selectedCategories.length > 0);
-    }, [exportType, selectedProductIds, selectedCategories]);
+    }, [exportType, specificFilter, selectedCategories]);
 
     const handleExport = async () => {
         setIsProcessing(true);
         try {
             let productsQuery;
-            if (exportType === 'specific') {
-                productsQuery = query(collection(db, "products"), where('__name__', 'in', selectedProductIds));
-            } else { // category
+             if (exportType === 'category') {
                 productsQuery = query(collection(db, "products"), where('category', 'in', selectedCategories));
+            } else { // specific filter
+                 const { orderBy: orderByField, range } = specificFilter;
+                 let q = query(collection(db, "products"), orderBy(orderByField, 'asc'));
+
+                if(range === 'zero_stock'){
+                     q = query(collection(db, "products"), where('stock', '==', 0), orderBy(orderByField, 'asc'));
+                }
+                
+                productsQuery = q;
             }
 
             const snapshot = await getDocs(productsQuery);
-            if (snapshot.empty) {
-                toast({ variant: "destructive", title: "Tidak ada produk untuk diekspor" });
-                return;
-            }
-
-            const productsToExport = snapshot.docs.map(doc => ({
+            let productsToExport = snapshot.docs.map(doc => ({
                 id: doc.id,
                 name: doc.data().name,
                 sku: doc.data().sku,
                 stock: doc.data().stock,
             }));
+            
+            // Manual slicing for range
+            if (exportType === 'specific' && specificFilter.range !== 'all' && specificFilter.range !== 'zero_stock') {
+                 const [start, end] = specificFilter.range.split('-').map(Number);
+                 productsToExport = productsToExport.slice(start, end);
+            }
+
+            if (productsToExport.length === 0) {
+                toast({ variant: "destructive", title: "Tidak ada produk untuk diekspor" });
+                return;
+            }
 
             const worksheet = XLSX.utils.json_to_sheet(productsToExport);
             const workbook = XLSX.utils.book_new();
@@ -303,28 +335,21 @@ export default function BulkEditStockPage() {
                             <li>
                                 <span>Export Barang (.xlsx)</span>
                                 <Card className="p-4 mt-2">
-                                    <p className="text-sm font-normal text-muted-foreground">Pilih produk yang ingin diubah stoknya.</p>
-                                    <RadioGroup value={exportType} onValueChange={setExportType} className="my-4">
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="specific" id="specific" />
-                                            <Label htmlFor="specific">Pilih produk satu per satu</Label>
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="category" id="category" />
-                                            <Label htmlFor="category">Pilih berdasarkan kategori</Label>
-                                        </div>
-                                    </RadioGroup>
-                                    
-                                    <div className="flex gap-4">
-                                        <ProductSelectionDialog onSelect={setSelectedProductIds} selectedIds={selectedProductIds}/>
-                                        <CategorySelectionDialog onSelect={setSelectedCategories} selectedCategories={selectedCategories}/>
+                                    <p className="text-sm font-normal text-muted-foreground mb-4">Pilih produk yang ingin diubah stoknya.</p>
+                                    <div className="flex items-center gap-4">
+                                        <ProductSelectionDialog onSelect={setSpecificFilter} currentFilter={specificFilter} />
+                                        <CategorySelectionDialog onSelect={setSelectedCategories} selectedCategories={selectedCategories} />
                                     </div>
-
-                                    <p className="text-sm mt-4">
-                                        <span className="font-semibold">Filter terpilih:</span> {filterDescription}
-                                    </p>
+                                    <div className="mt-4 space-y-2">
+                                        <p className="text-sm">
+                                            <span className="font-semibold">Filter Baris:</span> {filterDescription}
+                                        </p>
+                                        <p className="text-sm">
+                                            <span className="font-semibold">Filter Kategori:</span> {selectedCategories.length > 0 ? selectedCategories.join(', ') : 'Belum ada kategori terpilih.'}
+                                        </p>
+                                    </div>
                                 </Card>
-                                <Button type="button" onClick={handleExport} disabled={!canExport || isProcessing} className="mt-4">
+                                <Button type="button" onClick={handleExport} disabled={isProcessing} className="mt-4">
                                     {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
                                     Export Barang
                                 </Button>
@@ -352,7 +377,7 @@ export default function BulkEditStockPage() {
                                         <Label htmlFor="file-upload" className="cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-md text-sm font-semibold">
                                             Pilih File
                                         </Label>
-                                        <Input id="file-upload" type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileChange}/>
+                                        <input id="file-upload" type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileChange}/>
                                         <p className="text-xs text-muted-foreground">{fileName}</p>
                                     </div>
                                 </Card>
@@ -375,4 +400,3 @@ export default function BulkEditStockPage() {
     );
 }
 
-    
