@@ -34,7 +34,7 @@ import { FileText, Loader2, Package, ArrowLeft, Banknote, UploadCloud, XCircle, 
 import { format } from 'date-fns';
 import { id as dateFnsLocaleId } from 'date-fns/locale';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
@@ -256,14 +256,17 @@ function OrderDetailsDialog({ order, onCancelOrder, onUploadSuccess }: { order: 
     )
 }
 
-export default function OrderHistoryPage() {
+function OrderHistoryPageContent() {
   const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   
+  const defaultTab = searchParams.get('tab') || 'processing';
+
   const fetchOrders = useCallback(async () => {
     if (!user) {
       if (!authLoading) setLoading(false);
@@ -445,7 +448,7 @@ export default function OrderHistoryPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-           <Tabs defaultValue="processing">
+           <Tabs defaultValue={defaultTab}>
             <TabsList className="h-auto p-1.5 w-full grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
                 <TabsTrigger value="unpaid">
                     Belum Bayar <Badge className="ml-2">{filteredOrders.unpaid.length}</Badge>
@@ -483,4 +486,13 @@ export default function OrderHistoryPage() {
       </Card>
     </div>
   );
+}
+
+
+export default function OrderHistoryPage() {
+    return (
+        <React.Suspense fallback={<div className="text-center p-8"><Loader2 className="h-8 w-8 animate-spin mx-auto"/></div>}>
+            <OrderHistoryPageContent />
+        </React.Suspense>
+    )
 }

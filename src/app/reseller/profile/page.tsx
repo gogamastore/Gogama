@@ -3,368 +3,132 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { db } from '@/lib/firebase';
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Home, Loader2, PlusCircle, Trash2, UserCircle, ShieldCheck, ArrowLeft } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Loader2, UserCircle, ShieldCheck, Home, LogOut, ChevronRight, Wallet, Package, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
-interface UserAddress {
-    id: string;
-    label: string;
-    address: string;
-    whatsapp: string;
-}
+import Image from 'next/image';
+import Link from 'next/link';
+import { Separator } from '@/components/ui/separator';
 
 export default function ProfilePage() {
-  const { user, loading: authLoading, reauthenticate, changePassword } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [profileData, setProfileData] = useState({
-    name: '',
-    whatsapp: '',
-  });
 
-  const [passwordData, setPasswordData] = useState({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-  });
-  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
-
-
-  const [addresses, setAddresses] = useState<UserAddress[]>([]);
-  const [isAddressLoading, setIsAddressLoading] = useState(true);
-  const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
-  const [newAddress, setNewAddress] = useState({ label: '', address: '', whatsapp: '' });
-
-  useEffect(() => {
-    if (!authLoading && user) {
-      const userDocRef = doc(db, 'user', user.uid);
-      getDoc(userDocRef).then((docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setProfileData({
-            name: data.name || user.displayName || '',
-            whatsapp: data.whatsapp || '62',
-          });
-        } else {
-            setProfileData({ name: user.displayName || '', whatsapp: '62' });
-        }
-      });
-      fetchAddresses();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading]);
-
-  const fetchAddresses = async () => {
-    if (!user) return;
-    setIsAddressLoading(true);
-    const addressesQuery = collection(db, `user/${user.uid}/addresses`);
-    const querySnapshot = await getDocs(addressesQuery);
-    const userAddresses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserAddress));
-    setAddresses(userAddresses);
-    setIsAddressLoading(false);
-  };
-
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    setProfileData((prev) => ({ ...prev, [id]: value }));
-  };
-  
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    setPasswordData((prev) => ({ ...prev, [id]: value }));
-  };
-
-
-  const handleUpdateProfile = async () => {
-    if (!user) return;
-    setIsSubmitting(true);
+  const handleLogout = async () => {
     try {
-      const userDocRef = doc(db, 'user', user.uid);
-      await updateDoc(userDocRef, {
-        name: profileData.name,
-        whatsapp: profileData.whatsapp,
-      });
-      toast({ title: 'Profil Berhasil Diperbarui' });
+        await signOut();
+        router.push('/');
+        toast({ title: 'Anda telah keluar.' });
     } catch (error) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Gagal Memperbarui Profil',
-      });
-    } finally {
-      setIsSubmitting(false);
+        toast({ variant: 'destructive', title: 'Gagal keluar.' });
     }
-  };
-  
-  const handleUpdatePassword = async () => {
-      if (!passwordData.newPassword || passwordData.newPassword !== passwordData.confirmPassword) {
-          toast({ variant: 'destructive', title: 'Password Tidak Cocok', description: 'Pastikan password baru dan konfirmasi password sama.'});
-          return;
-      }
-       if (passwordData.newPassword.length < 6) {
-          toast({ variant: 'destructive', title: 'Password Terlalu Pendek', description: 'Password baru minimal harus 6 karakter.'});
-          return;
-      }
-      setIsPasswordSubmitting(true);
-      try {
-        await reauthenticate(passwordData.currentPassword);
-        await changePassword(passwordData.newPassword);
-        toast({ title: 'Password Berhasil Diperbarui' });
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      } catch (error) {
-          console.error(error);
-          toast({ variant: 'destructive', title: 'Gagal Memperbarui Password', description: 'Pastikan password lama Anda benar.' });
-      } finally {
-          setIsPasswordSubmitting(false);
-      }
-  };
-
-  const handleAddressDialogInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target;
-    setNewAddress(prev => ({ ...prev, [id]: value }));
-  };
-
-  const handleSaveAddress = async () => {
-      if (!user) return;
-      if (!newAddress.label || !newAddress.address || !newAddress.whatsapp) {
-          toast({ variant: 'destructive', title: 'Data alamat tidak lengkap' });
-          return;
-      }
-      setIsSubmitting(true);
-      try {
-          await addDoc(collection(db, `user/${user.uid}/addresses`), newAddress);
-          toast({ title: 'Alamat baru berhasil disimpan' });
-          setIsAddressDialogOpen(false);
-          setNewAddress({ label: '', address: '', whatsapp: '' });
-          fetchAddresses();
-      } catch (error) {
-          console.error(error);
-          toast({ variant: 'destructive', title: 'Gagal menyimpan alamat' });
-      } finally {
-          setIsSubmitting(false);
-      }
-  }
-
-  const handleDeleteAddress = async (addressId: string) => {
-      if (!user || !confirm('Anda yakin ingin menghapus alamat ini?')) return;
-      
-      try {
-          await deleteDoc(doc(db, `user/${user.uid}/addresses`, addressId));
-          toast({ title: 'Alamat berhasil dihapus' });
-          fetchAddresses();
-      } catch (error) {
-          console.error(error);
-          toast({ variant: 'destructive', title: 'Gagal menghapus alamat' });
-      }
   }
 
   if (authLoading) {
-    return <div className="text-center p-8"><Loader2 className="mx-auto h-8 w-8 animate-spin"/></div>;
+    return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>;
   }
   if (!user) {
-    return <div className="text-center p-8">Silakan login untuk melihat profil Anda.</div>;
+    router.replace('/login');
+    return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>;
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
-       <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => router.back()}>
-                <ArrowLeft className="h-4 w-4" />
-                <span className="sr-only">Kembali</span>
-            </Button>
-            <h1 className="text-3xl font-bold font-headline">Profil Saya</h1>
-       </div>
-      
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <UserCircle className="h-6 w-6" />
-            <CardTitle>Informasi Akun</CardTitle>
-          </div>
-          <CardDescription>
-            Perbarui informasi kontak dan nama Anda di sini.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nama Lengkap</Label>
-            <Input
-              id="name"
-              value={profileData.name}
-              onChange={handleProfileChange}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
-            <Input
-              id="whatsapp"
-              value={profileData.whatsapp}
-              onChange={handleProfileChange}
-              placeholder="Contoh: 628123456789"
-            />
-          </div>
-           <div className="space-y-2">
-            <Label>Email</Label>
-            <Input value={user.email || ''} disabled />
-          </div>
-        </CardContent>
-        <div className="p-6 pt-0">
-          <Button onClick={handleUpdateProfile} disabled={isSubmitting}>
-             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Simpan Perubahan Profil
-          </Button>
-        </div>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="h-6 w-6" />
-            <CardTitle>Keamanan & Password</CardTitle>
-          </div>
-          <CardDescription>
-            Ubah password Anda secara berkala untuk menjaga keamanan akun.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">Password Lama</Label>
-            <Input
-              id="currentPassword"
-              type="password"
-              value={passwordData.currentPassword}
-              onChange={handlePasswordChange}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="newPassword">Password Baru</Label>
-            <Input
-              id="newPassword"
-              type="password"
-              value={passwordData.newPassword}
-              onChange={handlePasswordChange}
-            />
-          </div>
-           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              value={passwordData.confirmPassword}
-              onChange={handlePasswordChange}
-            />
-          </div>
-        </CardContent>
-        <div className="p-6 pt-0">
-          <Button onClick={handleUpdatePassword} disabled={isPasswordSubmitting}>
-             {isPasswordSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Ubah Password
-          </Button>
-        </div>
-      </Card>
+    <div className="bg-muted/40">
+        <div className="container max-w-screen-lg mx-auto py-8 md:py-12 animate-in fade-in-0 duration-500">
+            <div className="flex items-center gap-4 mb-8">
+                <span className="relative flex shrink-0 overflow-hidden rounded-full h-16 w-16">
+                    <Image className="aspect-square h-full w-full" alt={user.displayName || "User"} data-ai-hint="user avatar" src={user.photoURL || "https://placehold.co/100x100.png"} width={64} height={64} />
+                </span>
+                <div>
+                    <h1 className="text-2xl font-bold font-headline">{user.displayName}</h1>
+                    <p className="text-muted-foreground">{user.email}</p>
+                </div>
+            </div>
 
-      <Card>
-        <CardHeader>
-             <div className="flex items-center justify-between">
-                 <div className="flex items-center gap-3">
-                    <Home className="h-6 w-6" />
-                    <CardTitle>Buku Alamat</CardTitle>
-                 </div>
-                 <Dialog open={isAddressDialogOpen} onOpenChange={setIsAddressDialogOpen}>
-                    <DialogTrigger asChild>
-                       <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Tambah Alamat</Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-lg">
-                        <DialogHeader>
-                            <DialogTitle>Tambah Alamat Baru</DialogTitle>
-                            <DialogDescription>Simpan alamat untuk mempermudah proses checkout nanti.</DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-2">
-                            <div className="space-y-1">
-                                <Label htmlFor="label">Label Alamat</Label>
-                                <Input id="label" value={newAddress.label} onChange={handleAddressDialogInputChange} placeholder="Contoh: Rumah, Kantor, Toko"/>
+             <Card className="mb-8">
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div className="font-semibold tracking-tight font-headline text-lg">Pesanan Saya</div>
+                        <Link className="flex items-center text-sm text-primary hover:underline" href="/reseller/orders">
+                            Lihat Semua <ChevronRight className="h-4 w-4"/>
+                        </Link>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-4 gap-2 sm:gap-4 text-center">
+                        <Link className="group" href="/reseller/orders?tab=unpaid">
+                            <div className="p-2 rounded-lg hover:bg-muted/50">
+                                <Wallet className="h-6 w-6 sm:h-8 sm:w-8 mx-auto text-muted-foreground group-hover:text-primary"/>
+                                <p className="mt-2 text-xs font-medium">Belum Bayar</p>
                             </div>
-                             <div className="space-y-1">
-                                <Label htmlFor="address">Alamat Lengkap</Label>
-                                <Textarea id="address" value={newAddress.address} onChange={handleAddressDialogInputChange} placeholder="Jalan, No. Rumah, RT/RW, Kelurahan, Kecamatan, Kota, Kode Pos"/>
+                        </Link>
+                         <Link className="group" href="/reseller/orders?tab=processing">
+                            <div className="p-2 rounded-lg hover:bg-muted/50">
+                                <Package className="h-6 w-6 sm:h-8 sm:w-8 mx-auto text-muted-foreground group-hover:text-primary"/>
+                                <p className="mt-2 text-xs font-medium">Dikemas</p>
                             </div>
-                             <div className="space-y-1">
-                                <Label htmlFor="whatsapp">Nomor WhatsApp Penerima</Label>
-                                <Input id="whatsapp" value={newAddress.whatsapp} onChange={handleAddressDialogInputChange} placeholder="Nomor telepon di alamat ini"/>
+                        </Link>
+                         <Link className="group" href="/reseller/orders?tab=shipped">
+                            <div className="p-2 rounded-lg hover:bg-muted/50">
+                                <Package className="h-6 w-6 sm:h-8 sm:w-8 mx-auto text-muted-foreground group-hover:text-primary"/>
+                                <p className="mt-2 text-xs font-medium">Dikirim</p>
                             </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="ghost" onClick={() => setIsAddressDialogOpen(false)}>Batal</Button>
-                            <Button onClick={handleSaveAddress} disabled={isSubmitting}>
-                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Simpan
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                 </Dialog>
-             </div>
-          <CardDescription>
-            Kelola alamat pengiriman Anda untuk proses checkout yang lebih cepat.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            {isAddressLoading ? (
-                 <p>Memuat alamat...</p>
-            ) : addresses.length > 0 ? (
-                <div className="space-y-4">
-                    {addresses.map(addr => (
-                         <div key={addr.id} className="flex items-start justify-between rounded-lg border p-4">
-                            <div>
-                                <p className="font-bold">{addr.label}</p>
-                                <p className="text-sm text-muted-foreground">{addr.address}</p>
-                                <p className="text-sm text-muted-foreground">Telp: {addr.whatsapp}</p>
+                        </Link>
+                         <Link className="group" href="/reseller/orders?tab=delivered">
+                            <div className="p-2 rounded-lg hover:bg-muted/50">
+                                <Star className="h-6 w-6 sm:h-8 sm:w-8 mx-auto text-muted-foreground group-hover:text-primary"/>
+                                <p className="mt-2 text-xs font-medium">Selesai</p>
                             </div>
-                             <Button variant="ghost" size="icon" onClick={() => handleDeleteAddress(addr.id)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                             </Button>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="text-center p-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                    <p>Anda belum menambahkan alamat tersimpan.</p>
-                </div>
-            )}
-        </CardContent>
-      </Card>
+                        </Link>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardContent className="p-2">
+                    <div className="flex flex-col">
+                        <Link href="/reseller/profile/settings">
+                            <div className="flex items-center p-3 md:p-4 rounded-lg hover:bg-muted/50 cursor-pointer">
+                                <UserCircle className="h-5 w-5 mr-4 text-muted-foreground"/>
+                                <span className="flex-grow font-medium text-sm md:text-base">Profil Saya</span>
+                                <ChevronRight className="h-5 w-5 text-muted-foreground"/>
+                            </div>
+                        </Link>
+                         <Separator/>
+                        <Link href="/reseller/profile/address">
+                            <div className="flex items-center p-3 md:p-4 rounded-lg hover:bg-muted/50 cursor-pointer">
+                                <Home className="h-5 w-5 mr-4 text-muted-foreground"/>
+                                <span className="flex-grow font-medium text-sm md:text-base">Alamat Saya</span>
+                                <ChevronRight className="h-5 w-5 text-muted-foreground"/>
+                            </div>
+                        </Link>
+                         <Separator/>
+                        <Link href="/reseller/profile/security">
+                            <div className="flex items-center p-3 md:p-4 rounded-lg hover:bg-muted/50 cursor-pointer">
+                                <ShieldCheck className="h-5 w-5 mr-4 text-muted-foreground"/>
+                                <span className="flex-grow font-medium text-sm md:text-base">Keamanan Akun</span>
+                                <ChevronRight className="h-5 w-5 text-muted-foreground"/>
+                            </div>
+                        </Link>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="mt-8 text-center">
+                <Button onClick={handleLogout} variant="destructive" className="font-headline w-full sm:w-auto">
+                    <LogOut className="mr-2 h-4 w-4"/>
+                    Keluar
+                </Button>
+            </div>
+        </div>
     </div>
   );
 }
