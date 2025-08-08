@@ -18,7 +18,6 @@ export default function CategoriesPage() {
       <ProductGrid 
         searchTerm={searchTerm}
         category={selectedCategory}
-        limit={24}
       />
     </div>
   );

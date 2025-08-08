@@ -1,12 +1,15 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import ProductCard from "../product-card";
 import { useToast } from "@/hooks/use-toast";
-import { Card } from "@/components/ui/card";
+import { Card, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Product {
   id: string;
@@ -38,10 +41,13 @@ const formatCurrency = (value: string | number): string => {
     }).format(num);
 }
 
-export default function ProductGrid({ searchTerm, category, limit }: { searchTerm: string, category: string, limit?: number }) {
-    const [products, setProducts] = useState<Product[]>([]);
+export default function ProductGrid({ searchTerm, category }: { searchTerm: string, category: string }) {
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
+    
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(24);
 
     useEffect(() => {
         async function fetchProducts() {
@@ -67,7 +73,7 @@ export default function ProductGrid({ searchTerm, category, limit }: { searchTer
                     }
                 });
 
-                let finalProducts = productsData.map(product => {
+                const finalProducts = productsData.map(product => {
                     if (activePromos.has(product.id)) {
                         product.isPromo = true;
                         product.discountPrice = formatCurrency(activePromos.get(product.id)!.discountPrice);
@@ -75,33 +81,7 @@ export default function ProductGrid({ searchTerm, category, limit }: { searchTer
                     return product;
                 });
                 
-                // Filtering
-                if (category !== "Semua") {
-                    finalProducts = finalProducts.filter(p => p.category === category);
-                }
-                if (searchTerm) {
-                    finalProducts = finalProducts.filter(p => 
-                        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                        (p.sku && String(p.sku).toLowerCase().includes(searchTerm.toLowerCase()))
-                    );
-                }
-
-                // Sorting: by stock status first, then by name
-                finalProducts.sort((a, b) => {
-                    if (a.stock > 0 && b.stock === 0) {
-                        return -1;
-                    }
-                    if (a.stock === 0 && b.stock > 0) {
-                        return 1;
-                    }
-                    return a.name.localeCompare(b.name);
-                });
-
-                if (limit) {
-                    finalProducts = finalProducts.slice(0, limit);
-                }
-
-                setProducts(finalProducts);
+                setAllProducts(finalProducts);
 
             } catch (error) {
                 console.error("Failed to fetch products:", error);
@@ -114,7 +94,45 @@ export default function ProductGrid({ searchTerm, category, limit }: { searchTer
             }
         }
         fetchProducts();
-    }, [toast, searchTerm, category, limit]);
+    }, [toast]);
+    
+    const filteredProducts = useMemo(() => {
+        let filtered = allProducts;
+        if (category !== "Semua") {
+            filtered = filtered.filter(p => p.category === category);
+        }
+        if (searchTerm) {
+            filtered = filtered.filter(p => 
+                p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                (p.sku && String(p.sku).toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+        }
+
+        // Sorting: by stock status first, then by name
+        filtered.sort((a, b) => {
+            if (a.stock > 0 && b.stock === 0) {
+                return -1;
+            }
+            if (a.stock === 0 && b.stock > 0) {
+                return 1;
+            }
+            return a.name.localeCompare(b.name);
+        });
+        
+        return filtered;
+    }, [allProducts, category, searchTerm]);
+
+    const paginatedProducts = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return filteredProducts.slice(startIndex, endIndex);
+    }, [currentPage, itemsPerPage, filteredProducts]);
+
+    const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+    
+     useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, category]);
 
     return (
         <section className="w-full py-6 md:py-10">
@@ -133,12 +151,65 @@ export default function ProductGrid({ searchTerm, category, limit }: { searchTer
                             </Card>
                         ))}
                     </div>
-                ) : products.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
-                        {products.map((product) => (
-                            <ProductCard key={product.id} product={product} />
-                        ))}
-                    </div>
+                ) : paginatedProducts.length > 0 ? (
+                    <>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
+                            {paginatedProducts.map((product) => (
+                                <ProductCard key={product.id} product={product} />
+                            ))}
+                        </div>
+                        <CardFooter className="mt-8">
+                             <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+                                <div className="flex-1">
+                                    Menampilkan {paginatedProducts.length} dari {filteredProducts.length} produk.
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <p>Baris per halaman</p>
+                                        <Select
+                                            value={`${itemsPerPage}`}
+                                            onValueChange={(value) => {
+                                                setItemsPerPage(Number(value));
+                                                setCurrentPage(1);
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 w-[70px]">
+                                                <SelectValue placeholder={itemsPerPage} />
+                                            </SelectTrigger>
+                                            <SelectContent side="top">
+                                                {[24, 48, 96].map((pageSize) => (
+                                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                        {pageSize}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>Halaman {currentPage} dari {totalPages}</div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                            disabled={currentPage === 1}
+                                        >
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                            disabled={currentPage === totalPages}
+                                        >
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardFooter>
+                    </>
                 ) : (
                     <div className="text-center py-10 text-muted-foreground">
                         <p>Tidak ada produk yang cocok dengan kriteria Anda.</p>
