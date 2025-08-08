@@ -23,7 +23,7 @@ export default function ResellerLayout({
 }>) {
   return (
     <CartProvider>
-        <div className="relative flex min-h-dvh flex-col bg-background overflow-x-hidden">
+        <div className="relative flex min-h-dvh flex-col bg-background">
           <ResellerHeader />
           <main className="flex-1 pb-20 md:pb-0">{children}</main>
           <Footer />
