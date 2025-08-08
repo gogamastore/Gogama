@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { doc, getDoc, collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,17 +45,19 @@ const formatCurrency = (value: string | number): string => {
     }).format(num);
 }
 
-export default function ProductDetailPage({ params }: { params: { productId: string } }) {
+export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const router = useRouter();
+  const params = useParams();
   const { toast } = useToast();
   const { addToCart } = useCart();
-  const productId = params.productId;
+  const productId = params.productId as string;
 
   const fetchProductDetails = useCallback(async () => {
+    if (!productId) return;
     setLoading(true);
     try {
       const productRef = doc(db, "products", productId);
