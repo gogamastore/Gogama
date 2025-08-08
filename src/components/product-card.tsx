@@ -6,7 +6,9 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ShoppingCart } from 'lucide-react';
 import { Progress } from './ui/progress';
-import { ProductDetailDialog } from '../app/reseller/components/product-detail-dialog';
+import { useCart } from '@/hooks/use-cart';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 interface Product {
     id: string;
@@ -35,12 +37,28 @@ const formatCurrency = (value: string | number): string => {
 export default function ProductCard({ product, showStockProgress }: { product: Product, showStockProgress?: boolean }) {
     const stockAvailable = product.stock > 0;
     const stockProgress = (product.sold && product.stock) ? (product.sold / (product.sold + product.stock)) * 100 : 0;
+    const { addToCart } = useCart();
+    const { toast } = useToast();
+    const [isAdding, setIsAdding] = useState(false);
+
+    const handleAddToCart = async (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsAdding(true);
+        try {
+            await addToCart(product, 1);
+        } catch (error) {
+            // Error toast is handled in the hook
+        } finally {
+            setIsAdding(false);
+        }
+    };
     
     return (
-        <Card className="w-full overflow-hidden transition-all duration-300 hover:shadow-lg">
-            <CardContent className="p-0">
-                <ProductDetailDialog product={product}>
-                    <div className="relative cursor-pointer group">
+        <Card className="w-full overflow-hidden transition-all duration-300 hover:shadow-lg group">
+             <Link href={`/reseller/products/${product.id}`} className="block cursor-pointer">
+                <CardContent className="p-0">
+                    <div className="relative">
                          {product.isPromo && (
                             <Badge variant="destructive" className="absolute top-2 left-2 z-10 font-headline">
                                 Promo
@@ -60,37 +78,35 @@ export default function ProductCard({ product, showStockProgress }: { product: P
                             </div>
                         )}
                     </div>
-                </ProductDetailDialog>
-                <div className="p-3 space-y-2">
-                     <ProductDetailDialog product={product}>
-                        <h3 className="font-headline text-sm font-semibold leading-snug truncate cursor-pointer hover:text-primary">
+                    <div className="p-3 space-y-2">
+                        <h3 className="font-headline text-sm font-semibold leading-snug truncate">
                             {product.name}
                         </h3>
-                     </ProductDetailDialog>
-                     <div>
-                        {product.isPromo && product.discountPrice ? (
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-base font-bold text-primary">{formatCurrency(product.discountPrice)}</span>
-                                <span className="text-xs text-muted-foreground line-through">{formatCurrency(product.price)}</span>
-                            </div>
-                        ) : (
-                            <span className="text-base font-bold text-primary">{formatCurrency(product.price)}</span>
+                         <div>
+                            {product.isPromo && product.discountPrice ? (
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-base font-bold text-primary">{formatCurrency(product.discountPrice)}</span>
+                                    <span className="text-xs text-muted-foreground line-through">{formatCurrency(product.price)}</span>
+                                </div>
+                            ) : (
+                                <span className="text-base font-bold text-primary">{formatCurrency(product.price)}</span>
+                            )}
+                        </div>
+                        {showStockProgress && product.sold && (
+                           <div className="space-y-1">
+                             <Progress value={stockProgress} className="h-2" />
+                             <p className="text-xs text-muted-foreground">{product.sold} Terjual</p>
+                           </div>
                         )}
                     </div>
-                    {showStockProgress && product.sold && (
-                       <div className="space-y-1">
-                         <Progress value={stockProgress} className="h-2" />
-                         <p className="text-xs text-muted-foreground">{product.sold} Terjual</p>
-                       </div>
-                    )}
-                     <ProductDetailDialog product={product}>
-                         <Button className="w-full mt-2" variant="secondary" size="sm" disabled={!stockAvailable}>
-                            <ShoppingCart className="mr-2 h-4 w-4" />
-                            Detail
-                        </Button>
-                    </ProductDetailDialog>
-                </div>
-            </CardContent>
+                </CardContent>
+            </Link>
+             <div className="px-3 pb-3">
+                 <Button className="w-full" variant="secondary" size="sm" disabled={!stockAvailable || isAdding} onClick={handleAddToCart}>
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    {isAdding ? 'Menambahkan...' : 'Tambah'}
+                </Button>
+            </div>
         </Card>
     );
 }
