@@ -26,6 +26,7 @@ export default function Home() {
       <ProductGrid 
         searchTerm={searchTerm}
         category={selectedCategory}
+        limit={24}
       />
     </div>
   );
