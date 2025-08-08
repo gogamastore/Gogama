@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -87,7 +88,7 @@ export default function ResellerChatTrigger() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-20 md:bottom-6 right-6 z-50">
         {isOpen && (
             <Card className="w-80 h-[500px] shadow-2xl rounded-xl mb-2 flex flex-col overflow-hidden animate-in fade-in-50 slide-in-from-bottom-5">
                 <CardHeader className="flex flex-row items-center justify-between bg-card p-4 border-b">
