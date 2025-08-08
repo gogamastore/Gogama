@@ -21,12 +21,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -344,104 +338,6 @@ function ProductSheet({ onProductAdded }: { onProductAdded: () => void }) {
   )
 }
 
-function AdjustStockDialog({ product, onStockAdjusted }: { product: Product, onStockAdjusted: () => void }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [adjustment, setAdjustment] = useState({
-        type: 'in', // 'in' or 'out'
-        quantity: 0,
-        reason: ''
-    });
-    const { toast } = useToast();
-
-    const handleAdjustStock = async () => {
-        if (adjustment.quantity <= 0 || !adjustment.reason) {
-            toast({ variant: 'destructive', title: 'Data Tidak Lengkap', description: 'Jumlah dan alasan harus diisi.' });
-            return;
-        }
-        if (adjustment.type === 'out' && adjustment.quantity > product.stock) {
-            toast({ variant: 'destructive', title: 'Stok Tidak Cukup', description: 'Jumlah penarikan stok melebihi stok yang tersedia.' });
-            return;
-        }
-
-        setLoading(true);
-        const batch = writeBatch(db);
-
-        try {
-            // 1. Update product stock
-            const productRef = doc(db, "products", product.id);
-            const newStock = adjustment.type === 'in'
-                ? product.stock + adjustment.quantity
-                : product.stock - adjustment.quantity;
-            batch.update(productRef, { stock: newStock });
-
-            // 2. Create stock adjustment log
-            const logRef = doc(collection(db, "stock_adjustments"));
-            batch.set(logRef, {
-                productId: product.id,
-                productName: product.name,
-                sku: product.sku,
-                type: adjustment.type, // 'in' or 'out'
-                quantity: adjustment.quantity,
-                reason: adjustment.reason,
-                previousStock: product.stock,
-                newStock: newStock,
-                createdAt: serverTimestamp()
-            });
-            
-            await batch.commit();
-
-            toast({ title: 'Stok Berhasil Disesuaikan', description: `Stok untuk ${product.name} telah diperbarui.` });
-            onStockAdjusted();
-            setIsOpen(false);
-            setAdjustment({ type: 'in', quantity: 0, reason: '' }); // Reset form
-        } catch (error) {
-            console.error("Error adjusting stock:", error);
-            toast({ variant: 'destructive', title: 'Gagal Menyesuaikan Stok' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="sm">Sesuaikan Stok</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Penyesuaian Stok: {product.name}</DialogTitle>
-                    <DialogDescription>Stok saat ini: <span className="font-bold">{product.stock}</span></DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                    <RadioGroup defaultValue="in" onValueChange={(value) => setAdjustment(p => ({ ...p, type: value }))}>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="in" id="in" />
-                            <Label htmlFor="in" className="flex items-center gap-2"><ArrowUp className="h-4 w-4 text-green-500" /> Stok Masuk</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="out" id="out" />
-                            <Label htmlFor="out" className="flex items-center gap-2"><ArrowDown className="h-4 w-4 text-red-500" /> Stok Keluar</Label>
-                        </div>
-                    </RadioGroup>
-                    <div className="space-y-1">
-                        <Label htmlFor="quantity">Jumlah</Label>
-                        <Input id="quantity" type="number" value={adjustment.quantity} onChange={e => setAdjustment(p => ({ ...p, quantity: Number(e.target.value) }))} min="1" />
-                    </div>
-                     <div className="space-y-1">
-                        <Label htmlFor="reason">Alasan Penyesuaian</Label>
-                        <Textarea id="reason" placeholder="Contoh: Stok opname, barang rusak, retur..." value={adjustment.reason} onChange={e => setAdjustment(p => ({ ...p, reason: e.target.value }))} />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsOpen(false)}>Batal</Button>
-                    <Button onClick={handleAdjustStock} disabled={loading}>{loading ? 'Menyimpan...' : 'Simpan Perubahan'}</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 function BulkImportDialog({ onImportSuccess }: { onImportSuccess: () => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -602,7 +498,6 @@ function ImageViewer({ src, alt }: { src: string, alt: string }) {
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -621,11 +516,6 @@ export default function ProductsPage() {
         const querySnapshot = await getDocs(collection(db, "products"));
         const productsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setProducts(productsData);
-        
-        const lowStockQuery = query(collection(db, "products"), where("stock", "<=", 5));
-        const lowStockSnapshot = await getDocs(lowStockQuery);
-        const lowStockData = lowStockSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setLowStockProducts(lowStockData);
     } catch (error) {
         console.error("Error fetching products:", error);
     } finally {
@@ -665,19 +555,6 @@ export default function ProductsPage() {
     }
     return sortProducts(filtered, sortConfig);
   }, [searchTerm, products, sortConfig]);
-  
-  const sortedAndFilteredLowStockProducts = useMemo(() => {
-    let filtered = lowStockProducts;
-    if (searchTerm) {
-        const lowercasedFilter = searchTerm.toLowerCase();
-        filtered = lowStockProducts.filter(product => {
-            const nameMatch = product.name.toLowerCase().includes(lowercasedFilter);
-            const skuMatch = String(product.sku || '').toLowerCase().includes(lowercasedFilter);
-            return nameMatch || skuMatch;
-        });
-    }
-    return sortProducts(filtered, sortConfig);
-  }, [searchTerm, lowStockProducts, sortConfig]);
 
 
   const paginatedProducts = useMemo(() => {
@@ -804,330 +681,227 @@ export default function ProductsPage() {
 
   return (
     <>
-    <Tabs defaultValue="all" onValueChange={() => { setSearchTerm(''); setCurrentPage(1); }}>
-        <div className="flex items-center">
-            <TabsList>
-                <TabsTrigger value="all">Daftar Produk</TabsTrigger>
-                <TabsTrigger value="low-stock">Stok Menipis</TabsTrigger>
-                <TabsTrigger value="stock-management">Manajemen Stok</TabsTrigger>
-            </TabsList>
-            <div className="ml-auto flex items-center gap-2">
-                 {selectedProducts.length > 0 && (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm" className="h-8 gap-1">
-                                <Trash2 className="h-3.5 w-3.5" />
-                                <span className="sr-only sm:not-sr-only">Hapus ({selectedProducts.length})</span>
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Tindakan ini akan menghapus {selectedProducts.length} produk secara permanen. Aksi ini tidak dapat diurungkan.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Batal</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteSelectedProducts} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                    Ya, Hapus Produk
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                )}
-                <BulkImportDialog onImportSuccess={fetchProducts} />
-                <ProductSheet onProductAdded={fetchProducts} />
-            </div>
-        </div>
-        <TabsContent value="all">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Produk</CardTitle>
+    <Card>
+        <CardHeader>
+            <div className="flex items-center justify-between">
+                <div>
+                    <CardTitle>Manajemen Produk</CardTitle>
                     <CardDescription>
                         Kelola produk Anda dan lihat performa penjualannya.
                     </CardDescription>
-                    {renderSortControls()}
-                </CardHeader>
-                <CardContent>
-                    <div className="relative w-full overflow-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead className="w-[40px]">
-                                    <Checkbox
-                                        checked={isAllOnPageSelected}
-                                        onCheckedChange={handleSelectAll}
-                                        aria-label="Pilih semua"
-                                    />
-                                </TableHead>
-                                <TableHead className="w-[64px]">
-                                    <span className="sr-only">Image</span>
-                                </TableHead>
-                                <TableHead>Nama</TableHead>
-                                <TableHead className="hidden md:table-cell">Stok</TableHead>
-                                <TableHead className="text-right hidden sm:table-cell">Harga Beli</TableHead>
-                                <TableHead className="text-right">Harga Jual</TableHead>
-                                <TableHead className="w-[50px] text-right">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="h-24 text-center">Memuat produk...</TableCell>
-                                    </TableRow>
-                                ) : paginatedProducts.length > 0 ? (
-                                    paginatedProducts.map((product) => (
-                                        <TableRow key={product.id} data-state={selectedProducts.includes(product.id) && "selected"}>
-                                            <TableCell>
-                                                 <Checkbox
-                                                    checked={selectedProducts.includes(product.id)}
-                                                    onCheckedChange={(checked) => handleSelectProduct(product.id, !!checked)}
-                                                    aria-label={`Pilih produk ${product.name}`}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <ImageViewer src={product.image} alt={product.name}/>
-                                            </TableCell>
-                                            <TableCell className="font-medium">{product.name}</TableCell>
-                                            <TableCell className="hidden md:table-cell">
-                                                <Badge className={cn({
-                                                    'bg-destructive text-destructive-foreground hover:bg-destructive/80': product.stock === 0,
-                                                    'bg-orange-500 text-white hover:bg-orange-500/80': product.stock > 0 && product.stock <= 5,
-                                                })}>
-                                                    {product.stock > 0 ? `${product.stock}` : 'Habis'}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right hidden sm:table-cell">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
-                                            <TableCell className="text-right">{product.price}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Dialog>
-                                                    <DialogTrigger asChild>
-                                                        <Button variant="outline" size="sm">
-                                                            <Eye className="mr-2 h-4 w-4"/>
-                                                            Lihat
-                                                        </Button>
-                                                    </DialogTrigger>
-                                                    <DialogContent className="sm:max-w-md">
-                                                        <DialogHeader>
-                                                            <DialogTitle>Aksi untuk: {product.name}</DialogTitle>
-                                                            <DialogDescription>Detail produk dan aksi yang bisa dilakukan.</DialogDescription>
-                                                        </DialogHeader>
-                                                        
-                                                        <div className="py-4 space-y-2 text-sm">
-                                                            <div className="flex justify-between">
-                                                                <span className="text-muted-foreground">SKU</span>
-                                                                <span className="font-medium">{product.sku}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-muted-foreground">Kategori</span>
-                                                                <span className="font-medium">{product.category}</span>
-                                                            </div>
-                                                            <div className="flex justify-between">
-                                                                <span className="text-muted-foreground">Harga Beli</span>
-                                                                <span className="font-medium">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</span>
-                                                            </div>
-                                                             <div className="flex justify-between">
-                                                                <span className="text-muted-foreground">Harga Jual</span>
-                                                                <span className="font-medium">{product.price}</span>
-                                                            </div>
-                                                             <div className="space-y-1">
-                                                                <span className="text-muted-foreground">Deskripsi</span>
-                                                                <p className="font-medium p-2 bg-muted rounded-md">{product.description || 'Tidak ada deskripsi.'}</p>
-                                                            </div>
-                                                        </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    {selectedProducts.length > 0 && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm" className="h-8 gap-1">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <span className="sr-only sm:not-sr-only">Hapus ({selectedProducts.length})</span>
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Tindakan ini akan menghapus {selectedProducts.length} produk secara permanen. Aksi ini tidak dapat diurungkan.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDeleteSelectedProducts} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                        Ya, Hapus Produk
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                    <BulkImportDialog onImportSuccess={fetchProducts} />
+                    <ProductSheet onProductAdded={fetchProducts} />
+                </div>
+            </div>
+            {renderSortControls()}
+        </CardHeader>
+        <CardContent>
+            <div className="relative w-full overflow-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead className="w-[40px]">
+                            <Checkbox
+                                checked={isAllOnPageSelected}
+                                onCheckedChange={handleSelectAll}
+                                aria-label="Pilih semua"
+                            />
+                        </TableHead>
+                        <TableHead className="w-[64px]">
+                            <span className="sr-only">Image</span>
+                        </TableHead>
+                        <TableHead>Nama</TableHead>
+                        <TableHead className="hidden md:table-cell">Stok</TableHead>
+                        <TableHead className="text-right hidden sm:table-cell">Harga Beli</TableHead>
+                        <TableHead className="text-right">Harga Jual</TableHead>
+                        <TableHead className="w-[50px] text-right">Aksi</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            <TableRow>
+                                <TableCell colSpan={7} className="h-24 text-center">Memuat produk...</TableCell>
+                            </TableRow>
+                        ) : paginatedProducts.length > 0 ? (
+                            paginatedProducts.map((product) => (
+                                <TableRow key={product.id} data-state={selectedProducts.includes(product.id) && "selected"}>
+                                    <TableCell>
+                                            <Checkbox
+                                            checked={selectedProducts.includes(product.id)}
+                                            onCheckedChange={(checked) => handleSelectProduct(product.id, !!checked)}
+                                            aria-label={`Pilih produk ${product.name}`}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <ImageViewer src={product.image} alt={product.name}/>
+                                    </TableCell>
+                                    <TableCell className="font-medium">{product.name}</TableCell>
+                                    <TableCell className="hidden md:table-cell">
+                                        <Badge className={cn({
+                                            'bg-destructive text-destructive-foreground hover:bg-destructive/80': product.stock === 0,
+                                            'bg-orange-500 text-white hover:bg-orange-500/80': product.stock > 0 && product.stock <= 5,
+                                        })}>
+                                            {product.stock > 0 ? `${product.stock}` : 'Habis'}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right hidden sm:table-cell">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</TableCell>
+                                    <TableCell className="text-right">{product.price}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" size="sm">
+                                                    <Eye className="mr-2 h-4 w-4"/>
+                                                    Lihat
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="sm:max-w-md">
+                                                <DialogHeader>
+                                                    <DialogTitle>Aksi untuk: {product.name}</DialogTitle>
+                                                    <DialogDescription>Detail produk dan aksi yang bisa dilakukan.</DialogDescription>
+                                                </DialogHeader>
+                                                
+                                                <div className="py-4 space-y-2 text-sm">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">SKU</span>
+                                                        <span className="font-medium">{product.sku}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Kategori</span>
+                                                        <span className="font-medium">{product.category}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Harga Beli</span>
+                                                        <span className="font-medium">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(product.purchasePrice || 0)}</span>
+                                                    </div>
+                                                        <div className="flex justify-between">
+                                                        <span className="text-muted-foreground">Harga Jual</span>
+                                                        <span className="font-medium">{product.price}</span>
+                                                    </div>
+                                                        <div className="space-y-1">
+                                                        <span className="text-muted-foreground">Deskripsi</span>
+                                                        <p className="font-medium p-2 bg-muted rounded-md">{product.description || 'Tidak ada deskripsi.'}</p>
+                                                    </div>
+                                                </div>
 
-                                                        <Separator />
-                                                        <div className="grid grid-cols-1 gap-2 py-2">
-                                                            <Button variant="outline" className="w-full justify-start" onClick={() => handleEditClick(product)}>
-                                                                <Edit className="mr-2 h-4 w-4"/> Edit Produk
+                                                <Separator />
+                                                <div className="grid grid-cols-1 gap-2 py-2">
+                                                    <Button variant="outline" className="w-full justify-start" onClick={() => handleEditClick(product)}>
+                                                        <Edit className="mr-2 h-4 w-4"/> Edit Produk
+                                                    </Button>
+                                                        <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="destructive" className="w-full justify-start">
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Hapus Produk
                                                             </Button>
-                                                             <AlertDialog>
-                                                                <AlertDialogTrigger asChild>
-                                                                    <Button variant="destructive" className="w-full justify-start">
-                                                                        <Trash2 className="mr-2 h-4 w-4" /> Hapus Produk
-                                                                    </Button>
-                                                                </AlertDialogTrigger>
-                                                                <AlertDialogContent>
-                                                                    <AlertDialogHeader>
-                                                                        <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
-                                                                        <AlertDialogDescription>
-                                                                            Tindakan ini akan menghapus produk <span className="font-bold">{product.name}</span> secara permanen. Aksi ini tidak dapat diurungkan.
-                                                                        </AlertDialogDescription>
-                                                                    </AlertDialogHeader>
-                                                                    <AlertDialogFooter>
-                                                                        <AlertDialogCancel>Batal</AlertDialogCancel>
-                                                                        <AlertDialogAction onClick={() => handleDeleteProduct(product.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Hapus Produk</AlertDialogAction>
-                                                                    </AlertDialogFooter>
-                                                                </AlertDialogContent>
-                                                            </AlertDialog>
-                                                        </div>
-                                                    </DialogContent>
-                                                </Dialog>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="h-24 text-center">
-                                            Tidak ada produk yang cocok dengan pencarian Anda.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-                 <CardFooter>
-                    <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-                       <div className="flex-1">
-                           Menampilkan {paginatedProducts.length} dari {sortedAndFilteredProducts.length} produk.
-                       </div>
-                       <div className="flex items-center gap-4">
-                           <div className="flex items-center gap-2">
-                               <p>Baris per halaman</p>
-                               <Select
-                                   value={`${itemsPerPage}`}
-                                   onValueChange={(value) => {
-                                       setItemsPerPage(Number(value));
-                                       setCurrentPage(1);
-                                   }}
-                               >
-                                   <SelectTrigger className="h-8 w-[70px]">
-                                       <SelectValue placeholder={itemsPerPage} />
-                                   </SelectTrigger>
-                                   <SelectContent side="top">
-                                       {[20, 50, 100].map((pageSize) => (
-                                           <SelectItem key={pageSize} value={`${pageSize}`}>
-                                               {pageSize}
-                                           </SelectItem>
-                                       ))}
-                                   </SelectContent>
-                               </Select>
-                           </div>
-                           <div>Halaman {currentPage} dari {totalPages}</div>
-                           <div className="flex items-center gap-2">
-                                <Button
-                                   variant="outline"
-                                   size="icon"
-                                   className="h-8 w-8"
-                                   onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                                   disabled={currentPage === 1}
-                               >
-                                   <ChevronLeft className="h-4 w-4" />
-                               </Button>
-                                <Button
-                                   variant="outline"
-                                   size="icon"
-                                   className="h-8 w-8"
-                                   onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                                   disabled={currentPage === totalPages}
-                               >
-                                   <ChevronRight className="h-4 w-4" />
-                               </Button>
-                           </div>
-                       </div>
-                   </div>
-                </CardFooter>
-            </Card>
-        </TabsContent>
-        <TabsContent value="low-stock">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Produk Stok Menipis</CardTitle>
-                    <CardDescription>
-                        Produk dengan jumlah stok 5 atau kurang. Segera restock!
-                    </CardDescription>
-                     {renderSortControls()}
-                </CardHeader>
-                <CardContent>
-                     <div className="relative w-full overflow-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[64px]">Gambar</TableHead>
-                                    <TableHead>Nama Produk</TableHead>
-                                    <TableHead className="hidden md:table-cell">SKU</TableHead>
-                                    <TableHead className="text-right">Stok Tersisa</TableHead>
-                                    <TableHead className="text-right">Aksi</TableHead>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Anda Yakin?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Tindakan ini akan menghapus produk <span className="font-bold">{product.name}</span> secara permanen. Aksi ini tidak dapat diurungkan.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteProduct(product.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Ya, Hapus Produk</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
-                                    </TableRow>
-                                ) : sortedAndFilteredLowStockProducts.length > 0 ? sortedAndFilteredLowStockProducts.map((product) => (
-                                    <TableRow key={product.id}>
-                                        <TableCell>
-                                            <ImageViewer src={product.image} alt={product.name}/>
-                                        </TableCell>
-                                        <TableCell className="font-medium">{product.name}</TableCell>
-                                        <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
-                                        <TableCell className="text-right">
-                                          <Badge variant={product.stock === 0 ? "destructive" : "default"} className={cn({'bg-orange-500 text-white hover:bg-orange-500/80': product.stock > 0})}>{product.stock}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <AdjustStockDialog product={product} onStockAdjusted={fetchProducts} />
-                                        </TableCell>
-                                    </TableRow>
-                                )) : (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">Tidak ada produk dengan stok menipis.</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                     </div>
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="stock-management">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Manajemen Stok</CardTitle>
-                    <CardDescription>
-                        Lakukan penyesuaian stok untuk produk Anda dan lihat riwayat perubahan.
-                    </CardDescription>
-                    {renderSortControls()}
-                </CardHeader>
-                <CardContent>
-                     <div className="relative w-full overflow-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[64px]">Gambar</TableHead>
-                                    <TableHead>Nama Produk</TableHead>
-                                    <TableHead className="hidden md:table-cell">SKU</TableHead>
-                                    <TableHead className="text-center">Stok Saat Ini</TableHead>
-                                    <TableHead className="text-right">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
-                                    </TableRow>
-                                ) : sortedAndFilteredProducts.map((product) => (
-                                    <TableRow key={product.id}>
-                                        <TableCell>
-                                            <ImageViewer src={product.image} alt={product.name}/>
-                                        </TableCell>
-                                        <TableCell className="font-medium">{product.name}</TableCell>
-                                        <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
-                                        <TableCell className="text-center font-bold">{product.stock}</TableCell>
-                                        <TableCell className="text-right">
-                                            <AdjustStockDialog product={product} onStockAdjusted={fetchProducts} />
-                                        </TableCell>
-                                    </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={7} className="h-24 text-center">
+                                    Tidak ada produk yang cocok dengan pencarian Anda.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+        </CardContent>
+            <CardFooter>
+            <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+                <div className="flex-1">
+                    Menampilkan {paginatedProducts.length} dari {sortedAndFilteredProducts.length} produk.
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <p>Baris per halaman</p>
+                        <Select
+                            value={`${itemsPerPage}`}
+                            onValueChange={(value) => {
+                                setItemsPerPage(Number(value));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={itemsPerPage} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[20, 50, 100].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
                                 ))}
-                            </TableBody>
-                        </Table>
-                     </div>
-                </CardContent>
-            </Card>
-        </TabsContent>
-    </Tabs>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>Halaman {currentPage} dari {totalPages}</div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </CardFooter>
+    </Card>
 
      <Sheet open={isSheetOpen} onOpenChange={handleSheetOpenChange}>
         <SheetContent>
@@ -1137,6 +911,3 @@ export default function ProductsPage() {
     </>
   )
 }
-    
-
-    

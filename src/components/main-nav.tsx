@@ -18,7 +18,8 @@ import { Button } from "./ui/button"
 const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/dashboard/orders", label: "Pesanan", icon: ShoppingCart },
-    { href: "/dashboard/products", label: "Produk", icon: Package },
+    { href: "/dashboard/products", label: "Manajemen Produk", icon: Package },
+    { href: "/dashboard/stock-management", label: "Manajemen Stok", icon: Warehouse },
     { href: "/dashboard/purchases", label: "Transaksi Pembelian", icon: Archive },
     { href: "/dashboard/operational-costs", label: "Biaya Operasional", icon: ClipboardList },
 ]
