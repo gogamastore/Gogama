@@ -10,6 +10,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card"
 import {
   Table,
@@ -35,7 +36,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { ArrowUp, ArrowDown, Search, ArrowUpDown, Upload, FileDown } from "lucide-react"
+import { ArrowUp, ArrowDown, Search, ArrowUpDown, Upload, FileDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -198,7 +199,12 @@ export default function StockManagementPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
+  const [activeTab, setActiveTab] = useState("stock-management");
 
+  const [pagination, setPagination] = useState({
+    'stock-management': { currentPage: 1, itemsPerPage: 24 },
+    'low-stock': { currentPage: 1, itemsPerPage: 24 },
+  });
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -264,6 +270,31 @@ export default function StockManagementPage() {
     return sortProducts(filtered, sortConfig);
   }, [searchTerm, lowStockProducts, sortConfig]);
 
+  const handlePageChange = (tab: string, newPage: number) => {
+    setPagination(prev => ({ ...prev, [tab]: { ...prev[tab as keyof typeof prev], currentPage: newPage } }));
+  };
+
+  const handleItemsPerPageChange = (tab: string, newSize: number) => {
+    setPagination(prev => ({ ...prev, [tab]: { currentPage: 1, itemsPerPage: newSize } }));
+  };
+  
+  const paginatedAllProducts = useMemo(() => {
+      const { currentPage, itemsPerPage } = pagination['stock-management'];
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      return sortedAndFilteredProducts.slice(startIndex, endIndex);
+  }, [pagination, sortedAndFilteredProducts]);
+
+  const paginatedLowStockProducts = useMemo(() => {
+      const { currentPage, itemsPerPage } = pagination['low-stock'];
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      return sortedAndFilteredLowStockProducts.slice(startIndex, endIndex);
+  }, [pagination, sortedAndFilteredLowStockProducts]);
+
+  const totalPagesAll = Math.ceil(sortedAndFilteredProducts.length / pagination['stock-management'].itemsPerPage);
+  const totalPagesLowStock = Math.ceil(sortedAndFilteredLowStockProducts.length / pagination['low-stock'].itemsPerPage);
+
 
   const toggleSortDirection = (key: string) => {
     setSortConfig(prev => {
@@ -302,11 +333,65 @@ export default function StockManagementPage() {
         </div>
     </div>
   );
+  
+  const renderPaginationControls = (tab: 'stock-management' | 'low-stock') => {
+    const { currentPage, itemsPerPage } = pagination[tab];
+    const totalPages = tab === 'stock-management' ? totalPagesAll : totalPagesLowStock;
+    const paginatedItems = tab === 'stock-management' ? paginatedAllProducts : paginatedLowStockProducts;
+    const totalItems = tab === 'stock-management' ? sortedAndFilteredProducts.length : sortedAndFilteredLowStockProducts.length;
+    
+    return (
+        <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
+            <div className="flex-1">
+                Menampilkan {paginatedItems.length} dari {totalItems} produk.
+            </div>
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <p>Baris per halaman</p>
+                    <Select
+                        value={`${itemsPerPage}`}
+                        onValueChange={(value) => handleItemsPerPageChange(tab, Number(value))}
+                    >
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={itemsPerPage} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                            {[24, 48, 96].map((pageSize) => (
+                                <SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div>Halaman {currentPage} dari {totalPages}</div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handlePageChange(tab, Math.max(currentPage - 1, 1))}
+                        disabled={currentPage === 1}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handlePageChange(tab, Math.min(currentPage + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        </div>
+    )
+  }
 
 
   return (
     <>
-    <Tabs defaultValue="stock-management" onValueChange={() => { setSearchTerm(''); }}>
+    <Tabs defaultValue="stock-management" onValueChange={(value) => { setSearchTerm(''); setActiveTab(value); }}>
         <div className="flex items-center justify-between">
             <TabsList>
                 <TabsTrigger value="stock-management">Manajemen Stok</TabsTrigger>
@@ -345,7 +430,7 @@ export default function StockManagementPage() {
                                     <TableRow>
                                         <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
-                                ) : sortedAndFilteredLowStockProducts.length > 0 ? sortedAndFilteredLowStockProducts.map((product) => (
+                                ) : paginatedLowStockProducts.length > 0 ? paginatedLowStockProducts.map((product) => (
                                     <TableRow key={product.id}>
                                         <TableCell>
                                             <ImageViewer src={product.image} alt={product.name}/>
@@ -368,6 +453,9 @@ export default function StockManagementPage() {
                         </Table>
                      </div>
                 </CardContent>
+                <CardFooter>
+                    {renderPaginationControls('low-stock')}
+                </CardFooter>
             </Card>
         </TabsContent>
         <TabsContent value="stock-management">
@@ -396,7 +484,7 @@ export default function StockManagementPage() {
                                     <TableRow>
                                         <TableCell colSpan={5} className="h-24 text-center">Memuat produk...</TableCell>
                                     </TableRow>
-                                ) : sortedAndFilteredProducts.map((product) => (
+                                ) : paginatedAllProducts.map((product) => (
                                     <TableRow key={product.id}>
                                         <TableCell>
                                             <ImageViewer src={product.image} alt={product.name}/>
@@ -413,10 +501,15 @@ export default function StockManagementPage() {
                         </Table>
                      </div>
                 </CardContent>
+                 <CardFooter>
+                    {renderPaginationControls('stock-management')}
+                </CardFooter>
             </Card>
         </TabsContent>
     </Tabs>
     </>
   )
 }
+    
+
     
