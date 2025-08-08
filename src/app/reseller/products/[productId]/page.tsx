@@ -130,111 +130,143 @@ export default function ProductDetailPage({ params }: { params: { productId: str
   const displayPrice = (product.isPromo && product.discountPrice) ? product.discountPrice : product.price;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={() => router.back()} className="mb-4 -ml-4">
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            Kembali
-        </Button>
-        <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-            <div className="grid gap-4">
-                <div className="aspect-square w-full overflow-hidden rounded-lg border">
-                    <Image
-                        src={product.image}
-                        alt={product.name}
-                        width={600}
-                        height={600}
-                        className="h-full w-full object-cover"
-                        priority
-                    />
+    <div className="pb-24 md:pb-0">
+        <div className="container mx-auto px-4 py-8">
+            <Button variant="ghost" onClick={() => router.back()} className="mb-4 -ml-4">
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Kembali
+            </Button>
+            <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+                <div className="grid gap-4">
+                    <div className="aspect-square w-full overflow-hidden rounded-lg border">
+                        <Image
+                            src={product.image}
+                            alt={product.name}
+                            width={600}
+                            height={600}
+                            className="h-full w-full object-cover"
+                            priority
+                        />
+                    </div>
                 </div>
-                {/* Thumbnail grid can be added here in the future */}
-            </div>
-            <div className="space-y-6">
-                 <div>
-                    {product.category && <Badge variant="secondary" className="mb-2">{product.category}</Badge>}
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-headline">{product.name}</h1>
-                </div>
+                <div className="space-y-6">
+                    <div>
+                        {product.category && <Badge variant="secondary" className="mb-2">{product.category}</Badge>}
+                        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-headline">{product.name}</h1>
+                    </div>
 
-                <div>
-                    {product.isPromo && product.discountPrice ? (
-                        <div className="flex items-baseline gap-2">
-                            <p className="text-3xl sm:text-4xl font-bold text-primary">{formatCurrency(product.discountPrice)}</p>
-                            <p className="text-lg sm:text-xl text-muted-foreground line-through mt-1">{formatCurrency(product.price)}</p>
-                        </div>
-                    ) : (
-                        <p className="text-3xl sm:text-4xl font-bold text-primary">{formatCurrency(product.price)}</p>
-                    )}
-                </div>
+                    <div>
+                        {product.isPromo && product.discountPrice ? (
+                            <div className="flex items-baseline gap-2">
+                                <p className="text-3xl sm:text-4xl font-bold text-primary">{formatCurrency(product.discountPrice)}</p>
+                                <p className="text-lg sm:text-xl text-muted-foreground line-through mt-1">{formatCurrency(product.price)}</p>
+                            </div>
+                        ) : (
+                            <p className="text-3xl sm:text-4xl font-bold text-primary">{formatCurrency(product.price)}</p>
+                        )}
+                    </div>
 
-                 <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <Truck className="h-5 w-5 text-primary" />
-                            <div>
-                                <p className="font-semibold text-foreground">Info Pengiriman</p>
-                                <p>Dikirim dari <span className="font-medium">Bandung</span></p>
+                    <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+                        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <Truck className="h-5 w-5 text-primary" />
+                                <div>
+                                    <p className="font-semibold text-foreground">Info Pengiriman</p>
+                                    <p>Dikirim dari <span className="font-medium">Bandung</span></p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <ShieldCheck className="h-5 w-5 text-green-500" />
+                                <p>Stok: <span className="font-medium text-foreground">{stockAvailable ? `${product.stock} Tersedia` : 'Habis'}</span></p>
                             </div>
                         </div>
-                         <div className="flex items-center gap-2 text-muted-foreground">
-                            <ShieldCheck className="h-5 w-5 text-green-500" />
-                            <p>Stok: <span className="font-medium text-foreground">{stockAvailable ? `${product.stock} Tersedia` : 'Habis'}</span></p>
-                        </div>
                     </div>
-                </div>
 
-                 <div className="flex flex-col sm:flex-row gap-4">
-                     <div className="flex items-center gap-2">
-                        <Label htmlFor="quantity" className="sr-only">Jumlah</Label>
-                        <Button variant="outline" size="icon" className="h-11 w-11" onClick={() => handleQuantityChange(quantity - 1)} disabled={!stockAvailable || quantity <= 1}>
-                            <Minus className="h-4 w-4" />
-                        </Button>
-                        <Input
-                            id="quantity"
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => handleQuantityChange(parseInt(e.target.value))}
-                            className="w-20 h-11 text-center text-lg font-bold"
-                            min={1}
-                            max={product.stock}
-                            disabled={!stockAvailable}
-                        />
-                        <Button variant="outline" size="icon" className="h-11 w-11" onClick={() => handleQuantityChange(quantity + 1)} disabled={!stockAvailable || quantity >= product.stock}>
-                            <Plus className="h-4 w-4" />
+                    <div className="hidden md:flex flex-col sm:flex-row gap-4">
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="quantity-desktop" className="sr-only">Jumlah</Label>
+                            <Button variant="outline" size="icon" className="h-11 w-11" onClick={() => handleQuantityChange(quantity - 1)} disabled={!stockAvailable || quantity <= 1}>
+                                <Minus className="h-4 w-4" />
+                            </Button>
+                            <Input
+                                id="quantity-desktop"
+                                type="number"
+                                value={quantity}
+                                onChange={(e) => handleQuantityChange(parseInt(e.target.value))}
+                                className="w-20 h-11 text-center text-lg font-bold"
+                                min={1}
+                                max={product.stock}
+                                disabled={!stockAvailable}
+                            />
+                            <Button variant="outline" size="icon" className="h-11 w-11" onClick={() => handleQuantityChange(quantity + 1)} disabled={!stockAvailable || quantity >= product.stock}>
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <Button onClick={handleAddToCart} size="lg" className="flex-1 font-headline text-base sm:text-lg" disabled={!stockAvailable || isAddingToCart}>
+                            {isAddingToCart ? (
+                                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            ) : (
+                                <ShoppingCart className="mr-2 h-5 w-5" />
+                            )}
+                            {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
                         </Button>
                     </div>
-                    <Button onClick={handleAddToCart} size="lg" className="flex-1 font-headline text-base sm:text-lg" disabled={!stockAvailable || isAddingToCart}>
-                        {isAddingToCart ? (
-                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        ) : (
-                            <ShoppingCart className="mr-2 h-5 w-5" />
-                        )}
-                        {stockAvailable ? 'Tambah ke Keranjang' : 'Stok Habis'}
-                    </Button>
                 </div>
+            </div>
+
+            <div className="mt-12 lg:mt-16">
+                <Accordion type="single" collapsible defaultValue="description" className="w-full">
+                    <AccordionItem value="description">
+                        <AccordionTrigger className="text-lg font-headline">Deskripsi Produk</AccordionTrigger>
+                        <AccordionContent>
+                            <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/80 leading-relaxed">
+                            {product.description || "Tidak ada deskripsi untuk produk ini."}
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="specifications">
+                        <AccordionTrigger className="text-lg font-headline">Spesifikasi</AccordionTrigger>
+                        <AccordionContent>
+                            <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/80 leading-relaxed">
+                            Spesifikasi belum tersedia.
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
             </div>
         </div>
 
-        <div className="mt-12 lg:mt-16">
-            <Accordion type="single" collapsible defaultValue="description" className="w-full">
-                <AccordionItem value="description">
-                    <AccordionTrigger className="text-lg font-headline">Deskripsi Produk</AccordionTrigger>
-                    <AccordionContent>
-                        <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/80 leading-relaxed">
-                           {product.description || "Tidak ada deskripsi untuk produk ini."}
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-                <AccordionItem value="specifications">
-                    <AccordionTrigger className="text-lg font-headline">Spesifikasi</AccordionTrigger>
-                    <AccordionContent>
-                         <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/80 leading-relaxed">
-                           Spesifikasi belum tersedia.
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+        {/* Sticky Add to Cart for Mobile */}
+        <div className="md:hidden fixed bottom-16 left-0 z-40 w-full h-20 bg-background border-t">
+            <div className="container h-full mx-auto px-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-1">
+                    <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => handleQuantityChange(quantity - 1)} disabled={!stockAvailable || quantity <= 1}>
+                        <Minus className="h-4 w-4" />
+                    </Button>
+                    <Input
+                        id="quantity-mobile"
+                        type="number"
+                        value={quantity}
+                        onChange={(e) => handleQuantityChange(parseInt(e.target.value))}
+                        className="w-16 h-10 text-center font-bold"
+                        min={1}
+                        max={product.stock}
+                        disabled={!stockAvailable}
+                    />
+                    <Button variant="outline" size="icon" className="h-10 w-10" onClick={() => handleQuantityChange(quantity + 1)} disabled={!stockAvailable || quantity >= product.stock}>
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                </div>
+                <Button onClick={handleAddToCart} size="lg" className="flex-1 font-headline" disabled={!stockAvailable || isAddingToCart}>
+                    {isAddingToCart ? (
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        ) : (
+                            <ShoppingCart className="mr-2 h-5 w-5" />
+                    )}
+                    {stockAvailable ? 'Tambah' : 'Stok Habis'}
+                </Button>
+            </div>
         </div>
     </div>
   );
 }
-
