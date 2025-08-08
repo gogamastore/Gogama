@@ -93,7 +93,7 @@ export default function ResellerHeader() {
 
 
     return (
-        <header className="bg-card sticky top-0 z-10 border-b">
+        <header className="bg-card sticky top-0 z-40 border-b">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <Logo />
