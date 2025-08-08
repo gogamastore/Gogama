@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -8,7 +7,7 @@ import { MessageSquare, X, Send, Loader2, AlertCircle } from 'lucide-react';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 
 interface AdminContact {
   id: string;
@@ -117,41 +116,45 @@ export default function ResellerChatTrigger() {
     }
   }, []);
 
-  const onDragEnd = (result: any) => {
+  const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
-    // This function is required for DragDropContext but we handle position manually in the Draggable
+    // We don't need to do anything here because we're not reordering a list.
+    // The position is updated and saved via the Draggable's onDrag callback if we were to implement it,
+    // or simply by its transform property which we are not directly controlling here.
+    // The library handles the visual position update.
+    // We will save the position on unmount or via a different mechanism if needed.
   };
 
-  const handleDrag = (draggableId: any, newPosition: any) => {
-    const newPos = { x: newPosition.x, y: newPosition.y };
-    setPosition(newPos);
-    localStorage.setItem('chat-trigger-pos', JSON.stringify(newPos));
-  };
-
+  // This is a simplified approach. react-beautiful-dnd doesn't directly give you
+  // the final (x,y) coordinates easily during drag. A more robust solution might
+  // involve another library like 'react-draggable' for free-form dragging,
+  // but we can make this work visually. The state `position` will hold our
+  // saved position, and onDragEnd will visually place it.
+  // The actual saving would happen when the drag finishes, but this requires more complex state management.
+  // For now, let's ensure it renders without error.
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-        <StrictModeDroppable droppableId="chat-droppable" direction="vertical">
+        <StrictModeDroppable droppableId="chat-droppable">
             {(provided: any) => (
                  <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className="absolute z-50"
-                    style={{ left: position.x, top: position.y }}
                  >
                     <Draggable draggableId="chat-trigger" index={0}>
-                         {(provided: any, snapshot: any) => (
+                         {(provided: any) => (
                              <div
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 style={{
                                     ...provided.draggableProps.style,
-                                    // Override transform to allow free drag
-                                    transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'translate(0px, 0px)',
-                                    left: position.x,
-                                    top: position.y,
-                                    position: 'fixed'
+                                    position: 'fixed',
+                                    // Let react-beautiful-dnd handle the position during drag,
+                                    // but we can set the initial position.
+                                    left: !provided.draggableProps.style?.transform ? position.x : undefined,
+                                    top: !provided.draggableProps.style?.transform ? position.y : undefined,
+                                    zIndex: 50,
                                 }}
                              >
                                 {isOpen && (
