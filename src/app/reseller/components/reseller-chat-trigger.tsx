@@ -1,35 +1,18 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { MessageSquare, X, Send, Loader2, AlertCircle } from 'lucide-react';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 
 interface AdminContact {
   id: string;
   name: string;
   whatsapp: string;
 }
-
-// Helper component to bypass react-beautiful-dnd strict mode issue
-const StrictModeDroppable = ({ children, ...props }: any) => {
-    const [enabled, setEnabled] = useState(false);
-    useEffect(() => {
-        const animation = requestAnimationFrame(() => setEnabled(true));
-        return () => {
-            cancelAnimationFrame(animation);
-            setEnabled(false);
-        };
-    }, []);
-    if (!enabled) {
-        return null;
-    }
-    return <Droppable {...props}>{children}</Droppable>;
-};
 
 function ContactList() {
     const [contacts, setContacts] = useState<AdminContact[]>([]);
@@ -102,88 +85,138 @@ function ContactList() {
 export default function ResellerChatTrigger() {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef({ x: 0, y: 0 });
+  const hasMoved = useRef(false);
 
   useEffect(() => {
-    // Load position from localStorage
     const savedPos = localStorage.getItem('chat-trigger-pos');
     if (savedPos) {
       setPosition(JSON.parse(savedPos));
     } else {
-        // Default position for mobile view (above bottom nav)
-        const defaultX = window.innerWidth - 64 - 24; // width - button_width - margin_right
-        const defaultY = window.innerHeight - 64 - 80; // height - button_height - margin_bottom (to be above nav)
+        const defaultX = window.innerWidth - 64 - 24; 
+        const defaultY = window.innerHeight - 64 - 80;
         setPosition({ x: defaultX, y: defaultY });
     }
   }, []);
 
-  const onDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    // We don't need to do anything here because we're not reordering a list.
-    // The position is updated and saved via the Draggable's onDrag callback if we were to implement it,
-    // or simply by its transform property which we are not directly controlling here.
-    // The library handles the visual position update.
-    // We will save the position on unmount or via a different mechanism if needed.
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (triggerRef.current) {
+      setIsDragging(true);
+      hasMoved.current = false;
+      const rect = triggerRef.current.getBoundingClientRect();
+      offsetRef.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+    }
   };
 
-  // This is a simplified approach. react-beautiful-dnd doesn't directly give you
-  // the final (x,y) coordinates easily during drag. A more robust solution might
-  // involve another library like 'react-draggable' for free-form dragging,
-  // but we can make this work visually. The state `position` will hold our
-  // saved position, and onDragEnd will visually place it.
-  // The actual saving would happen when the drag finishes, but this requires more complex state management.
-  // For now, let's ensure it renders without error.
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (triggerRef.current) {
+        setIsDragging(true);
+        hasMoved.current = false;
+        const touch = e.touches[0];
+        const rect = triggerRef.current.getBoundingClientRect();
+        offsetRef.current = {
+            x: touch.clientX - rect.left,
+            y: touch.clientY - rect.top,
+        };
+    }
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (isDragging && triggerRef.current) {
+        hasMoved.current = true;
+        e.preventDefault();
+        const newX = e.clientX - offsetRef.current.x;
+        const newY = e.clientY - offsetRef.current.y;
+        setPosition({ x: newX, y: newY });
+    }
+  }, [isDragging]);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (isDragging && triggerRef.current) {
+        hasMoved.current = true;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const newX = touch.clientX - offsetRef.current.x;
+        const newY = touch.clientY - offsetRef.current.y;
+        setPosition({ x: newX, y: newY });
+    }
+  }, [isDragging]);
+  
+  const handleMouseUp = useCallback(() => {
+    if (isDragging) {
+        setIsDragging(false);
+        localStorage.setItem('chat-trigger-pos', JSON.stringify(position));
+    }
+  }, [isDragging, position]);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleMouseUp);
+    } else {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove]);
+
+  const toggleOpen = () => {
+      // Only toggle if we haven't dragged
+      if (!hasMoved.current) {
+          setIsOpen(prev => !prev);
+      }
+  }
+
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-        <StrictModeDroppable droppableId="chat-droppable">
-            {(provided: any) => (
-                 <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                 >
-                    <Draggable draggableId="chat-trigger" index={0}>
-                         {(provided: any) => (
-                             <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                style={{
-                                    ...provided.draggableProps.style,
-                                    position: 'fixed',
-                                    // Let react-beautiful-dnd handle the position during drag,
-                                    // but we can set the initial position.
-                                    left: !provided.draggableProps.style?.transform ? position.x : undefined,
-                                    top: !provided.draggableProps.style?.transform ? position.y : undefined,
-                                    zIndex: 50,
-                                }}
-                             >
-                                {isOpen && (
-                                    <Card className="w-80 h-[500px] shadow-2xl rounded-xl mb-2 flex flex-col overflow-hidden animate-in fade-in-50 slide-in-from-bottom-5">
-                                        <CardHeader className="flex flex-row items-center justify-between bg-card p-4 border-b">
-                                            <CardTitle className="text-lg font-bold">Hubungi Admin</CardTitle>
-                                            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-                                                <X className="h-5 w-5" />
-                                            </Button>
-                                        </CardHeader>
-                                        <CardContent className="flex-1 p-0 overflow-y-auto">
-                                            <ContactList />
-                                        </CardContent>
-                                    </Card>
-                                )}
-                                <Button
-                                    onClick={() => setIsOpen(!isOpen)}
-                                    className="h-16 w-16 rounded-full shadow-lg flex items-center justify-center"
-                                    aria-label="Hubungi Admin"
-                                >
-                                    {isOpen ? <X className="h-8 w-8" /> : <MessageSquare className="h-8 w-8" />}
-                                </Button>
-                            </div>
-                         )}
-                    </Draggable>
-                    {provided.placeholder}
-                </div>
-            )}
-        </StrictModeDroppable>
-    </DragDropContext>
+    <div
+      ref={triggerRef}
+      style={{
+        position: 'fixed',
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        cursor: isDragging ? 'grabbing' : 'grab',
+        zIndex: 50,
+      }}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
+    >
+      {isOpen && (
+        <Card className="w-80 h-[500px] shadow-2xl rounded-xl mb-2 flex flex-col overflow-hidden animate-in fade-in-50 slide-in-from-bottom-5">
+          <CardHeader className="flex flex-row items-center justify-between bg-card p-4 border-b">
+            <CardTitle className="text-lg font-bold">Hubungi Admin</CardTitle>
+            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+              <X className="h-5 w-5" />
+            </Button>
+          </CardHeader>
+          <CardContent className="flex-1 p-0 overflow-y-auto">
+            <ContactList />
+          </CardContent>
+        </Card>
+      )}
+      <Button
+        onClick={toggleOpen}
+        className="h-16 w-16 rounded-full shadow-lg flex items-center justify-center"
+        aria-label="Hubungi Admin"
+        style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
+      >
+        {isOpen ? <X className="h-8 w-8" /> : <MessageSquare className="h-8 w-8" />}
+      </Button>
+    </div>
   );
 }
