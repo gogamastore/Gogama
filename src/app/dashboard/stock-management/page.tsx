@@ -35,7 +35,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { ArrowUp, ArrowDown, Search, ArrowUpDown } from "lucide-react"
+import { ArrowUp, ArrowDown, Search, ArrowUpDown, Upload, FileDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -47,6 +47,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 
 interface Product {
@@ -306,11 +307,17 @@ export default function StockManagementPage() {
   return (
     <>
     <Tabs defaultValue="stock-management" onValueChange={() => { setSearchTerm(''); }}>
-        <div className="flex items-center">
+        <div className="flex items-center justify-between">
             <TabsList>
                 <TabsTrigger value="stock-management">Manajemen Stok</TabsTrigger>
                 <TabsTrigger value="low-stock">Stok Menipis</TabsTrigger>
             </TabsList>
+            <Button asChild variant="outline">
+                <Link href="/dashboard/stock-management/bulk-edit">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import/Export Stok
+                </Link>
+            </Button>
         </div>
         <TabsContent value="low-stock">
             <Card>
