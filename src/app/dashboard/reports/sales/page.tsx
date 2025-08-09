@@ -683,8 +683,9 @@ export default function SalesReportPage() {
   };
 
   const { totalRevenue, totalOrders, averageOrderValue, chartData } = useMemo(() => {
-    const revenue = filteredOrders.reduce((acc, order) => acc + order.total, 0);
-    const ordersCount = filteredOrders.length;
+    const validOrders = filteredOrders.filter(order => order.status === 'Delivered' || order.status === 'Shipped');
+    const revenue = validOrders.reduce((acc, order) => acc + order.total, 0);
+    const ordersCount = validOrders.length;
     const avgValue = ordersCount > 0 ? revenue / ordersCount : 0;
     const chartDataProcessed = processSalesDataForChart(filteredOrders);
     return {
@@ -770,7 +771,7 @@ export default function SalesReportPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground">Dari pesanan yang difilter</p>
+            <p className="text-xs text-muted-foreground">Dari pesanan yang difilter (Shipped & Delivered)</p>
           </CardContent>
         </Card>
         <Card>
@@ -780,7 +781,7 @@ export default function SalesReportPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalOrders}</div>
-             <p className="text-xs text-muted-foreground">Dalam rentang tanggal terpilih</p>
+             <p className="text-xs text-muted-foreground">Pesanan dengan status Shipped & Delivered</p>
           </CardContent>
         </Card>
          <Card>
