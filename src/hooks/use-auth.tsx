@@ -12,7 +12,8 @@ import {
     updatePassword,
     sendPasswordResetEmail,
     createUserWithEmailAndPassword,
-    getAuth
+    getAuth,
+    updateProfile,
 } from 'firebase/auth';
 import { app, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -27,6 +28,7 @@ interface AuthContextType {
   reauthenticate: (password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   createUser: (email: string, password: string) => Promise<any>;
+  updateUserProfile: (name: string, photoURL: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,8 +82,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return createUserWithEmailAndPassword(auth, email, password);
   }, [auth]);
 
+  const updateUserProfile = useCallback(async (name: string, photoURL: string) => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+          throw new Error("User not authenticated");
+      }
+      await updateProfile(currentUser, { displayName: name, photoURL: photoURL });
+      // Manually update the user state to reflect changes immediately
+      setUser(auth.currentUser);
+  }, [auth]);
+
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, reauthenticate, changePassword, sendPasswordReset, createUser }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, reauthenticate, changePassword, sendPasswordReset, createUser, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );
