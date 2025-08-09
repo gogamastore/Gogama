@@ -174,7 +174,7 @@ export default function ProductDetailPage() {
                                 <Truck className="h-5 w-5 text-primary" />
                                 <div>
                                     <p className="font-semibold text-foreground">Info Pengiriman</p>
-                                    <p>Dikirim dari <span className="font-medium">Bandung</span></p>
+                                    <p>Dikirim dari <span className="font-medium">Makassar</span></p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
